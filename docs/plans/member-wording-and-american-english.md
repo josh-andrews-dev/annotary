@@ -107,14 +107,8 @@ person, who then gets a Token and no way into the web UI unless the owner stops 
 `annotary password --set --member`. Fixing that properly means deciding how a second person gets a
 password and how login tells them apart, because login has no handle. That touches authentication and
 is a feature rather than a wording change.
-- **Recommended: A.** Rename now, add a short README section that states the current route honestly,
-  and file a GitHub issue for browser sign-in, because the rename is right regardless and the spec
-  already holds this as backlog.
-- B. Build it in this run: the owner sets or resets a Member's password from their card, and login
-  takes a handle. You get a complete path today, with a new route, spec ids and an auth review, and
-  the wording fix waits on all of it.
-- C. Rename only, with no README section or issue. The Token panel would invite people in with nothing
-  saying what they can't do.
+*Decided 2026-11-02 (Josh): "Rename. Open a GitHub issue so that we support adding more people via
+the web UI. Don't update documentation otherwise right now."*
 
 **D2. How far the American English sweep goes.** The public text is 8 lines; the rest is for people
 reading the code. A full sweep adds one large, mechanical diff but leaves one spelling everywhere, and
@@ -135,7 +129,7 @@ that scans everything git tracks.
 
 ## M1: from Josh
 
-- Answer D1, D2 and D3. Reply by ID, or "all recommended".
+- Answer D2 and D3. Reply by ID, or "all recommended".
 - Nothing else needs you: agents can do the review, the deploy and the health check.
 
 ## M2: Member wording (one pull request, in `josh-andrews-dev/annotary`)
@@ -163,11 +157,11 @@ Docs:
 - D-c: "how the CLI authenticates, for people and agents alike".
 - D-d to D-g: replace the wording. Spec ids stay the same.
 
-If D1 is A:
-- Run `annotary password --set --member` on a throwaway store to confirm the route.
-- Add "Add another person" to the README: add the Member, save the Token as a profile, and how to give
-  them a browser password today.
-- File the issue with `gh issue`, including the login-without-a-handle problem.
+Per D1:
+- File a GitHub issue with `gh issue`: support adding more people through the web UI, including how a
+  new person gets a browser password and the login-without-a-handle problem.
+- No other documentation change for this gap: no README section on how to add a person. The doc wording
+  fixes D-a to D-g stay, because they are the rename.
 
 Tests:
 - A bug fix needs a test that fails without it. Assert the button text, and that "Add agent" is gone,
