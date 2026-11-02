@@ -287,6 +287,7 @@ markers in implementation code — only in tests.
 - S14-05 — the human transcript (`session-human.txt`) in TTY mode (`ANNOTARY_TTY=1`): the same verbs print the same fields in the same order as non-TTY, aligned with a dim header, relative ages, the web URL after `push`/`show`; the safety rails (pull over local edits, a push over a moved head refused with the missing hunk and re-pushed once merged — ticket 17, `pull --version N` note), `login`/`logout`, `member add`, `list`, `thread list` with its footers, `act`, `profile list`, `skill install`, `token list` (stories 150, 154; CLI surface)
 - S14-06 — TTY / non-TTY parity across the flow: `show`, `status`, `thread list`, `thread show`, `mentions`, `wait` print identical fields in identical order in both modes — only separators, header and alignment differ (story 150)
 - S14-07 — token-count guard: the o200k counts of `status`, a `wait` event line, `mentions` (one hit), `show` (header + five open Threads), `thread show`, the top-level `--help` and SKILL.md, measured from real output of the real binary on the prototype's scenario, stay within ±20% of the prototype's numbers (24 · 12 · 58 · 245 · 117 · 688 · 905; `status --json` 61, `thread list --json id,anchor,body` 188); the regenerated report is `tests/token-report.md` (Further Notes: measured targets; story 147)
+- S14-08 — SKILL.md's review flow leaves a review in progress alone: the agent tells the human how to finish, does not push or add `--on thread,reply` mid-review (a push stops their commenting), treats `send-back`, `approve` or their word in chat as the end of the review, answers an @mention without pushing, and then handles every open Thread in one Version (story 147)
 <!-- ---- end ticket 14 ---- -->
 
 <!-- ---- ticket 15 ---- -->
@@ -670,7 +671,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 144 — CLI submits `placements[]`, server spot-verifies → S07-06, S07-07, S07-16, S09-08
 - 145 — renderer/diff/sidecar crates build to WASM → S07-15, S09-12
 - 146 — one Markdown superset, no flavour detection → S09-01, S09-05, S32-03, S32-04, S32-06
-- 147 — SKILL.md ≤ 60 lines / ≈ 900 tokens → S14-01, S14-04, S14-07
+- 147 — SKILL.md ≤ 60 lines / ≈ 900 tokens → S14-01, S14-04, S14-07, S14-08
 - 148 — `skill install [--dir]` + keep-current hook → S14-02
 - 149 — `--help` is the reference → S14-01, S14-03
 - 150 — TTY / non-TTY parity → S01-12, S02-30, S04-16, S05-14, S07-17, S08-06, S13-02, S14-04, S14-05, S14-06, S16-04

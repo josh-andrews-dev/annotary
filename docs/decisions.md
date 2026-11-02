@@ -252,3 +252,10 @@ Chose to add a missing key to an existing env file and never to change one that 
 if missing", because an earlier installer created the file empty, and rejected overwriting, because the file is
 the host's.
 
+
+## 2026-11-02: an agent leaves a review alone until it ends
+
+Chose to have the skill's agent wait through a human's review and act when it ends (`send-back`, `approve` or
+their word in chat), answering an @mention without pushing, and handling every open Thread in one Version;
+rejected acting per Thread, because a push moves head, and a page on the older Version then refuses new comments
+while the human is still reading. Rejected a new "review finished" event: the default Actions already say it.

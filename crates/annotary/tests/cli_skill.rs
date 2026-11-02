@@ -24,6 +24,24 @@ fn text(o: &Output) -> (String, String) {
     (String::from_utf8_lossy(&o.stdout).to_string(), String::from_utf8_lossy(&o.stderr).to_string())
 }
 
+// spec: S14-08
+#[test]
+fn the_review_flow_leaves_a_review_in_progress_alone() {
+    let skill = include_str!("../skill/SKILL.md");
+    for rule in [
+        "tell me when you're done",
+        "**Mid-review, never push**",
+        "`--on thread,reply`",
+        "Review ends at `send-back`",
+        "answer that Thread, no push",
+        "read every open Thread",
+        "push once",
+    ] {
+        assert!(skill.contains(rule), "SKILL.md lost the review rule {rule:?}");
+    }
+    assert!(!skill.contains("Per Thread:"), "SKILL.md tells agents to act on each Thread as it lands");
+}
+
 // spec: S14-02, S14-01
 #[test]
 fn install_writes_the_embedded_skill_byte_for_byte_with_the_binary_version() {
