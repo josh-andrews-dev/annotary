@@ -23,7 +23,7 @@ use super::Ctx;
 pub enum VaultCmd {
     /// Vaults you can read: name, Documents, deleted Documents, created
     List,
-    /// Create a Vault — `*` Grants cover it at once (owner only)
+    /// Create a Vault — `*` Grants cover it immediately (owner only)
     Create(NameArg),
     /// Rename a Vault: Grants follow; so do your profiles on this server (owner only)
     Rename(RenameArgs),

@@ -1,5 +1,5 @@
 # spec: S01-12
-# TTY with colour: the header is dim (ESC[2m … ESC[0m); data rows carry no escapes.
+# TTY with color: the header is dim (ESC[2m … ESC[0m); data rows carry no escapes.
 bin.name = "annotary"
 args = ["-p", "rowan", "member", "list"]
 env.add = { ANNOTARY_TTY = "1" }

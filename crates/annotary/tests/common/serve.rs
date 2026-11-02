@@ -3,7 +3,7 @@
 //! `std::process::Child` is not killed on drop, so a test that panics between spawning `serve`
 //! and stopping it leaves the server running (holding a deleted temp store and a port) long
 //! after the test binary exits. Every test that spawns a real `serve` wraps the child in a
-//! `ServeGuard` at once. On drop it sends SIGTERM, waits up to [`GRACE`], then SIGKILLs, and
+//! `ServeGuard` immediately. On drop it sends SIGTERM, waits up to [`GRACE`], then SIGKILLs, and
 //! always reaps the child. Stopping the server on purpose (SIGTERM, SIGKILL) goes through the
 //! guard as well.
 
@@ -41,7 +41,7 @@ impl ServeGuard {
     }
 
     /// Send SIGTERM (a clean shutdown) while the child runs; does not wait. A no-op once it has
-    /// exited, so a reaped pid that the OS may have reused is never signalled.
+    /// exited, so a reaped pid that the OS may have reused is never signaled.
     pub fn sigterm(&mut self) {
         if self.running() {
             // SAFETY: a signal to our own child, which `try_wait` just saw running (not reaped).

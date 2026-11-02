@@ -6,7 +6,7 @@
 //!   footnotes + math + YAML front matter); scanner and renderer parse with the same options.
 //! - [`classify`] — relative path (Asset candidate) vs ignored (URL, `#frag`, `mailto:`,
 //!   `data:`, …) vs absolute filesystem path / `file://` (warned and ignored).
-//! - [`normalize`] — lexical `.`/`..` normalisation of a relative path against the referencing
+//! - [`normalize`] — lexical `.`/`..` normalization of a relative path against the referencing
 //!   file's directory, relative to the root Document's directory (= the manifest `ref`).
 
 use pulldown_cmark::Options;
@@ -95,7 +95,7 @@ fn hex(c: u8) -> Option<u8> {
 }
 
 /// Lexically join `rel` onto `base_dir` (both slash-separated, relative to the root Document's
-/// directory; `""` = the root directory) and normalise `.`/`..`: `docs` + `../img/x.png` →
+/// directory; `""` = the root directory) and normalize `.`/`..`: `docs` + `../img/x.png` →
 /// `img/x.png`; `""` + `./a/../b.md` → `b.md`; leading `..` are kept (`../shared/x.png`).
 pub fn normalize(base_dir: &str, rel: &str) -> String {
     let mut parts: Vec<&str> = Vec::new();
@@ -114,7 +114,7 @@ pub fn normalize(base_dir: &str, rel: &str) -> String {
     parts.join("/")
 }
 
-/// The directory part of a normalised ref (`docs/notes.md` → `docs`; `notes.md` → `""`).
+/// The directory part of a normalized ref (`docs/notes.md` → `docs`; `notes.md` → `""`).
 pub fn dir_of(reference: &str) -> &str {
     reference.rsplit_once('/').map(|(d, _)| d).unwrap_or("")
 }

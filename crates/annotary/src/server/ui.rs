@@ -105,13 +105,13 @@ pub fn page(title: &str, body: &str) -> Response {
     page_ex(title, body, "", "")
 }
 
-/// A small centred page (errors). No signed-in Member to read settings for: it follows the
+/// A small centered page (errors). No signed-in Member to read settings for: it follows the
 /// system's appearance (CMD-23).
 pub fn simple(status: StatusCode, title: &str, inner: &str) -> Response {
     simple_with(&super::prefs::WebPrefs::default(), status, title, inner)
 }
 
-/// A small centred page wearing the given settings (CMD-23: a signed-in Member's error pages).
+/// A small centered page wearing the given settings (CMD-23: a signed-in Member's error pages).
 pub fn simple_with(prefs: &super::prefs::WebPrefs, status: StatusCode, title: &str, inner: &str) -> Response {
     let body = format!("<div {}><main class=\"cd-simple\">{inner}</main></div>", prefs.app_attrs(""));
     let mut resp = page(title, &body);

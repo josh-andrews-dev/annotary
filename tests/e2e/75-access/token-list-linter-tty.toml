@@ -1,5 +1,5 @@
 # spec: S06-07
-# TTY: same fields, aligned, dim header (colour off).
+# TTY: same fields, aligned, dim header (color off).
 bin.name = "annotary"
 args = ["-p", "rowan", "token", "list", "--member", "linter", "--no-color"]
 env.add = { ANNOTARY_TTY = "1" }

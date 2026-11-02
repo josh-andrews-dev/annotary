@@ -60,7 +60,7 @@ fn public_url_and_link_base_are_settings_with_events_health_and_settings() {
     let (_, h) = ts.get("/api/v1/health", None);
     assert!(h["public_url"].is_null() && h["link_base"].is_null(), "{h}");
     assert!(h.as_object().unwrap().contains_key("public_url"), "the field is there, null");
-    // Set (normalised), unchanged = no event, cleared.
+    // Set (normalized), unchanged = no event, cleared.
     assert!(ts.store.set_public_url(None, Some("HTTP://Studio.example.ts.net:7377/")).unwrap());
     assert!(!ts.store.set_public_url(None, Some(PUBLIC)).unwrap());
     assert!(ts.store.set_link_base(Some(&ts.owner_id), Some(RELAY)).unwrap());
@@ -192,7 +192,7 @@ fn pairing_mints_a_device_token_and_returns_the_pair_url_and_qr() {
     );
     let svg = p["qr_svg"].as_str().unwrap();
     assert!(svg.starts_with("<svg") && svg.contains("#000000") && !svg.contains("href"), "{svg}");
-    // The Token works at once, is listed (no expiry) and revocable.
+    // The Token works immediately, is listed (no expiry) and revocable.
     let (status, me) = ts.get("/api/v1/me", Some(token));
     assert_eq!(status, 200);
     assert_eq!(me["handle"], "rowan");

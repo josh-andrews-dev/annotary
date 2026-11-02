@@ -238,4 +238,6 @@ Monitoring changes: none.
 
 ## Run log
 
-Nothing yet.
+- Upgraded to repo-standard v0.13.2 first (#14), because `make lint` refused otherwise.
+- M2 merged as #13, released as v0.3.2. Issue #15 filed per D1.
+- M3 is this file's last pull request. It also filed #17 and #18 for two flaky tests found on the way.

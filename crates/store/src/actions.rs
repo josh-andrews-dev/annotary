@@ -75,7 +75,7 @@ pub fn validate_action_id(id: &str) -> std::result::Result<(), String> {
     Ok(())
 }
 
-/// Validate and normalise a declaration (`actions_available` of a commit, or new Vault
+/// Validate and normalize a declaration (`actions_available` of a commit, or new Vault
 /// defaults): an array of objects `{id, label?, intent?}`; ids kebab-case and unique; `label`
 /// defaults to the id, `intent` to `neutral` when absent; a present but unknown intent is
 /// refused. Unknown keys are dropped.
@@ -352,7 +352,7 @@ mod tests {
 
     // spec: S05-01, S05-16
     #[test]
-    fn declarations_are_validated_and_normalised() {
+    fn declarations_are_validated_and_normalized() {
         let ok = validate_declaration(&json!([
             {"id": "approve", "label": "Approve", "intent": "positive"},
             {"id": "ship-it", "extra": 1},

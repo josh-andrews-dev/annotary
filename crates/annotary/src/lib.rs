@@ -5,7 +5,7 @@
 //! - [`server`] — axum app: auth extractor, JSON errors, `/api/v1/*` handlers, `server.json`.
 //! - [`client`] — the CLI's HTTP client + credential resolution (env / profile / default).
 //! - [`config`] — `config.toml` profiles.
-//! - [`output`] — TTY vs non-TTY tables, `--json [FIELDS]`, colour, notes/errors.
+//! - [`output`] — TTY vs non-TTY tables, `--json [FIELDS]`, color, notes/errors.
 //! - [`exit`] — the exit-code table and `CliError`.
 //! - [`paths`] — data dir resolution and `~` display.
 //! - [`testing`] — in-process server for integration tests.

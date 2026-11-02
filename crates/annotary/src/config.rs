@@ -71,7 +71,7 @@ impl Config {
     }
 
     pub fn to_toml(&self) -> String {
-        toml::to_string(self).expect("config serialises")
+        toml::to_string(self).expect("config serializes")
     }
 
     /// Write `path` (creating parent dirs), owner-readable only. Atomic: written to a sibling

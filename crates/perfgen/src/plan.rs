@@ -2,7 +2,7 @@
 //! and the ordered steps that seed a server. Everything is a function of the seed (the PRNG in
 //! `rng.rs`, no hash-map iteration, no clock), so two runs produce byte-identical plans.
 //!
-//! The Document is modelled as a list of lines with a kind (heading, paragraph, list item,
+//! The Document is modeled as a list of lines with a kind (heading, paragraph, list item,
 //! table row, code, quote, image, blank); a Version edit works on that model — a paragraph
 //! inserted, a paragraph deleted, a word inserted, whitespace changed — and the model renders
 //! back to text. Threads are chosen on the text of the Version that is head when they are

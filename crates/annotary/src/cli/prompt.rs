@@ -119,7 +119,7 @@ pub fn read_line() -> String {
 }
 
 /// Whether a non-TTY stdin will deliver something (data or EOF) within `timeout`. Only a pipe
-/// (FIFO) can be idle; regular files, `/dev/null`, sockets etc. answer a read at once.
+/// (FIFO) can be idle; regular files, `/dev/null`, sockets etc. answer a read immediately.
 pub fn stdin_readable_within(timeout: std::time::Duration) -> bool {
     // SAFETY: fstat on fd 0 into a zeroed stat buffer.
     let is_fifo = unsafe {

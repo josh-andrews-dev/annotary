@@ -1,4 +1,4 @@
-//! The asset manifest a commit carries — validated and normalised before it is stored.
+//! The asset manifest a commit carries — validated and normalized before it is stored.
 //!
 //! An entry is `{ref, hash, size, type, missing?, via?, width?, height?, derivative?}` (ticket
 //! 03). The server (this module) checks the shape, that every referenced blob is in the store,
@@ -16,7 +16,7 @@ use crate::error::{Result, StoreError};
 /// The keys an entry may carry, in canonical order.
 pub const ENTRY_KEYS: [&str; 9] = ["ref", "hash", "size", "type", "missing", "via", "width", "height", "derivative"];
 
-/// A validated, normalised manifest plus the total Asset bytes it references.
+/// A validated, normalized manifest plus the total Asset bytes it references.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Validated {
     pub manifest: Value,
@@ -167,7 +167,7 @@ mod tests {
 
     // spec: S03-10, S03-11
     #[test]
-    fn manifest_is_normalised_and_typed_errors_name_the_problem() {
+    fn manifest_is_normalized_and_typed_errors_name_the_problem() {
         let (_d, bs) = store();
         let (md, _) = bs.put(b"# doc\n").unwrap();
         let (png, _) = bs.put(b"PNG bytes").unwrap();

@@ -119,7 +119,7 @@ test.describe('keyboard', () => {
   });
 
   // spec: S11-10
-  test('esc never discards typed text: it asks inline, keep (or esc again) keeps it, discard closes; empty or unchanged editors close at once', async ({ page }) => {
+  test('esc never discards typed text: it asks inline, keep (or esc again) keeps it, discard closes; empty or unchanged editors close immediately', async ({ page }) => {
     const doc = seedDoc('web-k2', MD);
     cli(h().owner, ['thread', 'new', doc.id, rangeOf(MD, 'First paragraph'), '-m', 'my comment']);
     await openDoc(page, doc.id);
@@ -154,7 +154,7 @@ test.describe('keyboard', () => {
     await ask.locator('[data-act="discard-yes"]').click();
     await expect(composer).toHaveCount(0);
     await expect(page.locator('mark.cd-pending-hl')).toHaveCount(0);
-    // An empty composer closes at once.
+    // An empty composer closes immediately.
     await selectText(page, '.cd-doc p[data-l="5-5"]', 'Second paragraph');
     await expect(page.locator('#cd-pill')).toBeVisible();
     await page.keyboard.press('c');
@@ -180,7 +180,7 @@ test.describe('keyboard', () => {
     await page.keyboard.press('Escape');
     await expect(t1.locator('.cd-editor-reply')).toHaveCount(0);
     await expect(ask).toHaveCount(0);
-    // The edit box: unchanged closes at once; changed asks, and keep keeps the change.
+    // The edit box: unchanged closes immediately; changed asks, and keep keeps the change.
     await t1.locator('.cd-ctools [data-act="edit"]').click();
     const edit = t1.locator('.cd-editor-edit textarea');
     await expect(edit).toHaveValue('my comment');

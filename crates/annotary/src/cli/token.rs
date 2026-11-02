@@ -21,7 +21,7 @@ pub enum TokenCmd {
     Mint(MintArgs),
     /// Tokens with created / last used / expiry (yours; owner: --member HANDLE or everyone's)
     List(ListArgs),
-    /// Revoke a token by id — it stops working at once (yours, or an owner)
+    /// Revoke a token by id — it stops working immediately (yours, or an owner)
     Revoke(RevokeArgs),
 }
 

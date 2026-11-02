@@ -3,7 +3,7 @@
 //! A file-by-file backup of the data dir (an hourly restic run, say) can catch the live WAL
 //! database mid-write; it always catches a finished tar whole. So `server::run` spawns [`ticker`]
 //! next to the housekeeping one: one snapshot right after start (a restarted or freshly deployed
-//! server has a current copy at once), then every [`DEFAULT_INTERVAL`] (15 min, so the copy a
+//! server has a current copy immediately), then every [`DEFAULT_INTERVAL`] (15 min, so the copy a
 //! backup takes is at most that old; `ANNOTARY_SNAPSHOT_INTERVAL` = seconds, a test seam).
 //! Each tick is [`annotary_store::take_snapshot`]: an `export_tar` of `store/` unless nothing
 //! changed since the newest snapshot (then only its mtime moves), keeping the newest [`KEEP`].
@@ -67,7 +67,7 @@ pub async fn ticker(store: std::sync::Arc<Store>, data_dir: PathBuf, interval: D
     let mut timer = tokio::time::interval(interval);
     timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
-        timer.tick().await; // the first tick completes at once: the snapshot after start
+        timer.tick().await; // the first tick completes immediately: the snapshot after start
         let (store, dir) = (store.clone(), data_dir.clone());
         match tokio::task::spawn_blocking(move || tick(&store, &dir, jiff::Timestamp::now())).await {
             Ok(Ok(SnapshotOutcome::Written { file, report, removed })) => tracing::info!(

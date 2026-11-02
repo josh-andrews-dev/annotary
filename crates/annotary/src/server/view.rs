@@ -387,7 +387,7 @@ fn render_page(
         None if number == head => "<span class=\"cd-chip cd-none\">no action yet</span>".to_string(),
         None => format!("<span class=\"cd-chip cd-none\">no action on v{number}</span>"),
     };
-    // ---- ticket 11: the Action buttons — head only, coloured by intent, none for `[]` ----
+    // ---- ticket 11: the Action buttons — head only, colored by intent, none for `[]` ----
     let action_buttons = if number == head && can_act && !available.is_empty() {
         format!("<span class=\"cd-actbtns\" id=\"cd-actbtns\">{}</span>", action_buttons_html(&available, head))
     } else {
@@ -503,7 +503,7 @@ fn help_html(send_key: &str) -> String {
     HELP_HTML.replace("{SEND}", if send_key == "mod_enter" { "\u{2318}\u{21A9}" } else { "\u{21A9}" })
 }
 
-/// One button per available Action, coloured by intent (head only).
+/// One button per available Action, colored by intent (head only).
 fn action_buttons_html(available: &[ActionDecl], head: u32) -> String {
     available
         .iter()

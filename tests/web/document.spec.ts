@@ -78,7 +78,7 @@ test.describe('layouts', () => {
   });
 
   // spec: S10-03
-  test('the threshold is the container width (849 → C, 850 → A) and ultra-wide stays centred with no third column', async ({ page }) => {
+  test('the threshold is the container width (849 → C, 850 → A) and ultra-wide stays centered with no third column', async ({ page }) => {
     await open(page, 849);
     expect(await position(page, '.cd-strip')).toBe('static');
     await page.setViewportSize({ width: 850, height: 900 });

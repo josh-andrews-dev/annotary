@@ -40,7 +40,7 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 # CMD-18: `rustls` = rustls with the ring provider and the bundled Mozilla roots (webpki-roots),
 # so the CLI speaks https (the live server is https only; ts.net certificates are Let's Encrypt).
 ureq = { version = "3", default-features = false, features = ["json", "rustls"] }
-# CMD-18: only to recognise a TLS failure inside ureq's io error (`client::map_transport`).
+# CMD-18: only to recognize a TLS failure inside ureq's io error (`client::map_transport`).
 rustls = { version = "0.23", default-features = false }
 rpassword = "7"
 libc = "0.2"

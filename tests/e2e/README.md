@@ -153,7 +153,7 @@ Run with `make e2e` (= `cargo test -p annotary --test e2e -- --ignored`); regene
 <!-- ---- end ticket 11 ---- -->
 <!-- ---- ticket 12 ---- -->
 - Web owner screens / login (ticket 12): `owner.spec.ts` — the Members screen (Add member → the
-  `ANNOTARY_TOKEN=` line, copied, and the Token driving `annotary status` at once; per-Token
+  `ANNOTARY_TOKEN=` line, copied, and the Token driving `annotary status` immediately; per-Token
   last used on the next draw; mint / revoke / rename / Advanced role + Grants / disable, each
   checked through the CLI's exit code), the Settings screen (Vault create → the default Actions
   editor → `push` into that Vault + `pull` → the Sidecar's `actions.available` with

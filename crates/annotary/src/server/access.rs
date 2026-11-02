@@ -15,7 +15,7 @@
 //! | `POST /api/v1/login {password}` | nobody (unauthenticated) | exchange the local password for a Token; 401 `wrong_password`, 409 `no_password`, 429 `too_many_attempts` after repeated failures (CMD-4) |
 //! | `POST /api/v1/logout` | any | revoke the bearer Token / end the cookie session |
 //! | `GET /api/v1/settings` · `PUT /api/v1/settings/password {password|null}` | owner | `{password_set, my_password, auto_purge_days (ticket 13), public_url, link_base (ticket 18)}`; set/change/remove the caller's local password |
-//! | `POST /api/v1/vaults {name}` | owner | create a Vault (`*` Grants cover it at once) |
+//! | `POST /api/v1/vaults {name}` | owner | create a Vault (`*` Grants cover it immediately) |
 //!
 //! Errors: 409 `last_owner`, 409 `disabled` (`@h is disabled`), 401 `wrong_password`, 409
 //! `no_password`, 400 `invalid_grant`, 404 `no Vault X` / `no Member @h` / `no Token ID`.

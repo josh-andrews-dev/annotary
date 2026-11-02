@@ -1,8 +1,8 @@
 //! Output conventions shared by every verb.
 //!
-//! - **non-TTY** (agents): one record per line, tab-separated, no header, no colour.
+//! - **non-TTY** (agents): one record per line, tab-separated, no header, no color.
 //! - **TTY** (humans): the same fields in the same order, aligned columns, a dim header,
-//!   colour where it helps. `ANNOTARY_TTY=1|0` forces the mode (tests use it; no pty needed).
+//!   color where it helps. `ANNOTARY_TTY=1|0` forces the mode (tests use it; no pty needed).
 //! - **`--json [FIELDS]`**: bare = the verb's compact default set; `a,b` narrows; `?` lists every
 //!   field. Minified, one object (or one array) on stdout, empty/null/false fields omitted.
 //! - Notes/progress/hints go to stderr (`-q` silences them); results go to stdout; errors are one
@@ -108,7 +108,7 @@ impl Out {
         self.json.is_some()
     }
 
-    /// Dim text (header rows) when colour is on.
+    /// Dim text (header rows) when color is on.
     pub fn dim(&self, s: &str) -> String {
         if self.color { format!("\x1b[2m{s}\x1b[0m") } else { s.to_string() }
     }
@@ -300,7 +300,7 @@ mod tests {
         assert_eq!(lines[2], "@linter  linter      member  *:read");
         let plain = Out { tty: true, color: false, quiet: false, json: None };
         let t = plain.table(&["HANDLE", "NAME", "ROLE", "GRANTS"], &rows(), &[]);
-        assert!(t.starts_with("HANDLE   NAME        ROLE    GRANTS\n"), "no escape codes without colour: {t:?}");
+        assert!(t.starts_with("HANDLE   NAME        ROLE    GRANTS\n"), "no escape codes without color: {t:?}");
     }
 
     #[test]

@@ -44,10 +44,10 @@ optimistic reply DOM updated 2.7 ms. Fixture: 5,146 lines / 56,621 words / 524 T
 (321 anchored, 94 refined, 93 orphaned, 16 Document-level), 661 Replies, seeded in ≈ 1.8 s
 (pushes 19 / 39 / 54 / 64 / 74 ms — re-anchoring 500 Threads at the edge included).
 
-## Budget-raise rule (authorised by the human, 2026-08-18)
+## Budget-raise rule (authorized by the human, 2026-08-18)
 
 The budgets above are the targets. A budget may be raised only after **at least three genuine
-optimisation attempts** at the missed budget — each a real change (viewport-first rendering, a
+optimization attempts** at the missed budget — each a real change (viewport-first rendering, a
 smaller first response, fewer round-trips, …) with numbers recorded before and after. If the budget
 is still missed after three attempts, **that budget only** may be raised to one absolute value
 judged reasonable from the measurements (not a multiplier), and the raise must be recorded here:
@@ -59,7 +59,7 @@ a regression from the new value. Budgets change nowhere else.
 
 None. Every budget is the original value.
 
-### Optimisation log (what it took to meet the original budgets on the fixture)
+### Optimization log (what it took to meet the original budgets on the fixture)
 
 Baseline before any change (release server, the generated Document, 1280×900, Playwright Chromium,
 median of 3): server TTFB 11 ms, page 1.84 MB; FCP 136 ms (and sometimes ≈ 400 ms — the parser

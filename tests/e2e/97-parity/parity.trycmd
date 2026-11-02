@@ -1,6 +1,6 @@
 spec: S16-04, S04-16, S06-06, S06-07, S06-13, S02-30
 
-Ticket 16's parity sweep: TTY (`ANNOTARY_TTY=1`, colour off) and non-TTY twins for the verbs
+Ticket 16's parity sweep: TTY (`ANNOTARY_TTY=1`, color off) and non-TTY twins for the verbs
 no earlier golden ran on a TTY — `thread resolve | reopen | edit | delete`, `delete | restore |
 purge`, `member rename | disable`, `token revoke` (`revoke.sh`: the id comes from `token list
 --json`), `profile add | remove` — each printing the same fields in the same order

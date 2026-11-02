@@ -77,7 +77,7 @@ Tracker: this repo's GitHub Issues. A contributor's rules are in `CONTRIBUTING.m
   refuses real tailnet names, email addresses and home paths. Use `fixtures/corpus/` for realistic
   Documents, and `example.ts.net`, `example.com` and `@rowan` in examples.
 - A test that spawns a real `annotary serve` wraps the child in `ServeGuard`
-  (`crates/annotary/tests/common/serve.rs`, `mod common;`) at once and stops it through the
+  (`crates/annotary/tests/common/serve.rs`, `mod common;`) immediately and stops it through the
   guard: a bare `Child` is not killed on drop, so a failing test leaks the server. Leaked test
   servers are cleaned up with `pkill -f '<worktree>/target/debug/annotary serve'`, only after
   checking that each process's `HOME` (`/proc/<pid>/environ`, `ps eww` on a Mac) is a temp dir;

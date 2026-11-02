@@ -301,7 +301,7 @@ table.matrix .me{background:var(--accent-soft)}
   that holds the truth, and the web page you read and comment in.</p>
   <div class="grid g3">
     <div class="card"><div class="big">⌨︎</div><h3>CLI</h3><p>Push and pull Documents, list and reply to Threads, take Actions, <code>wait</code> for events. Plain tab-separated output, <code>--json</code> when a program parses it, typed exit codes.</p><p class="muted small">Used by you and by every agent, through the same commands.</p></div>
-    <div class="card"><div class="big">▣</div><h3>Local server</h3><p><code>annotary serve</code>, or a macOS LaunchAgent via <code>daemon install</code>. Listens on <code>127.0.0.1:7377</code> only. SQLite + content-addressed files under <code>~/.annotary/</code>.</p><p class="muted small">Stores, authorises and serves. Does no heavy work.</p></div>
+    <div class="card"><div class="big">▣</div><h3>Local server</h3><p><code>annotary serve</code>, or a macOS LaunchAgent via <code>daemon install</code>. Listens on <code>127.0.0.1:7377</code> only. SQLite + content-addressed files under <code>~/.annotary/</code>.</p><p class="muted small">Stores, authorizes and serves. Does no heavy work.</p></div>
     <div class="card"><div class="big">◧</div><h3>Web viewer</h3><p>Open <code>http://127.0.0.1:7377</code>. Rendered Markdown with Thread cards in the margin, select-to-comment, keyboard shortcuts, live updates, older Versions as they were.</p><p class="muted small">On your own machine you are signed in automatically.</p></div>
   </div>
   <div class="card" style="margin-top:20px">
@@ -394,7 +394,7 @@ table.matrix .me{background:var(--accent-soft)}
   <div class="grid g3" style="margin-top:18px">
     <div class="card"><h3>Computed where you push</h3><p class="small">The CLI does the mapping when you push and sends the placements with the commit. The server recomputes and refuses any that don't match, because a wrong placement would corrupt that Anchor for good.</p></div>
     <div class="card"><h3>History stays small</h3><p class="small">Each Anchor keeps its original placement (frozen as the Thread's label), its current one, and a history entry only when something changed. That is enough to show any Thread "as it was" on any Version.</p></div>
-    <div class="card"><h3>Checked against real cases</h3><p class="small">A table of fixtures drawn from Google Docs and GitHub behaviour (D1–D12, G0–G14). Every row is a test, and the algorithm only changes when that table changes with it.</p></div>
+    <div class="card"><h3>Checked against real cases</h3><p class="small">A table of fixtures drawn from Google Docs and GitHub behavior (D1–D12, G0–G14). Every row is a test, and the algorithm only changes when that table changes with it.</p></div>
   </div>
   <div class="note warn" style="margin-top:18px">Orphaned is <b>sticky</b> and honest. If deleted text comes back in a later Version, the Thread
   stays orphaned rather than guessing that it is the same text. Orphaned Threads stay open, replyable and resolvable.</div>
@@ -602,7 +602,7 @@ metadata:
   <div class="kicker">Technical · runtime</div>
   <h2>Heavy work happens where you push</h2>
   <p class="lede">The project's first design decision (ADR 0001): every per-Version computation runs in the CLI that pushes. The
-  server only stores, authorises and serves, so viewing a Document is a SQLite read plus static files.</p>
+  server only stores, authorizes and serves, so viewing a Document is a SQLite read plus static files.</p>
   <div class="edge">
     <div class="card"><h3>The pushing CLI computes</h3>
       <ol class="small">
@@ -861,7 +861,7 @@ const LOOP = [
   ['Edit','agent',['cmd:annotary pull plan','dim:pull: 1 threads, 2 assets','plan.md\tplan.annotary\tv1','dim:# the agent edits plan.md with its normal file tools'],'Editing happens outside annotary. <code>pull</code> refuses to overwrite local edits, so nothing is lost.'],
   ['Push v2','agent',['cmd:annotary push plan.md -m "skill file ships with the CLI"','dim:assets: 2 referenced, 0 new','dim:threads: 1 re-anchored — 0 anchored, 1 refined, 0 orphaned (+1 refined: t1)','plan\tk7q2m9xd\tv2'],'The CLI maps every Thread onto the new text before uploading. The summary line says what moved.'],
   ['Reply & resolve','agent',['cmd:annotary thread reply plan t1 --resolve -m "Done in v2 — item 3 now names the skill file. @rowan"','t1.1\tresolved'],'The agent answers on the Thread, says which Version has the change, resolves it, and mentions you so you get notified.'],
-  ['Decide','you',['cmd:annotary act plan approve --version 2','plan\tv2\tapprove\tby @rowan','dim:# meanwhile the agent was blocked in: annotary wait plan','ok:17\taction\tplan\tapprove v2 by @rowan'],'You approve Version 2, either in the browser or from the CLI. The agent\'s <code>wait</code> returns at once and it carries on.'],
+  ['Decide','you',['cmd:annotary act plan approve --version 2','plan\tv2\tapprove\tby @rowan','dim:# meanwhile the agent was blocked in: annotary wait plan','ok:17\taction\tplan\tapprove v2 by @rowan'],'You approve Version 2, either in the browser or from the CLI. The agent\'s <code>wait</code> returns immediately and it continues.'],
 ];
 (function(){
   const s=$('#loopsteps'), term=$('#loopterm'), note=$('#loopnote');

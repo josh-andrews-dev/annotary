@@ -11,7 +11,7 @@ Tokens and ids are random, so they are `[..]`; the QR block is `...`. Merged std
 $ annotary -p ios push ios-plan.md
 ios-plan	[..]	v1
 
-$ annotary -p ios thread new ios-plan --document -m "Have a look on your phone."
+$ annotary -p ios thread new ios-plan --document -m "Take a look on your phone."
 t1	document
 
 $ annotary -p ios link ios-plan t1

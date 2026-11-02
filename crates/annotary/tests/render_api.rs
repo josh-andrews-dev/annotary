@@ -339,11 +339,11 @@ fn server_fallback_render_equals_the_client_render_for_the_corpus_with_assets() 
         assert_eq!(status, 201, "{name}: {doc}");
         let id = doc["id"].as_str().unwrap();
         let (_, v1) = ts.get(&format!("/api/v1/docs/{id}/versions/1"), Some(&tok));
-        // … must equal what the client renders from the *stored* (normalised) manifest, which
+        // … must equal what the client renders from the *stored* (normalized) manifest, which
         // is what `push` computes from its own manifest: same fields, same output.
         let client = render_html(&text, &Asset::from_manifest(&v1["manifest"]));
         let client_from_sent = render_html(&text, &Asset::from_manifest(&Value::Array(manifest.clone())));
-        assert_eq!(client, client_from_sent, "{name}: the sent and the normalised manifest render the same");
+        assert_eq!(client, client_from_sent, "{name}: the sent and the normalized manifest render the same");
         let (status, _, body) = get_raw(&ts, Some(&tok), &format!("/api/v1/docs/{id}/versions/1/html"));
         assert_eq!(status, 200);
         assert_eq!(String::from_utf8_lossy(&body), client, "{name}: server fallback == client render");

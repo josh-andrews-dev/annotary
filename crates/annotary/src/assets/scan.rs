@@ -3,9 +3,9 @@
 //! `[x]: p`, and HTML `<img>/<video>/<audio>/<source>` `src` and `<a>` `href` — then the
 //! classification of each target (relative path → Asset candidate; `http(s)://`, `#frag`,
 //! `mailto:`, `data:` and other schemes ignored silently; absolute filesystem paths and
-//! `file://` warned and ignored) and the lexical normalisation of a relative path against the
+//! `file://` warned and ignored) and the lexical normalization of a relative path against the
 //! referencing file's directory. The same parser options the renderer uses (ticket 09), so what
-//! the scanner sees is what gets rendered — the options, classification and normalisation are
+//! the scanner sees is what gets rendered — the options, classification and normalization are
 //! one definition in `annotary_renderer::refs`, re-exported here.
 
 use pulldown_cmark::{Event, LinkType, Parser, Tag};
@@ -42,7 +42,7 @@ pub fn references(md: &str) -> Vec<RawRef> {
 
 // ---- ticket 07 ----
 /// The 1-based source line where each relative reference of the root Markdown is first written
-/// (`ref` normalised against the root directory, i.e. as the manifest lists it): the display-only
+/// (`ref` normalized against the root directory, i.e. as the manifest lists it): the display-only
 /// "referencing line" of an Asset Thread. Recursive Assets (referenced from another Asset) are
 /// not in this list.
 pub fn reference_lines(md: &str) -> Vec<(String, u32)> {
@@ -261,7 +261,7 @@ See [API notes](api-notes.md) and [the spec][spec] and <https://example.com/auto
 
     // spec: S07-09
     #[test]
-    fn reference_lines_are_the_first_root_level_mention_of_each_normalised_ref() {
+    fn reference_lines_are_the_first_root_level_mention_of_each_normalized_ref() {
         let md = "# Doc\n\n![a](./img/a.png)\ntext [b](docs/../b.md) and ![a again](img/a.png)\n\n<img src=\"img/c%20d.png\">\n[x]: https://example.com\n";
         assert_eq!(
             reference_lines(md),
@@ -308,7 +308,7 @@ See [API notes](api-notes.md) and [the spec][spec] and <https://example.com/auto
 
     // spec: S03-03
     #[test]
-    fn normalisation_is_lexical_and_root_relative() {
+    fn normalization_is_lexical_and_root_relative() {
         assert_eq!(normalize("", "img/a.png"), "img/a.png");
         assert_eq!(normalize("", "./img/../a.png"), "a.png");
         assert_eq!(normalize("docs", "img/flow.svg"), "docs/img/flow.svg");

@@ -38,7 +38,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 5. As a developer, I want first-run setup to end by telling me the CLI still needs a credential (and how to get one), so that I am not surprised by "no credential" on my first CLI call.
 6. As a developer on Linux, I want `serve` to work and `daemon` to fail with a clear "unsupported here — run `serve` under your service manager", so that I know exactly what to do.
 7. As a developer, I want the server to bind to 127.0.0.1 only and refuse any other bind address unless I opt in with `--allow-remote` (ticket 18), so that nothing on my LAN can reach it by accident.
-8. As a developer, I want the server to use a fixed default port (7377, `--port` to override) and the CLI to call the profile's server URL rather than discover it, so that behaviour is predictable and pointing the CLI at a cloud server later changes nothing.
+8. As a developer, I want the server to use a fixed default port (7377, `--port` to override) and the CLI to call the profile's server URL rather than discover it, so that behavior is predictable and pointing the CLI at a cloud server later changes nothing.
 9. As a developer, I want a second `serve` on the same store to be refused via a lock file, so that two processes never write the same data.
 10. As a developer, I want the server to write `server.json` (url, pid, started_at, data_dir) on start and remove it on clean exit, so that `daemon status` and I can see what is running; a stale pid must read as "not running".
 11. As an agent, I want the CLI to fail fast with a typed exit code (6) and the message "server at URL not reachable — run `annotary serve` or `annotary daemon install`" when the server is down, so that I never hang and never auto-start something behind the user's back.
@@ -138,7 +138,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 90. As a Member, I want a span Thread's original placement (Version, range, exact quote) frozen forever and used as its label, so that citations by id + quote never go stale.
 91. As a Member, I want every Thread re-anchored at each Version upload by a deterministic pure function (histogram line diff, then character diff within changed lines; sticky inside, non-sticky at edges), so that the same inputs give the same placement in the CLI, the server and later WASM.
 92. As a Member, I want exactly three placement statuses — anchored (text unchanged, may have shifted), refined (text under the span grew/shrank/changed; current text kept), orphaned (nothing survives; last valid placement kept, stamped with its Version) — so that state is honest and simple.
-93. As a Member, I want partial deletion or insertion inside a span to shrink/grow it (refined, Google-Docs behaviour) rather than orphan it, so that small edits keep the conversation attached.
+93. As a Member, I want partial deletion or insertion inside a span to shrink/grow it (refined, Google-Docs behavior) rather than orphan it, so that small edits keep the conversation attached.
 94. As a Member, I want whitespace-only line changes to keep a Thread anchored, so that reformatting doesn't orphan review.
 95. As a Member, I want type-over, find-and-replace that swallows the span, and moved blocks to orphan the Thread, and orphaned to be sticky (a later Version restoring the text never revives it), so that placement never silently guesses.
 96. As a Member, I want an orphaned Thread to remain open, listed, replyable and resolvable, so that orphaned is a placement state, not a status.
@@ -146,7 +146,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 98. As a Member, I want an Asset Thread anchored by content hash (referencing line display-only): same hash referenced anywhere in the new Version ⇒ anchored, hash no longer referenced ⇒ orphaned — so that image comments follow the image.
 99. As a Member, I want positions in source coordinates (1-based lines, 0-based code-point columns, half-open, CRLF tolerated) as `L:C-L:C` range strings everywhere, so that CLI, Sidecar and web agree.
 100. As a Member, I want each Version's placement recorded (sparse history: entries only where placement changed), so that viewing an older Version is a lookup, not a recomputation.
-101. As a Member, I want the anchoring behaviour pinned by the empirical fixture table (Docs D1–D12, GitHub G0–G14 plus the ticket-05 additions) with documented divergences, so that behaviour is testable and explainable.
+101. As a Member, I want the anchoring behavior pinned by the empirical fixture table (Docs D1–D12, GitHub G0–G14 plus the ticket-05 additions) with documented divergences, so that behavior is testable and explainable.
 
 ### Actions and status
 
@@ -179,7 +179,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 122. As a human, I want refined Threads to show the frozen original quote plus a `now:` line and a dotted underline in the doc, so that I see what changed under a comment.
 123. As a human, I want orphaned Threads grouped at the end behind a `▸ Orphaned (n)` disclosure, hidden by default but still replyable/resolvable, so that they don't clutter but aren't lost.
 124. As a human, I want a Version `<select>` (rows: by · at · same as vN · Action) and an older-Version banner ("Viewing v2 … Threads as they were; replies/resolve work, new comments only on head" + Go to head), so that time-slice is explicit.
-125. As a human, I want Action buttons (coloured by intent) only on the head view, each Version showing its own Action chip, `[]` ⇒ no buttons, so that Actions are per-Version.
+125. As a human, I want Action buttons (colored by intent) only on the head view, each Version showing its own Action chip, `[]` ⇒ no buttons, so that Actions are per-Version.
 126. As a human, I want keyboard `j k r e c [ ] ↩ ⌘↩ esc ?` and nothing more, so that the UI is fast without being a modal editor.
 127. As a human, I want every local action (reply, resolve/reopen, Action, new Thread) applied optimistically in < 50 ms, confirmed by the server, rolled back with a visible error on failure, so that it feels instant.
 128. As a human, I want FCP < 100 ms, interactive < 200 ms, Version switch < 150 ms, Document list < 100 ms and CLS 0 (Threads/placements in the first HTML; media boxes from manifest dimensions; no font/CSS swap), on localhost, mid-range laptop, cold cache — including on a generated ≥ 5,000-line / ≥ 500-Thread Document — so that "extremely fast" is measurable.
@@ -206,7 +206,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 143. As a developer, I want the server to keep the same renderer crate as a fallback (missing/too-old HTML) and `annotary rerender DOC|--all` to re-render in place without touching Versions/Threads, so that a renderer fix can be applied retroactively.
 144. As a developer, I want the CLI to submit re-anchoring `placements[]` with the commit and the server to accept them from a `write` Member (optionally spot-verifying with the same pure function), so that the server never computes on push.
 145. As a developer, I want the renderer, diff/re-anchor and sidecar code as standalone crates that also build to WASM, so that Phase 2 browser upload reuses them.
-146. As a developer, I want the renderer to handle one superset (GFM + tables/task lists/footnotes + fenced code + Mermaid + math + front matter) with no flavour detection, so that behaviour is predictable.
+146. As a developer, I want the renderer to handle one superset (GFM + tables/task lists/footnotes + fenced code + Mermaid + math + front matter) with no flavor detection, so that behavior is predictable.
 
 ### Agent skill file
 
@@ -216,7 +216,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 
 ### CLI output and errors
 
-150. As an agent, I want non-TTY output to be one record per line, tab-separated, no header, no colour, and TTY output aligned with a dim header, relative times and colour — same fields, same order — so that parsing is trivial and humans still get a nice view.
+150. As an agent, I want non-TTY output to be one record per line, tab-separated, no header, no color, and TTY output aligned with a dim header, relative times and color — same fields, same order — so that parsing is trivial and humans still get a nice view.
 151. As an agent, I want `--json` bare to return a documented compact default set, `--json a,b` to narrow, `--json ?` to list fields, minified with empty/null omitted, so that token cost is under my control.
 152. As an agent, I want the anchor column as `vN:L "exact"` / `vN:L refined "exact"` / `vN:L orphaned "exact"` / `document` / `asset REF`, so that every line number is stamped with its Version.
 153. As an agent, I want exit codes `0 ok · 1 usage · 2 not found/ambiguous · 3 no credential · 4 missing right · 5 conflict/refused · 6 unreachable · 7 wait timeout` and errors as one line `error: MSG — HINT` on stderr (or `{error,message,hint}` under `--json`), so that I can branch on failures.
@@ -257,7 +257,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 - Blobs: `store/blobs/sha256/ab/<hash>` content-addressed plain files — Markdown, Assets, rendered HTML, image derivatives — Tenant-wide de-dup. `pull` is the portability boundary (Markdown + Assets + full-projection Sidecar).
 - Single writer: only the server touches the store; CLI always over HTTP. Per-Document in-process lock around id allocation + event append; one Tenant lock for member/vault writes.
 - Document ids: 8 lowercase base32 chars (alphabet without `0/1/o/l`), Tenant-unique, random. Member ids: ULID. Thread ids per Document (`t7`, `t7.1`), server-allocated.
-- Password argon2id; tokens sha256 at rest; tokens opaque random ≥ 32 bytes base62 with a recognisable prefix (`ant_`).
+- Password argon2id; tokens sha256 at rest; tokens opaque random ≥ 32 bytes base62 with a recognizable prefix (`ant_`).
 
 ### API surface (shared by CLI and web)
 - JSON REST under `/api/v1/…`: `docs` (list/create), `docs/{id}` (get/delete/restore/purge), `docs/{id}/versions/{n}`, `docs/{id}/threads[/{tid}]` (new/reply/edit/delete/resolve/reopen), `docs/{id}/actions` (list/act), `blobs` (two-phase: manifest → lacking hashes → upload → commit with `{manifest, derivatives[], placements[], html_hash, renderer, message?, base_version?}`), `events?since=<seq>&wait=30[&filter]` (long-poll; SSE for web), `members`, `tokens`, `login`, `settings`. Web pages `/`, `/d/{id}[/v/{n}]`, `/a/{hash}` are server-composed HTML with Threads + placements in the first response.
@@ -314,11 +314,11 @@ The developer wants one place where humans and agents, with equal standing, can 
 - Skill file: the SKILL.md prototype is the content (frontmatter `name`, `description`, `metadata.version`, `metadata.cli`); embedded in the binary; `skill install [--dir]`; keep-current hook by version comparison; no references file.
 
 ### Web UI
-- Server-rendered HTML + a small script (no SPA required; the budgets are what's binding). Layout A (margin) ≳ 850px container / C (inline in flow) below; narrow header line + overlay; selection pill; whole-Asset Threads for inline media only; Asset links plain text opening in a new tab; refined = frozen quote + `now:`; orphaned disclosure hidden by default; Version `<select>` + time-slice banner; Action buttons head-only, coloured by intent; keyboard map; optimistic mutations with rollback; owner screens (Members, Add member, password, Vault default Actions, settings) with grants/roles behind "advanced"; login page only when a password is set. Renderer output must preserve source positions (`data-l`) so selection maps to source coordinates.
+- Server-rendered HTML + a small script (no SPA required; the budgets are what's binding). Layout A (margin) ≳ 850px container / C (inline in flow) below; narrow header line + overlay; selection pill; whole-Asset Threads for inline media only; Asset links plain text opening in a new tab; refined = frozen quote + `now:`; orphaned disclosure hidden by default; Version `<select>` + time-slice banner; Action buttons head-only, colored by intent; keyboard map; optimistic mutations with rollback; owner screens (Members, Add member, password, Vault default Actions, settings) with grants/roles behind "advanced"; login page only when a password is set. Renderer output must preserve source positions (`data-l`) so selection maps to source coordinates.
 
 ## Testing Decisions
 
-**What makes a good test here:** it exercises external behaviour — a CLI invocation against a real server, an HTTP request, a Markdown-in / placements-out pure function, a browser interaction — and asserts on outputs users or agents see (stdout/stderr/exit code, JSON, HTML, timings), never on internal structure. Fixtures and goldens exist before implementation of each area; unit tests are written alongside (not strict red-green everywhere).
+**What makes a good test here:** it exercises external behavior — a CLI invocation against a real server, an HTTP request, a Markdown-in / placements-out pure function, a browser interaction — and asserts on outputs users or agents see (stdout/stderr/exit code, JSON, HTML, timings), never on internal structure. Fixtures and goldens exist before implementation of each area; unit tests are written alongside (not strict red-green everywhere).
 
 **Seams (highest first, fewest possible):**
 1. **CLI end-to-end against a real spawned `serve`** (`trycmd`) — the primary seam. Because the CLI always goes over HTTP, this single seam covers CLI parsing/formatting, the API, auth, store, events, and the edge computation in `push`. Goldens seeded from the CLI prototype's agent and human transcripts; one case per verb path and per exit code 1–7; TTY parity via `ANNOTARY_TTY=1` env override (no pty); `--json` bare / `a,b` / `?`; stdout/stderr separation asserted; `wait --cursor` resume across a SIGKILL + restart of `serve`.
@@ -351,9 +351,9 @@ The developer wants one place where humans and agents, with equal standing, can 
 
 **Measured targets from the prototypes (o200k tokens):** `status` 24 · `wait` event 12 · `mentions` (1 hit) 58 · `show DOC` (header + 5 open Threads) 245 · `thread show` 117 · `--help` 688 · SKILL.md 905 · sparse Sidecar of the same Document 3,146 (vs 5,326 verbose). These are the reference points, not hard budgets, except that the skill must stay ≤ 60 lines and agents must never need the Sidecar.
 
-**Behavioural references:** Google Docs for span comments under edits (grow/shrink/refined, frozen quote label); GitHub PR review for line comments across pushes (orphaned ≙ outdated, freeze at last valid, never revive, map incrementally); Hypothesis for "quote is truth, orphans visible never silent"; W3C Web Annotation for semantics only.
+**Behavioral references:** Google Docs for span comments under edits (grow/shrink/refined, frozen quote label); GitHub PR review for line comments across pushes (orphaned ≙ outdated, freeze at last valid, never revive, map incrementally); Hypothesis for "quote is truth, orphans visible never silent"; W3C Web Annotation for semantics only.
 
-**Phase roadmap (finalised at hand-off):**
+**Phase roadmap (finalized at hand-off):**
 - **Phase 1 — local (this spec):** Rust binary; CLI-started local web server (launchd-runnable) + CLI + web view/comment; Documents/Versions/Assets, Threads/Anchors, Actions, Vaults/Members/Rights, `status`/`wait`, skill file, five-layer test suite with perf budgets. Same-machine only.
 - **Phase 2 — cloud:** hosting on Google Cloud (multi-tenant, sync from local — the events table with Tenant-wide `seq`, stable random ids, Member/Membership and Token-on-Member make this a transport problem, not a re-model), human sign-in (Google/passkey), CLI device-flow login, profiles gain `tenant`; iOS app with notifications (mention settings; browser + in-app on web); harness plug-ins for Claude Code and Codex where CLI and skill self-update via `skill install`; browser-side WASM push using the same crates; quotas/rate limits/commercial model.
 - **Phase 3 — suggestions:** the mini-editor — an agent proposes a replacement for a span (a span Thread carrying a proposed replacement, applicable iff anchored), the human accepts/rejects → new Version.

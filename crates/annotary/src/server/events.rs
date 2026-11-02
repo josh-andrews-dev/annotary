@@ -13,12 +13,12 @@
 //! (what a page's live feed wants). Each event carries the raw `type` and `payload`, the
 //! classification `kind` (`mention` when that is what the caller asked for), `mention`, `by` as
 //! a handle, the Document's id / current `name` / `vault`, `mentions` as handles and, for Comment
-//! events, an `excerpt` of the body (centred on the caller's `@handle` when it mentions them).
+//! events, an `excerpt` of the body (centered on the caller's `@handle` when it mentions them).
 //!
 //! The long-poll parks on the store's commit hook (`AppState.events`, a `watch` channel bumped
 //! after every committed transaction) and re-reads — so it can never miss an event that landed
 //! between its read and its sleep, and a cursor is exactly a `seq`. Both forms also watch
-//! `AppState.shutdown`: when the server is asked to stop, a parked long-poll answers at once
+//! `AppState.shutdown`: when the server is asked to stop, a parked long-poll answers immediately
 //! (empty, with its cursor) and an SSE stream ends, so shutdown never waits on them.
 //!
 //! Both forms re-check access as they go (CMD-8): whenever the commit counter has moved since
@@ -639,7 +639,7 @@ mod tests {
     }
 
     #[test]
-    fn excerpt_collapses_and_centres_on_the_handle() {
+    fn excerpt_collapses_and_centers_on_the_handle() {
         assert_eq!(excerpt("  hello\n\nworld ", None), "hello world");
         let long = format!("{} @scribe make sure the order list says so. {}", "word ".repeat(30), "tail ".repeat(30));
         let e = excerpt(&long, Some("@scribe"));

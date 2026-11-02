@@ -124,7 +124,7 @@ test.describe('selection pill and composer', () => {
   });
 
   // spec: S27-01
-  test('opening another composer over typed text asks first: keep keeps it, discard opens the new one; an empty composer is replaced at once', async ({ page }) => {
+  test('opening another composer over typed text asks first: keep keeps it, discard opens the new one; an empty composer is replaced immediately', async ({ page }) => {
     const png = fs.readFileSync(path.join(REPO_ROOT, 'tests', 'e2e', '48-reanchor-seed', 'seed.in', 'img', 'architecture.png'));
     const doc = seedDoc('web-c12', PLAN + '\n![architecture](img/architecture.png)\n', { 'img/architecture.png': png });
     await openDoc(page, doc.id);
@@ -184,7 +184,7 @@ test.describe('selection pill and composer', () => {
     await expect(pendingHl).toHaveCount(1);
     await expect(pendingHl).toHaveText('local server');
     await expect(page.locator('.cd-strip[data-line="10"]')).toHaveCount(0);
-    // An empty composer is replaced at once, without asking.
+    // An empty composer is replaced immediately, without asking.
     await selectText(page, '.cd-doc p[data-l="10-10"]', 'CLI before the web UI');
     await expect(pill).toBeVisible();
     await pill.click();
@@ -508,7 +508,7 @@ test.describe('replies, resolve, edit, delete', () => {
 
 test.describe('Actions', () => {
   // spec: S11-04, S11-05
-  test('buttons on head only, coloured by intent, hidden for `[]`; taking one shows the chip at once; rollback on failure', async ({ page }) => {
+  test('buttons on head only, colored by intent, hidden for `[]`; taking one shows the chip immediately; rollback on failure', async ({ page }) => {
     const doc = seedDoc('web-c5', PLAN);
     await openDoc(page, doc.id);
     const btns = page.locator('#cd-actbtns .cd-actbtn');

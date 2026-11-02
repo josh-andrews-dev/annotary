@@ -2,7 +2,7 @@
    there (after app.js; admin.js follows it on the Server pages). The server renders every control
    in its current state (the first paint is final); this script only wires what the page does:
    search (over the catalog's labels and help lines carried in #cd-set-data, no request), the
-   "Applying to" menu (menuitemcheckbox items, keyboard), saving at once (PUT /api/v1/me/settings
+   "Applying to" menu (menuitemcheckbox items, keyboard), saving immediately (PUT /api/v1/me/settings
    with scope all / devices / user; "Saving…", "Couldn't save. Try again." with the old value
    back), Mixed, the chain popover behind the layers icon (Reset = DELETE …?scope=device), Copy
    from another device (menu → an anchored confirm → POST …/devices/{id}/copy-from), the Profile
@@ -228,7 +228,7 @@
     return 'Couldn’t save. Try again.';
   }
 
-  /* Write a value where "Applying to" says, at once; the control shows it before the server
+  /* Write a value where "Applying to" says, immediately; the control shows it before the server
      answers and takes the old value back if the write fails. */
   function save(key, value) {
     var def = defs[key], row = rowOf(key);

@@ -10,7 +10,7 @@ tombstoned root, Actions on v1 and v3, so that head v4 carries no Action. Then @
 says: `mentions` → `show` → `thread show` → `pull` → edit outside → `push` → `thread reply
 --resolve` → `status` → `wait` (woken by @rowan's `act` from a second profile, `wake.sh`) → the
 `--json` reads → `thread new --version N` (success, then the exit-5 guard) → the typical
-failures an agent must recognise. `mentions` is cross-Document (earlier groups' Threads mention
+failures an agent must recognize. `mentions` is cross-Document (earlier groups' Threads mention
 @scribe too), so only its first row is pinned. Merged stdout+stderr; ids and ages are random.
 
 ```console

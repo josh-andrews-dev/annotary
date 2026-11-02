@@ -110,7 +110,7 @@ test.describe('the corpus renders', () => {
   });
 
   // spec: S32-04
-  test('maths, diagrams and raw HTML: MathML, mermaid fences, and scripts that stay inert', async ({ page }) => {
+  test('math, diagrams and raw HTML: MathML, mermaid fences, and scripts that stay inert', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await openDoc(page, h().corpus['math-and-diagrams']);
     const doc = page.locator('.cd-doc');
