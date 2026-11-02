@@ -13,7 +13,7 @@ Owner token for the CLI (shown once) — put it in your shell or a profile in [.
 
   ANNOTARY_TOKEN=ant_[..]
 
-No CLI credential is saved: export the token above, or run `annotary login` (needs the local password); `annotary member add <handle>` mints a token for an agent.
+No CLI credential is saved: export the token above, or run `annotary login` (needs the local password); `annotary member add <handle>` adds a Member and mints their token.
 
 $ ANNOTARY_HOME=cdhome annotary serve --setup-only
 store [..]/cdhome/store is already set up (owner @rowan)

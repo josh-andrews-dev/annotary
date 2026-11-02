@@ -6,7 +6,7 @@ env.add = { ANNOTARY_TTY = "1" }
 status = "success"
 stdout = """
 
-  ANNOTARY_TOKEN=ant_[..]   # put this in the agent's environment
+  ANNOTARY_TOKEN=ant_[..]   # set this where the Member runs annotary
 
 """
 stderr = """

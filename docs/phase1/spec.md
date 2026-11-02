@@ -48,13 +48,13 @@ The developer wants one place where humans and agents, with equal standing, can 
 
 ### Members, credentials, rights
 
-15. As an owner, I want `annotary member add HANDLE [--name]` to create a Member + Membership + `*` grant with all four Rights + a Token in one step and print the Token once as `ANNOTARY_TOKEN=…`, so that adding an agent takes one command and one paste.
-16. As an owner, I want the same one-click "Add agent" in the web UI (mint, show Token once, show the env-var line), so that I can do it without the CLI.
+15. As an owner, I want `annotary member add HANDLE [--name]` to create a Member + Membership + `*` grant with all four Rights + a Token in one step and print the Token once as `ANNOTARY_TOKEN=…`, so that adding a Member takes one command and one paste.
+16. As an owner, I want the same one-click "Add member" in the web UI (mint, show Token once, show the env-var line), so that I can do it without the CLI.
 17. As an owner, I want `member list|rename|disable|grant HANDLE VAULT|* RIGHTS|role HANDLE owner|member`, so that finer control exists when I ask for it, and stays out of the way otherwise.
 18. As an owner, I want Members to be disabled, never deleted, so that attribution and history stay intact.
 19. As an owner, I want Handles to be unique per Tenant forever (no reuse after disable), kebab-case, so that `@mentions` are unambiguous and history is rename-safe.
 20. As a Member, I want my Token to belong to me (the Member), not to a Tenant or a Vault, so that one Token gets me into every Tenant I belong to with each Tenant's Grants applying.
-21. As an owner, I want `token mint|list|revoke` with `last_used_at` and optional name/expiry, so that I can rotate and audit agent credentials.
+21. As an owner, I want `token mint|list|revoke` with `last_used_at` and optional name/expiry, so that I can rotate and audit Member credentials.
 22. As an owner, I want Tokens shown once, stored hashed, with no expiry by default, so that they are simple to operate and safe at rest.
 23. As an owner, I want to set or change an optional local password (stored argon2id), so that a browser on my machine must log in if I choose.
 24. As a developer with no password set, I want a browser hit on loopback to be treated as the owner with an auto-issued session cookie, so that bookmarks just work.
@@ -314,7 +314,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 - Skill file: the SKILL.md prototype is the content (frontmatter `name`, `description`, `metadata.version`, `metadata.cli`); embedded in the binary; `skill install [--dir]`; keep-current hook by version comparison; no references file.
 
 ### Web UI
-- Server-rendered HTML + a small script (no SPA required; the budgets are what's binding). Layout A (margin) ≳ 850px container / C (inline in flow) below; narrow header line + overlay; selection pill; whole-Asset Threads for inline media only; Asset links plain text opening in a new tab; refined = frozen quote + `now:`; orphaned disclosure hidden by default; Version `<select>` + time-slice banner; Action buttons head-only, coloured by intent; keyboard map; optimistic mutations with rollback; owner screens (Members, Add agent, password, Vault default Actions, settings) with grants/roles behind "advanced"; login page only when a password is set. Renderer output must preserve source positions (`data-l`) so selection maps to source coordinates.
+- Server-rendered HTML + a small script (no SPA required; the budgets are what's binding). Layout A (margin) ≳ 850px container / C (inline in flow) below; narrow header line + overlay; selection pill; whole-Asset Threads for inline media only; Asset links plain text opening in a new tab; refined = frozen quote + `now:`; orphaned disclosure hidden by default; Version `<select>` + time-slice banner; Action buttons head-only, coloured by intent; keyboard map; optimistic mutations with rollback; owner screens (Members, Add member, password, Vault default Actions, settings) with grants/roles behind "advanced"; login page only when a password is set. Renderer output must preserve source positions (`data-l`) so selection maps to source coordinates.
 
 ## Testing Decisions
 

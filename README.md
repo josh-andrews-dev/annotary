@@ -147,7 +147,7 @@ To use the CLI from another machine, install it there and run `annotary login -p
   machine that sends none of them looks local, so check yours.
 - **Passwords** are stored with Argon2id. Wrong guesses are throttled: 5 per client and 20 across all remote clients
   in 15 minutes.
-- **Tokens** (`ant_…`) are how the CLI and agents authenticate, and the API accepts nothing else from a
+- **Tokens** (`ant_…`) are how the CLI authenticates, for people and agents alike, and the API accepts nothing else from a
   non-browser client. Each belongs to a Member, is shown once, and can be revoked with `annotary token revoke`. A Member
   can be limited per Vault to read, comment, action or write rights with `annotary member grant`.
 - **Who a Member is, is not a security boundary on one machine.** Profiles and their Tokens are in

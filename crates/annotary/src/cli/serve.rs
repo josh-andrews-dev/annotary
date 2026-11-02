@@ -275,6 +275,6 @@ pub fn print_credential_note(outcome: &SetupOutcome, config_path: &std::path::Pa
     println!();
     println!(
         "No CLI credential is saved: export the token above, or run `annotary login` (needs the local password); \
-         `annotary member add <handle>` mints a token for an agent."
+         `annotary member add <handle>` adds a Member and mints their token."
     );
 }

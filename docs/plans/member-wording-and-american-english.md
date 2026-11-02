@@ -1,6 +1,6 @@
 # Plan: Say "Member" where we mean any Member, and use American English
 
-Status: draft for Josh's review, 2026-11-02. Nothing built.
+Status: Approved 2026-11-02.
 
 ## What Josh asked for
 

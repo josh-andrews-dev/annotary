@@ -2,7 +2,7 @@
 //! group of the Settings screen (`/settings/server/members|vaults|general`; server-composed; what
 //! they show; owner-only — a Member gets the 403 page and no Server group), their card fragments, the Vault rename / delete API (Grants follow a rename and are
 //! dropped on delete; non-empty and last Vault refused), and the restyled login page on the shared
-//! shell. The browser-side flows (Add agent → a Token the CLI accepts, password → login page →
+//! shell. The browser-side flows (Add member → a Token the CLI accepts, password → login page →
 //! session, the default Actions editor → `pull`, auto-purge, hidden nav) are `tests/web/owner.spec.ts`.
 
 use annotary::testing::TestServer;
@@ -117,7 +117,9 @@ fn members_screen_shows_handle_name_role_grants_auth_hint_and_tokens_with_last_u
     assert!(html.contains(
         "<a class=\"cd-set-gl cd-current\" href=\"/settings/server/members\" data-group=\"server/members\" aria-current=\"page\">"
     ));
-    assert!(html.contains("id=\"cd-addagent\""));
+    // A Member is a person or an agent: the button says so for both.
+    assert!(html.contains("id=\"cd-addmember\">Add member</button>"));
+    assert!(!html.contains("Add agent"));
     // Every Member: display name, handle, role chip, auth hint (never "bot"), Grants summary.
     assert!(html.contains("<b class=\"cd-member\" title=\"@rowan\">Rowan Vale</b>"));
     assert!(html.contains("<b class=\"cd-member\" title=\"@scribe\">Scribe</b>"));
@@ -230,7 +232,7 @@ fn settings_is_every_members_and_the_owner_pages_are_403_pages_for_a_member() {
         assert_eq!(status, 403, "{path}");
         assert!(html.contains("<!doctype html>") && html.contains("owner-only"), "{path}: {html}");
         assert!(
-            !html.contains("id=\"cd-addagent\"")
+            !html.contains("id=\"cd-addmember\"")
                 && !html.contains("id=\"cd-pwform\"")
                 && !html.contains("id=\"cd-vaults\"")
         );

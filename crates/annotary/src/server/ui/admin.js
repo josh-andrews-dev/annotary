@@ -114,11 +114,11 @@
     var div = document.createElement('div');
     div.className = 'cd-tokonce';
     div.setAttribute('data-handle', handle);
-    div.innerHTML = '<div class="cd-tokonce-h">Token for @' + esc(handle) + ' — shown once. Paste it into the agent’s environment:</div>' +
+    div.innerHTML = '<div class="cd-tokonce-h">Token for @' + esc(handle) + ' — shown once. Set it where this Member runs annotary:</div>' +
       '<pre class="cd-tokline"><code class="cd-tokvalue">' + esc(line) + '</code></pre>' +
       '<button type="button" class="cd-btn cd-sm cd-primary" data-act="copy">Copy</button> ' +
       '<button type="button" class="cd-btn cd-sm" data-act="dismiss">Dismiss</button><span class="cd-copied" hidden>copied</span>' +
-      '<div class="cd-muted cd-small">A person can use it too: <code>annotary profile add NAME --token …</code>. Lost it? Revoke it and mint another.</div>';
+      '<div class="cd-muted cd-small">Or save it as a profile: <code>annotary profile add NAME --token …</code>. Lost it? Revoke it and mint another.</div>';
     return div;
   }
   function copyText(text) {
@@ -311,8 +311,8 @@
     });
   }
 
-  /* ---------- Add agent ---------- */
-  var addBtn = $('#cd-addagent');
+  /* ---------- Add member ---------- */
+  var addBtn = $('#cd-addmember');
   var addForm = $('#cd-addform');
   if (addBtn && addForm) {
     addBtn.addEventListener('click', function () {

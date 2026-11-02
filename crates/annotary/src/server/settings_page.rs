@@ -37,7 +37,7 @@ pub const SETTINGS_JS: &str = include_str!("ui/settings.js");
 
 /// The owner pages of the Server group: slug, sidebar label, words the search also matches.
 pub const SERVER_PAGES: &[(&str, &str, &str)] = &[
-    ("members", "Members", "Tokens agents Grants roles pair a device"),
+    ("members", "Members", "Tokens agents people add member Grants roles pair a device"),
     ("vaults", "Vaults", "default Actions rename delete"),
     ("general", "Server settings", "local password sign in deleted Documents purge housekeeping"),
 ];
@@ -106,7 +106,7 @@ pub struct Frame<'a> {
     pub index: bool,
     /// Plain text (escaped here): the `<title>` and the page's heading.
     pub title: &'a str,
-    /// Trusted HTML after the heading, on its row (the Members page's count and Add agent).
+    /// Trusted HTML after the heading, on its row (the Members page's count and Add member).
     pub head_extra: &'a str,
     /// Trusted HTML.
     pub body: &'a str,

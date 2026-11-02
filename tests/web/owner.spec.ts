@@ -1,4 +1,4 @@
-// Owner screens & login page (ticket 12): the Members screen (Add agent → a Token the CLI
+// Owner screens & login page (ticket 12): the Members screen (Add member → a Token the CLI
 // accepts at once; per-Token last_used; mint / revoke / rename / disable; role + Grants behind
 // Advanced), the Settings screen (local password → login page → remembered session; the default
 // Actions editor → a new Document pulls them as `actions.available` with `inherited: true`; Vault
@@ -30,7 +30,7 @@ const card = (page: Page, handle: string) => page.locator(`.cd-mem[data-handle="
 
 test.describe('Members', () => {
   // spec: S12-01, S12-02
-  test('Add agent → the Token line (copyable) works from the CLI at once; the card shows handle, name, role, grants, auth hint, Tokens with last used; mint / revoke / rename / Advanced / disable', async ({ page, context }) => {
+  test('Add member → the Token line (copyable) works from the CLI at once; the card shows handle, name, role, grants, auth hint, Tokens with last used; mint / revoke / rename / Advanced / disable', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     // CMD-23: /members 308s to the Members page under Settings → Server.
     await page.goto(h().url + '/members');
@@ -51,14 +51,16 @@ test.describe('Members', () => {
     await expect(rowan.locator('details.cd-advanced')).not.toHaveAttribute('open', '');
     await expect(rowan.locator('details.cd-advanced [data-field=role]')).toBeHidden();
 
-    // ---- Add agent: one handle → the Token shown once as the env-var line ----
-    const handle = 'agent-' + uniq();
-    await page.locator('#cd-addagent').click();
+    // ---- Add member: one handle → the Token shown once as the env-var line ----
+    const handle = 'member-' + uniq();
+    await page.locator('#cd-addmember').click();
     await page.locator('#cd-add-handle').fill(handle);
-    await page.locator('#cd-add-name').fill('Agent Twelve');
+    await page.locator('#cd-add-name').fill('Member Twelve');
     await page.locator('#cd-add-handle').press('Enter');
     const panel = page.locator(`.cd-tokonce[data-handle="${handle}"]`);
     await expect(panel).toBeVisible();
+    await expect(page.locator('#cd-addmember')).toHaveText('Add member');
+    await expect(panel).not.toContainText(/\bagent/i); // a Member is a person or an agent
     const line = (await panel.locator('.cd-tokvalue').textContent())!;
     expect(line).toMatch(/^ANNOTARY_TOKEN=ant_\S+$/);
     const token = line.slice('ANNOTARY_TOKEN='.length);
@@ -66,7 +68,7 @@ test.describe('Members', () => {
     await expect(panel.locator('.cd-copied')).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(line);
     const me = card(page, handle);
-    await expect(me.locator('.cd-member')).toHaveText('Agent Twelve');
+    await expect(me.locator('.cd-member')).toHaveText('Member Twelve');
     await expect(me.locator('.cd-handle')).toHaveText('@' + handle);
     await expect(me.locator('.cd-chip.cd-role')).toHaveText('member');
     await expect(me.locator('.cd-grants-summary')).toHaveText('every Vault: read, comment, action, write');
@@ -103,10 +105,10 @@ test.describe('Members', () => {
     // ---- rename (display name only — the handle never changes) ----
     await me.locator('[data-act=rename]').click();
     const nameInput = me.locator('[data-slot=rename] input');
-    await expect(nameInput).toHaveValue('Agent Twelve');
-    await nameInput.fill('Agent XII');
+    await expect(nameInput).toHaveValue('Member Twelve');
+    await nameInput.fill('Member XII');
     await nameInput.press('Enter');
-    await expect(me.locator('.cd-member')).toHaveText('Agent XII');
+    await expect(me.locator('.cd-member')).toHaveText('Member XII');
     await expect(me.locator('.cd-handle')).toHaveText('@' + handle);
     expect(cli(h().owner, ['member', 'list'])).toMatch(new RegExp(`@${handle}\\tAgent XII\\tmember`));
 
@@ -139,7 +141,7 @@ test.describe('Members', () => {
     await expect(page.locator('#cd-memcount')).toHaveText('3 active');
     expect(cliExit(token, ['status', h().doc.id])).toBe(3);
     // A taken handle is refused in the form.
-    await page.locator('#cd-addagent').click();
+    await page.locator('#cd-addmember').click();
     await page.locator('#cd-add-handle').fill(handle);
     await page.locator('#cd-addform button[type=submit]').click();
     await expect(page.locator('#cd-addform .cd-err')).toContainText('already taken');
@@ -347,7 +349,7 @@ test.describe('a Member', () => {
       const res = await page.goto(h().url + p);
       expect(res!.status()).toBe(403);
       await expect(page.locator('.cd-err')).toContainText('owner-only');
-      await expect(page.locator('#cd-addagent, #cd-pwform, #cd-vaults')).toHaveCount(0);
+      await expect(page.locator('#cd-addmember, #cd-pwform, #cd-vaults')).toHaveCount(0);
     }
     // The owner sees the Settings link too, and nothing else new in the top bar.
     await page.setExtraHTTPHeaders({ Authorization: 'Bearer ' + h().owner });

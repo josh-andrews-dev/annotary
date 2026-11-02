@@ -642,7 +642,7 @@ metadata:
   <div class="seg" id="memseg"></div>
   <table class="matrix" style="margin-top:14px" id="acctable"></table>
   <div class="grid g3" style="margin-top:18px">
-    <div class="card"><h3>One command per agent</h3><p class="small"><code>member add codex</code> creates the Member with full rights and prints <code>ANNOTARY_TOKEN=…</code> once. Paste it into the agent's environment and you're done. The web UI has an equivalent "Add agent" button.</p></div>
+    <div class="card"><h3>One command per Member</h3><p class="small"><code>member add codex</code> creates the Member with full rights and prints <code>ANNOTARY_TOKEN=…</code> once. Set it where the Member runs annotary and you're done. The web UI has an equivalent "Add member" button.</p></div>
     <div class="card"><h3>Tokens you can audit</h3><p class="small"><code>token list</code> shows when each Token was last used. Tokens can carry an expiry and are revoked with one command. They are stored hashed.</p></div>
     <div class="card"><h3>History is never lost</h3><p class="small">Members are disabled, never deleted, and a handle is never reused. Every mutation writes an event in the same transaction, so who did what is always on record.</p></div>
   </div>
@@ -741,7 +741,7 @@ metadata:
   <div class="grid g2" style="margin-top:24px">
     <div class="term"><span class="dim"># 1. start the server (first run asks for your handle)</span>
 <span class="cmd">annotary daemon install</span>
-<span class="dim"># 2. give an agent its own identity</span>
+<span class="dim"># 2. give an agent its own Member</span>
 <span class="cmd">annotary member add claude-code</span>
 <span class="ok">ANNOTARY_TOKEN=ant_…</span>   <span class="dim">← paste into the agent's env</span>
 <span class="dim"># 3. teach it the commands</span>
