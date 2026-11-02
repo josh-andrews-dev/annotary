@@ -110,7 +110,7 @@ test.describe('Members', () => {
     await nameInput.press('Enter');
     await expect(me.locator('.cd-member')).toHaveText('Member XII');
     await expect(me.locator('.cd-handle')).toHaveText('@' + handle);
-    expect(cli(h().owner, ['member', 'list'])).toMatch(new RegExp(`@${handle}\\tAgent XII\\tmember`));
+    expect(cli(h().owner, ['member', 'list'])).toMatch(new RegExp(`@${handle}\\tMember XII\\tmember`));
 
     // ---- Advanced: Grants narrowed, role changed ----
     await me.locator('details.cd-advanced summary').click();
