@@ -149,7 +149,7 @@ fn login_form(next: &str, error: Option<&str>) -> Html<String> {
              <form method=\"post\" action=\"/login\" class=\"cd-loginform\" id=\"cd-loginform\"><input type=\"hidden\" name=\"next\" value=\"{}\">\
              <label>Password <input type=\"password\" name=\"password\" autofocus autocomplete=\"current-password\" required></label> \
              <button type=\"submit\" class=\"cd-btn cd-primary\">Sign in</button></form>\
-             <p class=\"cd-muted cd-small\">Agents and the CLI use a Token instead (<code>annotary login</code> turns this password into one).</p>",
+             <p class=\"cd-muted cd-small\">The CLI uses a Token instead (<code>annotary login</code> turns this password into one).</p>",
             esc(next)
         ),
     )

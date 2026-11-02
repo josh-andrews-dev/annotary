@@ -77,7 +77,7 @@ fn every_group_has_a_url_for_every_member_and_an_unknown_group_is_the_404_page()
             assert!(html.contains("class=\"cd-set-layout cd-set-grouppage\""));
             assert!(html.contains("id=\"cd-set-data\""));
             // Only the Settings pages carry the Settings script; never the owner script.
-            assert!(html.contains("cd-set-ready") && !html.contains("cd-addagent"));
+            assert!(html.contains("cd-set-ready") && !html.contains("cd-addmember"));
         }
         // `/settings` is the Profile group (wide) and the group list (narrow): one page.
         let (status, html) = page(&ts, "/settings", token);

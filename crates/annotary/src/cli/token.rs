@@ -181,7 +181,7 @@ fn mint(ctx: &Ctx, a: MintArgs) -> CliResult<()> {
     }
     if ctx.out.tty {
         ctx.out.line("");
-        ctx.out.line(&format!("  ANNOTARY_TOKEN={token}   # put this in the agent's environment"));
+        ctx.out.line(&format!("  ANNOTARY_TOKEN={token}   # set this where the Member runs annotary"));
         ctx.out.line("");
     } else {
         ctx.out.line(&format!("ANNOTARY_TOKEN={token}"));

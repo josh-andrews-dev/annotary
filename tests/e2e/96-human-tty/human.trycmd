@@ -30,7 +30,7 @@ $ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan member add jules --name "Jules"
 @jules added: member, grants * (read,comment,action,write)
 Token (shown once):
 
-  ANNOTARY_TOKEN=ant_[..]   # put this in the agent's environment
+  ANNOTARY_TOKEN=ant_[..]   # set this where the Member runs annotary
 
 
 $ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan push docs/roadmap.md -m "first draft"

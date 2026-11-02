@@ -270,7 +270,7 @@ markers in implementation code — only in tests.
 ## Ticket 12 — Web: owner screens & login page
 
 - S12-01 — the Members screen (`/members`, owner-only) lists every Member with handle, display name, role, a Grants summary, the auth method as a hint (password / Token glyph + words — never a "bot" badge) and every live Token with name, created, `last_used_at`, expiry and id; rename and disable are one click away, role and Grants editing sit behind an "Advanced" disclosure (story 34; Web UI: owner screens)
-- S12-02 — "Add agent": one handle (+ optional name) creates the Member + Membership + `*` all-rights Grant + a Token in one step and shows the Token once as the `ANNOTARY_TOKEN=…` line with a Copy button; the Token works from the CLI at once; Tokens can be minted (name / expiry) and revoked per Member from the screen (stories 15, 16, 21)
+- S12-02 — "Add member": one handle (+ optional name) creates the Member + Membership + `*` all-rights Grant + a Token in one step and shows the Token once as the `ANNOTARY_TOKEN=…` line with a Copy button; the Token works from the CLI at once; Tokens can be minted (name / expiry) and revoked per Member from the screen (stories 15, 16, 21)
 - S12-03 — the Settings screen (`/settings`, owner-only): set / change / remove the local password through `PUT /api/v1/settings/password` (setting one makes the login page appear on the next request without a session while the current session stays); edit each Vault's default Actions as `{id, label, intent}` rows (add / remove / reorder, saved whole) — a Document pushed afterwards without its own declaration pulls them as `actions.available` with `inherited: true`; the "purge deleted after N days" toggle + N persists through `PUT /api/v1/settings/auto-purge` (+ run housekeeping now); Vault create (stories 23, 67, 102; Actions model)
 - S12-04 — Vault rename and delete (owner-only): `POST /api/v1/vaults/{name}/rename {name}` renames and the Grants naming the Vault follow (a taken name is 409); `DELETE /api/v1/vaults/{name}` removes an empty Vault and drops the Grants naming it, refuses a Vault that still holds Documents — deleted ones included — (409 `vault_not_empty`) and the last Vault (409 `last_vault`) (story 32; Access model)
 - S12-05 — (changed on purpose by CMD-23, see S29-20) every Member gets the Settings screen at `/settings` (200) and a Settings link in the top bar; a Member (role member) gets the 403 page for the owner pages under `/settings/server/*` (`members`, `vaults`, `general`; `/members` 308s there) and 403 JSON for their card fragments (`/members/{handle}`, `/settings/vaults/{name}`, unchanged and never redirected); the top bar and the sidebar's Server group link the owner pages only for owners (story 32; Web UI)
@@ -540,7 +540,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 13 — schema version + forward-only migrations → S01-04
 - 14 — hourly in-process ticker (auto-purge, GC, derivative cleanup) → S13-09, S13-10, S13-11
 - 15 — `member add` one step, `ANNOTARY_TOKEN=` once → S01-11, S12-02
-- 16 — web Add agent (Token once, env line) → S12-02
+- 16 — web Add member (Token once, env line) → S12-02
 - 17 — `member list|rename|disable|grant|role` → S01-12, S06-02, S06-06
 - 18 — disable, never delete → S06-05
 - 19 — handles unique forever, kebab-case → S01-13, S04-06, S06-05

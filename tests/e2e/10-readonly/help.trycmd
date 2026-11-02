@@ -182,7 +182,7 @@ Usage: annotary member <cmd>  (owner only; `list` for everyone)
 
   add HANDLE [--name "Display Name"]
         One step: Member + Membership + grant * (read,comment,action,write) + token, printed once.
-        This is how you add an agent.
+        This is how you add anyone: a person or an agent.
   list                     handle  name  role  grants  (disabled)
   rename HANDLE NEW        Changes the display name; the handle itself never changes
   disable HANDLE           Keeps history; token stops working

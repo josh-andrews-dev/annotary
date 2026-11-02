@@ -7,5 +7,5 @@ env.add = { ANNOTARY_TOKEN = "ant_0000000000000000000000000000000000000000000", 
 status.code = 3
 stdout = ""
 stderr = """
-error: invalid, revoked or expired token — check ANNOTARY_TOKEN or the profile's token; owners: `annotary login`; agents: ask an owner for a new token
+error: invalid, revoked or expired token — check ANNOTARY_TOKEN or the profile's token; with a local password: `annotary login`; otherwise ask an owner for a new token
 """

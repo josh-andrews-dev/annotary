@@ -33,7 +33,7 @@ impl ApiError {
 
     pub fn unauthorized() -> ApiError {
         ApiError::new(StatusCode::UNAUTHORIZED, "unauthorized", "invalid, revoked or expired token").hint(
-            "check ANNOTARY_TOKEN or the profile's token; owners: `annotary login`; agents: ask an owner for a new token",
+            "check ANNOTARY_TOKEN or the profile's token; with a local password: `annotary login`; otherwise ask an owner for a new token",
         )
     }
 

@@ -53,7 +53,7 @@ fn no_password(server: &str) -> CliError {
     CliError::refused(format!("no local password is set on {server}")).hint(format!(
         "the owner sets one at {server}/settings (in a browser on the server's machine, where it trusts you \
              as the owner); until then use a token: ANNOTARY_TOKEN=… (printed by first-run setup) or \
-             `annotary member add HANDLE` for an agent"
+             `annotary member add HANDLE` for another Member"
     ))
 }
 

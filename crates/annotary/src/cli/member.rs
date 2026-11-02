@@ -18,7 +18,7 @@ use super::Ctx;
 #[derive(Subcommand, Debug)]
 pub enum MemberCmd {
     /// One step: Member + Membership + grant * (read,comment,action,write) + token, printed once
-    /// as ANNOTARY_TOKEN=… — this is how you add an agent (owner only)
+    /// as ANNOTARY_TOKEN=… — this is how you add anyone, a person or an agent (owner only)
     Add(AddArgs),
     /// Members: handle, name, role, grants
     List,
@@ -191,7 +191,7 @@ fn add(ctx: &Ctx, a: AddArgs) -> CliResult<()> {
     }
     if ctx.out.tty {
         ctx.out.line("");
-        ctx.out.line(&format!("  ANNOTARY_TOKEN={token}   # put this in the agent's environment"));
+        ctx.out.line(&format!("  ANNOTARY_TOKEN={token}   # set this where the Member runs annotary"));
         ctx.out.line("");
     } else {
         ctx.out.line(&format!("ANNOTARY_TOKEN={token}"));

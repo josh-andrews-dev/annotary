@@ -2,7 +2,7 @@
 //! Settings screen's Server group (`settings_page.rs` draws the frame: the top bar and the
 //! sidebar): `GET /settings/server/members` (the Members screen — handle, display name, role,
 //! Grants summary, auth method as a hint, every Token with `last_used_at`; rename / disable, mint /
-//! revoke; role and Grants editing behind an "Advanced" disclosure; "Add agent" = one handle →
+//! revoke; role and Grants editing behind an "Advanced" disclosure; "Add member" = one handle →
 //! Member + Membership + `*` all-rights Grant + Token shown once with the `ANNOTARY_TOKEN=…`
 //! line), `GET /settings/server/vaults` (Vaults — create / rename / delete + the default Actions
 //! editor), `GET /settings/server/general` (the local password — set / change / remove; "purge
@@ -127,14 +127,14 @@ fn render_members(st: &AppState, auth: &Auth, headers: &HeaderMap) -> Result<Res
     let active = members.iter().filter(|m| !m.is_disabled()).count();
     let head = format!(
         "<span class=\"cd-muted cd-small\" id=\"cd-memcount\">{active} active</span><span class=\"cd-grow\"></span>\
-           <button type=\"button\" class=\"cd-btn cd-primary\" id=\"cd-addagent\">Add agent</button>"
+           <button type=\"button\" class=\"cd-btn cd-primary\" id=\"cd-addmember\">Add member</button>"
     );
     let main = format!(
         "<form class=\"cd-addform cd-box\" id=\"cd-addform\" hidden autocomplete=\"off\">\
            <div class=\"cd-formrow\"><label>Handle <input type=\"text\" name=\"handle\" id=\"cd-add-handle\" placeholder=\"scribe\" required spellcheck=\"false\" autocapitalize=\"off\"></label>\
            <label>Name <input type=\"text\" name=\"name\" id=\"cd-add-name\" placeholder=\"optional\"></label>\
            <button type=\"submit\" class=\"cd-btn cd-primary\">Create</button> <button type=\"button\" class=\"cd-btn\" data-act=\"cancel\">Cancel</button></div>\
-           <p class=\"cd-muted cd-small\">One step: the Member, its Membership, a <code>*</code> Grant with every Right (read, comment, action, write — Vaults created later included) and a Token shown once. Narrow the Grants under <i>Advanced</i> when you need to.</p>\
+           <p class=\"cd-muted cd-small\">One step: the Member, their Membership, a <code>*</code> Grant with every Right (read, comment, action, write — Vaults created later included) and a Token shown once. Narrow the Grants under <i>Advanced</i> when you need to.</p>\
            <div class=\"cd-err\" hidden></div></form>\
          <div id=\"cd-addresult\"></div>\
          <div class=\"cd-memlist\" id=\"cd-memlist\">{cards}</div>"
