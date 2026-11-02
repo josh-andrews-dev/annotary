@@ -113,23 +113,19 @@ the web UI. Don't update documentation otherwise right now."*
 **D2. How far the American English sweep goes.** The public text is 8 lines; the rest is for people
 reading the code. A full sweep adds one large, mechanical diff but leaves one spelling everywhere, and
 it renames private functions with no effect on behavior.
-- **Recommended: A.** Everything we own: docs, spec, comments, test names and private identifiers, as
-  its own pull request, because nothing reaches the wire and a partial sweep leaves the mix in place.
-- B. All prose and comments, leaving identifiers such as `normalise_grants` alone.
-- C. Only what ships or is public: the CLI line and the 8 lines in public docs.
+*Decided 2026-11-02: A (Josh).* Everything we own: docs, spec, comments, test names and private
+identifiers, as its own pull request, because nothing reaches the wire and a partial sweep leaves the
+mix in place.
 
 **D3. Keeping it that way.** Nothing stops British spelling from coming back, and most of this repo is
 written by agents, which drift. `crates/annotary/tests/no_personal_details.rs` is the pattern: a test
 that scans everything git tracks.
-- **Recommended: A.** Add "American English" to `AGENTS.md` and a test that refuses a short word list
-  (`colour`, `behaviour`, `normalis*` and similar), so `make test` catches it, with `fixtures/corpus/`
-  exempt.
-- B. The `AGENTS.md` line only. There is no cost, but nothing enforces it.
-- C. Neither.
+*Decided 2026-11-02: neither (Josh): "I'll handle this separately."* This plan adds no rule and no
+test for it.
 
 ## M1: from Josh
 
-- Answer D2 and D3. Reply by ID, or "all recommended".
+- All decisions are answered. Say go in chat, or Approve this Version in Annotary.
 - Nothing else needs you: agents can do the review, the deploy and the health check.
 
 ## M2: Member wording (one pull request, in `josh-andrews-dev/annotary`)
@@ -185,7 +181,6 @@ Done when: `make lint test` and `make e2e` pass, `ci` is green, the review is re
 - `tests/e2e/95-agent-flow/agent.trycmd:13` holds "recognise" in a comment. AGENTS.md makes any change
   to that file a deliberate decision, so record it in the pull request.
 - `crates/annotary/skill/SKILL.md` has none, so `make token-report` should change only its header word.
-- If D3 is A: add the `AGENTS.md` line and `crates/annotary/tests/american_english.rs`.
 - Also fixes `cli/mod.rs:96`, so it needs the same verify-live step, and one more check in the scenario:
   `annotary --help` says "color".
 
