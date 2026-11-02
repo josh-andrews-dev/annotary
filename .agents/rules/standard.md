@@ -26,9 +26,9 @@ rely on the `ci` check's lint instead of running `make lint` again.
 
 A code change is reviewed before it merges by following the `review-gate` skill, which names the
 reviewer (no other model reviews, and with no reviewer available the change waits), when it
-touches a server, authentication, secrets handling, money, a data migration, CI or a runner, a
-hook or guard, or more than about 200 changed lines; for any other code change the author decides
-and logs it in the PR body.
+touches a server (a product's web pages count; a documentation site does not), authentication,
+secrets handling, money, a data migration, CI or a runner, a hook or guard, or more than about 200
+changed lines; for any other code change the author decides and logs it in the PR body.
 
 ## Repository layout
 
