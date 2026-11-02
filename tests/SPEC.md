@@ -512,6 +512,12 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S34-07 — the release pipeline's own code: the stamp writes the tag's version into the workspace manifest and lockfile for the workspace's crates only, and refuses what is not a plain version or a manifest with no placeholder; the tap's formula gets a `test do` that runs `--version` and `serve --setup-only` in a temp data dir, once, and a formula it cannot place it in is refused; in the published workflows every action is pinned to a full SHA, only the job that makes the release can write, the dist installer is checked before it runs, and the tap's deploy key is passed by name to a push job that has no third-party code and runs only after the formula has passed
 <!-- ---- end M3 ---- -->
 
+<!-- ---- #5 ---- -->
+## #5 — the Version select leaves room for its chevron
+
+- S35-01 — the header's Version `<select>` keeps at least 20 px of right padding for the native chevron and ellipsizes a label too long for it, wide and at its narrower max width, so the label never runs under the arrow (story 124; issue #5)
+<!-- ---- end #5 ---- -->
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–167)
@@ -641,7 +647,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 121 — Asset links are plain text, open in a new tab → S09-06, S10-07, S11-02
 - 122 — refined: frozen quote + `now:` + dotted underline → S10-05
 - 123 — orphaned behind a disclosure, still replyable → S10-05
-- 124 — Version `<select>` + older-Version banner → S10-06
+- 124 — Version `<select>` + older-Version banner → S10-06, S35-01
 - 125 — Action buttons head-only, chips per Version → S10-06, S11-04
 - 126 — keyboard map and nothing more → S11-01, S11-06, S11-10, S27-01
 - 127 — optimistic mutations < 50 ms with rollback → S11-05, S11-10, S15-02, S25-01, S27-01

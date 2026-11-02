@@ -287,6 +287,29 @@ test.describe('versions', () => {
     // No diff view anywhere.
     expect(await page.locator('[class*="diff"], [id*="diff"]').count()).toBe(0);
   });
+
+  // spec: S35-01
+  test('the Version select leaves room for its chevron and ellipsizes a long label', async ({ page }) => {
+    // 1280 px: max-width 220 px; 1000 px: the container query's 170 px. Both labels overflow.
+    for (const width of [1280, 1000]) {
+      await open(page, width);
+      const sel = page.locator('#cd-vsel');
+      const box = await sel.evaluate((e: HTMLSelectElement) => {
+        const cs = getComputedStyle(e);
+        const ctx = document.createElement('canvas').getContext('2d')!;
+        ctx.font = cs.font;
+        return {
+          padRight: parseFloat(cs.paddingRight),
+          overflow: cs.textOverflow,
+          label: ctx.measureText(e.options[e.selectedIndex].text).width,
+          room: e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+        };
+      });
+      expect(box.label, `width ${width}: the label is long enough to need the room`).toBeGreaterThan(box.room);
+      expect(box.padRight, `width ${width}`).toBeGreaterThanOrEqual(20);
+      expect(box.overflow, `width ${width}`).toBe('ellipsis');
+    }
+  });
 });
 
 test.describe('media and what\'s new', () => {
