@@ -47,6 +47,7 @@ test.describe('Members', () => {
     await expect(card(page, 'scribe').locator('.cd-member')).toHaveText('Scribe');
     await expect(card(page, 'scribe').locator('.cd-auth')).toHaveAttribute('title', 'authenticates with a Token');
     await expect(page.locator('.cd-memlist')).not.toContainText(/\bbot\b/i);
+    await expect(page.locator('.cd-memlist')).not.toContainText(/\bagent\b/i);
     // The Grants / role editor is behind Advanced, closed by default.
     await expect(rowan.locator('details.cd-advanced')).not.toHaveAttribute('open', '');
     await expect(rowan.locator('details.cd-advanced [data-field=role]')).toBeHidden();
