@@ -519,6 +519,10 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S35-01 — the header's Version `<select>` keeps at least 20 px of right padding for the native chevron and ellipsizes a label too long for it, wide and at its narrower max width, so the label never runs under the arrow (story 124; issue #5)
 <!-- ---- end #5 ---- -->
 
+## A composer on a line whose Threads are all resolved
+
+- S36-01 — a composer opened (by `c`, the pill or an inline Asset) on a line whose only Threads are resolved is visible and focused although that line's strip was hidden with them; Cancel hides the strip again, and posting shows the new card there while the resolved Thread stays behind the toggle (stories 119, 120)
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–167)
@@ -643,8 +647,8 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 116 — in-app what's new → S08-10, S11-07
 - 117 — Document view: margin cards ≥ 850 px, inline below → S10-01, S10-03, S10-11, S28-01, S31-05
 - 118 — narrow header line + overlay, no bottom bar → S10-04, S31-05
-- 119 — select → pill → composer (head only) → S11-01, S27-01
-- 120 — media → pill → whole-Asset Thread → S11-02, S27-01
+- 119 — select → pill → composer (head only) → S11-01, S27-01, S36-01
+- 120 — media → pill → whole-Asset Thread → S11-02, S27-01, S36-01
 - 121 — Asset links are plain text, open in a new tab → S09-06, S10-07, S11-02
 - 122 — refined: frozen quote + `now:` + dotted underline → S10-05
 - 123 — orphaned behind a disclosure, still replyable → S10-05
