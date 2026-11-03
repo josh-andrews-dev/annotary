@@ -259,3 +259,10 @@ Chose to have the skill's agent wait through a human's review and act when it en
 their word in chat), answering an @mention without pushing, and handling every open Thread in one Version;
 rejected acting per Thread, because a push moves head, and a page on the older Version then refuses new comments
 while the human is still reading. Rejected a new "review finished" event: the default Actions already say it.
+
+## 2026-11-02: no Code of Conduct, and no personal email address in the repo
+
+Chose to delete `CODE_OF_CONDUCT.md`, listing it in the template's `removed_starter_files`: with one maintainer it
+adds nothing to GitHub's own moderation tools, and it published a personal address. Rejected keeping it for the
+community profile's checkmark, which is its only remaining use. The template still requires `conduct_email` of a
+public repo, so it records the maintainer's GitHub noreply address, which is already on every commit.

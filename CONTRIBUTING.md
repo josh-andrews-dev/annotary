@@ -4,8 +4,7 @@ Thanks for helping. Bugs and feature requests go to
 [Issues](https://github.com/josh-andrews-dev/annotary/issues) (the forms ask for what is
 needed), questions to [Discussions](https://github.com/josh-andrews-dev/annotary/discussions),
 and security problems to [private vulnerability reporting](https://github.com/josh-andrews-dev/annotary/security/policy),
-never a public issue. Everyone taking part follows the
-[Code of Conduct](https://github.com/josh-andrews-dev/annotary/blob/main/CODE_OF_CONDUCT.md).
+never a public issue.
 
 ## Set up
 

@@ -8,9 +8,9 @@ use std::process::Command;
 
 use regex::Regex;
 
-/// Where an email address is meant to be read, by path: the Code of Conduct's contact and the
-/// template's record of it.
-const EMAIL_ALLOWED: &[&str] = &["CODE_OF_CONDUCT.md", ".agents/standard.yml"];
+/// Where an email address is meant to be read, by path: the template's record of the contact it
+/// requires of a public repo.
+const EMAIL_ALLOWED: &[&str] = &[".agents/standard.yml"];
 
 const NEVER_EXEMPT: &[&str] = &["tests", "fixtures", "crates"];
 
