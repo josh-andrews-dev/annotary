@@ -266,3 +266,8 @@ Chose to delete `CODE_OF_CONDUCT.md`, listing it in the template's `removed_star
 adds nothing to GitHub's own moderation tools, and it published a personal address. Rejected keeping it for the
 community profile's checkmark, which is its only remaining use. The template still requires `conduct_email` of a
 public repo, so it records the maintainer's GitHub noreply address, which is already on every commit.
+
+## 2026-11-03: repo-standard v0.14.0 no longer asks for `conduct_email`
+
+This corrects the 2026-11-02 entry above: since the upgrade to v0.14.0 the template does not require `conduct_email`, so
+`.agents/standard.yml` no longer records it. Deleting the Code of Conduct still stands.
