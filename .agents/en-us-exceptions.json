@@ -1,0 +1,5 @@
+{
+  "about": "Deliberate exceptions to the en-US check (scripts/standard/en_us.py). This file is the repo's: an upgrade leaves it alone. Each entry: {\"word\": \"...\", \"reason\": \"...\"} or {\"path\": \"...\", \"reason\": \"...\"}.",
+  "words": [],
+  "paths": []
+}

@@ -33,8 +33,8 @@ changed lines; for any other code change the author decides and logs it in the P
 ## Repository layout
 
 - The root holds only `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `DESIGN.md`, `README.md`,
-  `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE-MIT`, `LICENSE-APACHE`,
-  `Makefile`, `project.mk`, the package manifest and dotfiles. Durable docs
+  `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE-MIT`, `LICENSE-APACHE`, `Makefile`, `project.mk`,
+  the package manifest and dotfiles. Durable docs
   (why, decisions in `docs/decisions.md`, external contracts, ops playbooks) go in `docs/`.
   Working plans go in `docs/plans/` while active and move to `docs/archive/` in the PR that
   finishes the work; active docs do not link into `docs/archive/`, and you never read or follow
@@ -50,6 +50,19 @@ changed lines; for any other code change the author decides and logs it in the P
   request could run its code there.
 - A job may use GitHub's cache (`actions/cache`, a setup action's `cache:` option); a hosted
   runner starts empty.
+
+## American English
+
+Product text is American English (en-US): anything a user sees or reads, including UI, CLI
+output, messages, email, spoken prompts, public docs, store listings, and date and number
+formats. Write other prose in American English too. Identifiers, stored field names and wire
+names are exempt. `make lint` refuses new British spellings and `en-GB` locales on changed
+lines; a deliberate exception goes in the repo's exceptions file with a reason.
+
+- The exceptions file is `.agents/en-us-exceptions.json`, and it belongs to the repo.
+- `python3 scripts/standard/en_us.py --all` scans the whole tree. Text already in the repo never
+  fails `make lint`.
+- `make lint` needs `uvx`, and fails rather than skips the check without it.
 
 ## Commits
 

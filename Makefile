@@ -26,8 +26,9 @@ lint: standard-lint project-lint ## Run every lint check; fails on findings
 
 ci: standard-lint project-ci ## What the CI job runs (no iOS parts)
 
-standard-lint: ## Check the repo against the standard's file rules
+standard-lint: ## Check the repo against the standard's file rules and for British spellings on changed lines
 	@python3 scripts/standard/lint.py
+	@python3 scripts/standard/en_us.py
 
 deploy: ## Deploy origin/main, check health, then tag and release it  [BUMP=minor|major]
 	@scripts/standard/require_main.sh

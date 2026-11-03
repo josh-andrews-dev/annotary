@@ -4,7 +4,7 @@
     python3 scripts/standard/release.py --prefix v|server-v|web-v|ios-v|mac-v [--bump patch|minor|major]
         [--asset <file>]...
 
-Runs after a deploy whose health check passed, a TestFlight upload, or a notarised Mac build,
+Runs after a deploy whose health check passed, a TestFlight upload, or a notarized Mac build,
 whose zipped app goes onto the release as an --asset. The next version
 is the highest `<prefix>X.Y.Z` tag plus one patch (or minor, or major). If HEAD already carries
 a tag in the series (a re-deploy or a rebuild), nothing new is tagged: the tag is pushed and its
