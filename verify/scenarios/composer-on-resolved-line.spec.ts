@@ -54,7 +54,10 @@ test('a composer on a line whose only Threads are resolved shows and posts', asy
   const resolved = page.locator(`.cd-thread[data-t="${found.tid}"]`);
   await expect(resolved).toBeHidden();
   // The precondition: the whole strip is hidden, not only the resolved card in it.
-  await expect(page.locator(`.cd-strip.cd-all-resolved:has(.cd-thread[data-t="${found.tid}"])`)).toBeHidden();
+  const strip = page.locator(`.cd-strip:has(.cd-thread[data-t="${found.tid}"])`);
+  await expect(strip).toHaveCount(1);
+  await expect(strip).toHaveClass(/cd-all-resolved/);
+  await expect(strip).toBeHidden();
 
   await page.evaluate((tid) => {
     const mark = document.querySelector(`mark.cd-hl.cd-res[data-t="${tid}"]`)!;
