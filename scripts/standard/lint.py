@@ -30,7 +30,9 @@ PIPEFAIL_LINE = "SHELL := /bin/bash -o pipefail"
 FILE_LIMIT = 24000          # bytes per instruction, rule or skill file (Antigravity's cap)
 SESSION_LIMIT = 60000       # bytes loaded at session start, about 15k tokens of the 20k cap
 ROOT_DOCS = {"AGENTS.md", "CLAUDE.md", "GEMINI.md", "DESIGN.md", "README.md", "CONTRIBUTING.md"}
-PUBLIC_ROOT_DOCS = ROOT_DOCS | {"SECURITY.md", "CODE_OF_CONDUCT.md"}  # where GitHub's community profile looks
+# Where GitHub's community profile looks. The template no longer ships CODE_OF_CONDUCT.md, but a
+# public repo may keep its own, so it stays allowed (docs/decisions.md in repo-standard, 2026-11-02).
+PUBLIC_ROOT_DOCS = ROOT_DOCS | {"SECURITY.md", "CODE_OF_CONDUCT.md"}
 # `python3 -c`, `python3 <<EOF`, and `python3 - [args] <<EOF` (the script on stdin, arguments
 # before the redirect), each after any flags; `python3 tool.py <<EOF` feeds a real file its input.
 EMBEDDED_PYTHON = re.compile(r"\bpython[0-9.]*(?:\s+-[A-Za-z]+)*(?:\s+-c\b|\s+-(?:\s+[^\s<>|;&]+)*\s*<<|\s*<<)")
