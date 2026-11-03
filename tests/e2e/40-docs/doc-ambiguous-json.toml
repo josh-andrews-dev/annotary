@@ -1,5 +1,5 @@
 # spec: S02-07
-# JSON error form: {error, message, hint} — the candidates fold into hint. (trycmd normalises the
+# JSON error form: {error, message, hint} — the candidates fold into hint. (trycmd normalizes the
 # JSON-escaped quotes around the Name, hence the wildcards.)
 bin.name = "annotary"
 args = ["-p", "rowan", "status", "dup-plan", "--json"]

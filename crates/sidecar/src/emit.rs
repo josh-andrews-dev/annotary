@@ -39,7 +39,7 @@ impl Node {
 
 /// Serialize `value` into the canonical Sidecar text (with the trailing newline).
 pub fn emit<T: Serialize>(value: &T) -> String {
-    let node = to_node(value).expect("Sidecar types serialise");
+    let node = to_node(value).expect("Sidecar types serialize");
     let mut out = String::new();
     layout(&node, 0, &mut out);
     out.push('\n');
@@ -125,7 +125,7 @@ fn pad(indent: usize, out: &mut String) {
 
 /// A JSON string literal (serde_json escaping: `"`, `\`, control characters; non-ASCII verbatim).
 pub fn json_string(s: &str) -> String {
-    serde_json::to_string(s).expect("string serialises")
+    serde_json::to_string(s).expect("string serializes")
 }
 
 // ---------------------------------------------------------------- serde → Node

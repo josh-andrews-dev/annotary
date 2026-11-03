@@ -75,7 +75,7 @@ pub const LOOPBACK_HINT: &str = "annotary serves loopback only; add --allow-remo
 
 // ---- ticket 18 ----
 /// A `--url` / `--link-base` value: `None` = flag absent (keep the stored value), `Some(None)` =
-/// `none` (clear), `Some(Some(url))` = set (validated and normalised here, before the store is
+/// `none` (clear), `Some(Some(url))` = set (validated and normalized here, before the store is
 /// touched).
 pub type UrlFlag = Option<Option<String>>;
 

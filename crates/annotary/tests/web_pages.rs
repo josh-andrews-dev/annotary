@@ -3,7 +3,7 @@
 //! Version, every visible Thread with its placement and the embedded placement data; the
 //! time-slice, the banner, Action chips per Version, Comment bodies without embeds, the list's
 //! columns / filters / title / "more", and the login redirect when a password is set. The
-//! browser-side behaviour (layouts, overlay, highlights) is the Playwright suite in `tests/web/`.
+//! browser-side behavior (layouts, overlay, highlights) is the Playwright suite in `tests/web/`.
 
 use annotary::testing::TestServer;
 use annotary_sidecar::identity::sha256_hex;

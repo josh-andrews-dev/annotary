@@ -126,7 +126,7 @@ class Formula(unittest.TestCase):
             out,
         )
 
-    def test_an_alias_table_it_does_not_recognise_passes_through_for_the_audit_to_judge(self):
+    def test_an_alias_table_it_does_not_recognize_passes_through_for_the_audit_to_judge(self):
         table = '  BINARY_ALIASES = {\n    "aarch64-apple-darwin": {"annotary": ["an"]},\n  }\n\n'
         out = tap_formula.with_test(FORMULA.replace("  def install", table + "  def install"))
         self.assertIn(table, out)

@@ -12,7 +12,7 @@
 //!   always has a Vault, as first-run setup guarantees); Grants naming it are dropped from every
 //!   Membership (`vault.deleted {vault, name, grants_dropped[]}`).
 //! - **A profile's Vault across renames** (CMD-5, [`Store::resolve_profile_vault`]): the CLI sends
-//!   the profile's `vault` name and, once it has learnt it, the Vault's id; the events log
+//!   the profile's `vault` name and, once it has learned it, the Vault's id; the events log
 //!   (`vault.created` / `vault.renamed` / `vault.deleted`, all `doc_id IS NULL`) says which Vault
 //!   ids ever carried a name, so a profile follows its Vault through any chain of renames — even
 //!   when a new Vault later takes the old name — while a hand-edited `vault` (a name its stale id

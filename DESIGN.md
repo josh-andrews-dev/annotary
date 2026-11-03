@@ -180,7 +180,7 @@ From the mock rounds (1–3, 2026-10-29/30):
   labels, no explanatory subtitles. Only text that helps.
 - **One Settings screen for everyone**, `/settings`, with a sidebar of groups (the same groups,
   same order, as iOS) and a search field that filters by name with no request; the owner's pages
-  are its last group, Server. Changes save at once; there is no Save button. No Mixed badge in the
+  are its last group, Server. Changes save immediately; there is no Save button. No Mixed badge in the
   sidebar.
 - **"Applying to"** is a sentence with a menu ("Applying to: All devices ▾"), as in T3 Code: All
   devices, or one or more Devices (checkbox items); no subtitle under All devices.

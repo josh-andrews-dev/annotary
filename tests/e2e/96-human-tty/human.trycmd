@@ -1,7 +1,7 @@
 spec: S14-05, S14-06
 
 The human golden: the CLI prototype's `session-human.txt` in TTY mode (`ANNOTARY_TTY=1`,
-colour off) — the same verbs as the agent flow print the same fields in the same order, aligned
+color off) — the same verbs as the agent flow print the same fields in the same order, aligned
 with a dim header. It continues on the `plan` that `95-agent-flow` left at v5 (Approve by
 @rowan, five open Threads) and adds its own `roadmap`. First run and the daemon's `install` are
 not replayed (launchd: `make launchd-test`); `daemon status` reads the harness's own `serve`.

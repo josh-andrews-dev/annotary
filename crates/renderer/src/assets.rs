@@ -13,7 +13,7 @@ use crate::refs::{Classified, classify, normalize};
 /// the same thing.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Asset {
-    /// The manifest `ref` — the normalised path relative to the root Document's directory.
+    /// The manifest `ref` — the normalized path relative to the root Document's directory.
     pub reference: String,
     /// Content address of the original bytes (`None` when `missing`).
     pub hash: Option<String>,
@@ -103,7 +103,7 @@ pub enum Target<'a> {
     AsWritten,
 }
 
-/// The manifest indexed by `ref` for the root Document (its references normalise against `""`).
+/// The manifest indexed by `ref` for the root Document (its references normalize against `""`).
 #[derive(Clone, Debug, Default)]
 pub struct Manifest<'a> {
     by_ref: HashMap<&'a str, &'a Asset>,

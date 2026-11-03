@@ -58,7 +58,7 @@ const row = (page: Page, key: string) => page.locator(`#cd-set-${key}`);
 const seg = (page: Page, key: string, value: string) => row(page, key).locator(`.cd-seg-o[data-value="${value}"]`);
 const item = (page: Page, id: string) => page.locator(`#cd-set-scopemenu [data-id="${id}"]`);
 
-/** Tick or untick one entry of "Applying to" (the menu closes with Escape). */
+/** Check or uncheck one entry of "Applying to" (the menu closes with Escape). */
 async function pick(page: Page, id: string) {
   await page.locator('#cd-set-scopebtn').click();
   await item(page, id).click();
@@ -142,7 +142,7 @@ test.describe('Settings: Applying to, Mixed and the chain', () => {
   });
 
   // spec: S29-21
-  test('Reset in the chain makes a Device follow All devices; swatches, Custom… (low contrast refused inline) and text size save at once', async ({ page }) => {
+  test('Reset in the chain makes a Device follow All devices; swatches, Custom… (low contrast refused inline) and text size save immediately', async ({ page }) => {
     await withDevices(async (srv, iphone) => {
       await asDevice(srv, iphone, 'PUT', '/api/v1/me/settings', { key: 'text_size', value: 130, scope: 'devices', devices: [iphone.id] });
       await open(page, srv.url + '/settings/appearance');
@@ -282,7 +282,7 @@ test.describe('Settings: Copy from another device', () => {
 
 test.describe('Settings: the scope menu from the keyboard', () => {
   // spec: S29-21
-  test('Enter opens it, arrows move, Space and Enter toggle, the last Device unticked goes back to All devices, Escape returns focus', async ({ page }) => {
+  test('Enter opens it, arrows move, Space and Enter toggle, the last Device unchecked goes back to All devices, Escape returns focus', async ({ page }) => {
     await withDevices(async (srv, iphone) => {
       await open(page, srv.url + '/settings/appearance');
       const btn = page.locator('#cd-set-scopebtn');

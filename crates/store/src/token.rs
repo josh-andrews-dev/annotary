@@ -2,7 +2,7 @@
 
 use sha2::{Digest, Sha256};
 
-/// Recognisable prefix of every annotary Token.
+/// Recognizable prefix of every annotary Token.
 pub const TOKEN_PREFIX: &str = "ant_";
 
 /// A freshly minted Token: the id (stored) and the plain text (shown once, never stored).

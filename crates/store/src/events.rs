@@ -141,7 +141,7 @@ impl Store {
 
     /// Install (or clear) the hook run after every committed transaction — the server wakes its
     /// parked `GET /api/v1/events` long-polls with it. Called outside the store mutex, so it may
-    /// not touch the store synchronously in a way that re-enters (it needn't: a wake is a signal,
+    /// not touch the store synchronously in a way that re-enters (it doesn't need to: a wake is a signal,
     /// the waiter re-reads).
     pub fn set_commit_hook(&self, hook: Option<CommitHook>) {
         *self.commit_hook.lock().unwrap_or_else(|e| e.into_inner()) = hook.map(std::sync::Arc::from);
@@ -224,7 +224,7 @@ mod tests {
             .unwrap();
         assert_eq!(pushes.len(), 2);
         assert_eq!(pushes[0].event.doc_id.as_deref(), Some(a.as_str()));
-        // Bounds are honoured: `until` caps the page, `limit` cuts it, `since` excludes itself.
+        // Bounds are honored: `until` caps the page, `limit` cuts it, `since` excludes itself.
         let cut = store
             .events_page(&EventQuery {
                 since: 0,

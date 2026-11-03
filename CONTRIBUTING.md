@@ -52,7 +52,7 @@ The pre-commit and pre-push hooks scan for secrets with gitleaks.
 - **Goldens.** `make goldens` regenerates the CLI's expected output in `tests/e2e/`. Read the diff: never
   regenerate a golden just to make a test pass. `tests/e2e/95-agent-flow/agent.trycmd` is the end-to-end
   acceptance test, so say in the pull request why a line of it changed.
-- **Spec ids.** A behaviour change adds ids to [`tests/SPEC.md`](tests/SPEC.md) first (with the story numbers
+- **Spec ids.** A behavior change adds ids to [`tests/SPEC.md`](tests/SPEC.md) first (with the story numbers
   in its `## Stories` section), then tests that name them in a `// spec: S12-03` comment. `cargo test -p
   annotary --test spec_ids` checks it. Never put a marker in implementation code.
 - **The agent skill.** `crates/annotary/skill/SKILL.md` is what agents are told, at most 60 lines. Changing a

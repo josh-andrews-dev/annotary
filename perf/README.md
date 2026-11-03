@@ -12,7 +12,7 @@ reported separately. Absolute values, no CI multiplier.
 
 | file | what |
 |---|---|
-| `BUDGETS.md` | the budgets (the single source), how each is measured, the budget-raise rule, the record of every raise and the optimisation log |
+| `BUDGETS.md` | the budgets (the single source), how each is measured, the budget-raise rule, the record of every raise and the optimization log |
 | `budgets.ts` | reads the table of `BUDGETS.md` for the runner |
 | `playwright.config.ts` | one worker, no retries, no parallelism; `global-setup.ts` / `global-teardown.ts` |
 | `global-setup.ts` | spawns the release server (`tests/web/harness.ts`'s `spawnServer`) and runs `perfgen seed` — the generated Document (≥ 5,000 lines / ~50k words, 5 Versions, ≥ 500 Threads with mixed placements, Replies, mentions, Actions on two Versions) plus 60 small Documents for the list; state in `target/perf/harness.json` |
@@ -46,10 +46,10 @@ part of this repo's CI, so run `make perf` on your own machine before merging an
 ## Budgets and the budget-raise rule
 
 Budgets may change only by the rule in `BUDGETS.md`: at least three genuine, measured
-optimisation attempts at the missed budget first; then that budget alone may be raised to one
+optimization attempts at the missed budget first; then that budget alone may be raised to one
 absolute value with the attempts and their numbers recorded there; a raised budget is still
 asserted. Today no budget is raised — the original values hold on the fixture (see the
-optimisation log in `BUDGETS.md` for what it took).
+optimization log in `BUDGETS.md` for what it took).
 
 ## Where it runs
 
@@ -82,5 +82,5 @@ skew the numbers.
 The last test prints the table, then asserts. A `FAIL` row names the metric, its median and the
 budget; `target/perf/results.json` has every sample. First check the machine (other load, a
 debug build — `make perf` always builds release, but `ANNOTARY_BIN` can override), then the
-change: the optimisation log in `BUDGETS.md` lists what each budget depends on. Raising a budget
+change: the optimization log in `BUDGETS.md` lists what each budget depends on. Raising a budget
 is the last resort and follows the rule.

@@ -77,7 +77,7 @@ A named operation a Member takes on a Document's head Version (e.g. Approve, Sen
 _Avoid_: Button, status change, workflow step, approval state, stale
 
 **Intent**:
-The tone of an Action — positive, neutral, or negative. Drives how it is coloured and nothing else.
+The tone of an Action — positive, neutral, or negative. Drives how it is colored and nothing else.
 _Avoid_: Type, color, outcome
 
 **Member**:

@@ -910,7 +910,7 @@ function main() {
   /* CMD-6: Escape never throws typed text away. An editor is dirty when it holds text (the edit
      box: text other than the Comment's body, kept as `cdOrig`); Escape on a dirty editor asks
      inline (`.cd-discard`: discard / keep) and Escape while it asks means keep. A clean editor
-     closes at once. The Cancel button still closes without asking.
+     closes immediately. The Cancel button still closes without asking.
      CMD-12: opening another composer over a dirty one asks the same way; the new target waits on
      the editor as `cdNextPending`, "discard" opens it, "keep" / Escape / Cancel / posting drop it. */
   function editorDirty(ed) {

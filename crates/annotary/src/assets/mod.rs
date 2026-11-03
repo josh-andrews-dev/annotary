@@ -2,7 +2,7 @@
 //! files it references, the manifest entries that describe them, and the blobs to upload.
 //!
 //! - [`types`] — the supported-type constant (extension → content type, kind, scan?, derivative?).
-//! - [`scan`] — pure reference extraction + classification + path normalisation (no filesystem).
+//! - [`scan`] — pure reference extraction + classification + path normalization (no filesystem).
 //! - [`media`] — image/video dimensions and web-safe derivatives.
 //! - [`scan_document`] (here) — walks the filesystem: resolves each relative reference against
 //!   the referencing file's directory, reads and hashes it, records `missing: true` when it is
@@ -10,7 +10,7 @@
 //!   [`MAX_DEPTH`]), and collects the warnings `push` prints (and `--strict` turns into exit 5).
 //!
 //! Manifest entry: `{ref, hash, size, type, missing?, via?, width?, height?, derivative?}` —
-//! `ref` is the normalised path relative to the root Document's directory (what `pull --assets`
+//! `ref` is the normalized path relative to the root Document's directory (what `pull --assets`
 //! writes to), `via` the `ref` of the Markdown Asset that referenced it.
 
 pub mod media;

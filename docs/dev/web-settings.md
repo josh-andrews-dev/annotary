@@ -51,8 +51,8 @@ Implementation notes for the Settings screen every Member has (its design decisi
   `#cd-set-chain` (`.cd-set-cl[data-device]`, `.cd-set-clname` / `.cd-set-clnote` / `.cd-set-clv`,
   `[data-act=reset-device]`). `.cd-app.cd-set-ready` once wired; `.cd-app.cd-live` while the feed is
   connected.
-- **Saving:** a click writes at once (`PUT /api/v1/me/settings`): scope `all` with All devices
-  chosen, `devices` + the ticked ids otherwise, `user` for a user setting. The control shows the new
+- **Saving:** a click writes immediately (`PUT /api/v1/me/settings`): scope `all` with All devices
+  chosen, `devices` + the checked ids otherwise, `user` for a user setting. The control shows the new
   value before the answer and "Saving…"; the answer's `matrix` entry replaces the local one; a
   failure puts the old value back with "Couldn't save. Try again." (a `low_contrast` refusal says
   the ratio instead). Reset in the chain is `DELETE …/{key}?scope=device&device=ID`; a user

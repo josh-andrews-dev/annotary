@@ -143,7 +143,7 @@ impl ServerJson {
     }
 
     pub fn write(&self, path: &Path) -> std::io::Result<()> {
-        let mut s = serde_json::to_string_pretty(self).expect("serialises");
+        let mut s = serde_json::to_string_pretty(self).expect("serializes");
         s.push('\n');
         std::fs::write(path, s)
     }

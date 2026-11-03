@@ -180,7 +180,7 @@ passwordless server signs a browser in as the owner, appends `session.started` a
 Device, so tests counting events or Devices across a wait flaked. Chose a password on those test
 servers (`TestServer::start_locked`, `ANNOTARY_SETUP_PASSWORD` for a spawned `serve`); rejected
 making `loopback_sign_in` skip the event or the Device, because loopback trust is the designed
-behaviour and that sign-in is a real session worth recording; rejected locking every `TestServer`
+behavior and that sign-in is a real session worth recording; rejected locking every `TestServer`
 by default, because about 40 test files and the web tests rely on loopback trust.
 
 ## 2026-10-31: spawned test servers stop through a guard in the tests, not a watchdog in `serve` (CMD-28)

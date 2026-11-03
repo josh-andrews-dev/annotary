@@ -4,7 +4,7 @@
 //! it to WASM for the browser. It therefore builds for `wasm32-unknown-unknown` (std is fine
 //! there; `make wasm-check`).
 //!
-//! One superset, no flavour detection: GFM (tables, task lists, strikethrough, extended
+//! One superset, no flavor detection: GFM (tables, task lists, strikethrough, extended
 //! autolinks), footnotes, fenced code (`class="language-x"`, no baked highlighting), Mermaid
 //! fences as `<pre class="mermaid">` for viewer JS, math (`$…$`, `$$…$$`, ```` ```math ````) as
 //! MathML, YAML front matter parsed out (its `title:` is display-only). Output guardrails:

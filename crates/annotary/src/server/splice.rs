@@ -118,7 +118,7 @@ pub fn scan(html: &str) -> Vec<Block> {
             continue;
         }
         let name = html[ns..ne].to_ascii_lowercase();
-        // Attributes, honouring quotes, until `>` or `/>`.
+        // Attributes, honoring quotes, until `>` or `/>`.
         let mut j = ne;
         let mut data_l = None;
         let mut self_closing = false;

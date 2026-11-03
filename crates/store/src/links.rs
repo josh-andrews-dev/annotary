@@ -26,7 +26,7 @@ pub const PUBLIC_URL_KEY: &str = "public_url";
 /// `settings` key of the link relay base.
 pub const LINK_BASE_KEY: &str = "link_base";
 
-/// Validate and normalise a base URL: `http(s)://host[:port]`, lower-case scheme and host, no
+/// Validate and normalize a base URL: `http(s)://host[:port]`, lower-case scheme and host, no
 /// trailing slash. `Err` carries the reason (without the URL).
 pub fn normalize_base_url(text: &str) -> std::result::Result<String, String> {
     let t = text.trim();
@@ -78,7 +78,7 @@ pub fn normalize_base_url(text: &str) -> std::result::Result<String, String> {
     Ok(format!("{scheme}://{host}{port}"))
 }
 
-/// `host[:port]` of a normalised base URL (`http://h:7377` → `h:7377`).
+/// `host[:port]` of a normalized base URL (`http://h:7377` → `h:7377`).
 pub fn authority(base: &str) -> Option<&str> {
     let (_, rest) = base.split_once("://")?;
     let rest = rest.trim_end_matches('/');
@@ -179,7 +179,7 @@ impl Store {
         Ok(self.setting(LINK_BASE_KEY)?.filter(|v| !v.trim().is_empty()))
     }
 
-    /// Set (`Some`, validated + normalised) or clear (`None`) the public URL. Returns whether it
+    /// Set (`Some`, validated + normalized) or clear (`None`) the public URL. Returns whether it
     /// changed — an unchanged value writes nothing and appends no event. `by` is `None` when
     /// `serve` / `daemon install` set it (data-dir verbs, no Member).
     pub fn set_public_url(&self, by: Option<&str>, url: Option<&str>) -> Result<bool> {
@@ -230,7 +230,7 @@ mod tests {
 
     // spec: S18-04
     #[test]
-    fn base_urls_are_validated_and_normalised() {
+    fn base_urls_are_validated_and_normalized() {
         assert_eq!(
             normalize_base_url("http://Studio.example.ts.net:7377/").unwrap(),
             "http://studio.example.ts.net:7377"

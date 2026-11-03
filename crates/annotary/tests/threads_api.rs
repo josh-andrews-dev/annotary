@@ -353,7 +353,7 @@ fn mentions_resolve_at_post_time_and_survive_renames() {
     let (_, m) = ts.get("/api/v1/mentions", Some(&linter));
     assert!(m["mentions"].as_array().unwrap().is_empty());
     // A Reply's mention counts too (root or reply).
-    reply(&ts, &agent, &id, "t1", "@linter have a look", false);
+    reply(&ts, &agent, &id, "t1", "@linter take a look", false);
     let (_, m) = ts.get("/api/v1/mentions", Some(&linter));
     assert_eq!(m["mentions"].as_array().unwrap().len(), 1);
     let (_, list) = ts.get("/api/v1/docs?mentions_me=1", Some(&linter));

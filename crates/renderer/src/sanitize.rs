@@ -659,7 +659,7 @@ mod tests {
     }
 
     #[test]
-    fn allowed_markup_is_kept_normalised() {
+    fn allowed_markup_is_kept_normalized() {
         assert_eq!(
             clean("<DETAILS OPEN><Summary>s</Summary>body</DETAILS>"),
             "<details open><summary>s</summary>body</details>"

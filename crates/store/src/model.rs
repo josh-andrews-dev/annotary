@@ -271,7 +271,7 @@ pub struct PushInput {
     pub name: String,
     pub md_hash: String,
     /// Manifest entries `{ref, hash, size, type, missing?, via?, width?, height?, derivative?}`
-    /// (validated and normalised by `crate::manifest` on commit).
+    /// (validated and normalized by `crate::manifest` on commit).
     pub manifest: serde_json::Value,
     pub message: Option<String>,
     /// The Sidecar's `base_version` (None for a new Document or an unbound push).
@@ -489,7 +489,7 @@ mod tests {
     }
 
     #[test]
-    fn handle_suggestions_normalise() {
+    fn handle_suggestions_normalize() {
         assert_eq!(suggest_handle("Rowan Vale").as_deref(), Some("rowan-vale"));
         assert_eq!(suggest_handle("rowan").as_deref(), Some("rowan"));
         assert_eq!(suggest_handle("__").as_deref(), None);

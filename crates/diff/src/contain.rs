@@ -144,7 +144,7 @@ fn missing_edits(b: &[&str], h: &[&str], l: &[&str], he: &[Edit], le: &[Edit]) -
     missing
 }
 
-/// How a diff is computed and normalised. Any choice is a valid alignment of the same two
+/// How a diff is computed and normalized. Any choice is a valid alignment of the same two
 /// texts; next to another change, or among identical lines / tokens, the choices disagree about
 /// *where* a change happened (which of two blank lines was deleted, whether an append after an
 /// edited line is part of that edit). The check is sound under every alignment — local must read
@@ -165,12 +165,12 @@ impl Align {
     /// Histogram, no split, slid up: the alignment hunks are reported with.
     const CANONICAL: Align = Align { myers: false, split: 0, down: false };
 
-    /// Every normalisation of one algorithm.
+    /// Every normalization of one algorithm.
     fn variants(myers: bool) -> impl Iterator<Item = Align> {
         [0u8, 1, 2].into_iter().flat_map(move |split| [false, true].map(|down| Align { myers, split, down }))
     }
 
-    /// `(base → head, base → local)` pairs, the canonical pair first: every normalisation pair of
+    /// `(base → head, base → local)` pairs, the canonical pair first: every normalization pair of
     /// the histogram diffs, then of the Myers diffs.
     fn pairs() -> impl Iterator<Item = (Align, Align)> {
         [false, true]
@@ -326,7 +326,7 @@ fn line_diff(a: &[&str], b: &[&str], myers: bool) -> Vec<Edit> {
         .collect()
 }
 
-/// A raw diff normalised per `align` (split, then slide).
+/// A raw diff normalized per `align` (split, then slide).
 fn normalize(raw: &[Edit], a: &[&str], b: &[&str], align: Align) -> Vec<Edit> {
     let mut edits = match align.split {
         0 => raw.to_vec(),
@@ -442,7 +442,7 @@ fn tokens<'a>(ls: &[&'a str]) -> Vec<&'a str> {
 }
 
 /// The token-level check of one line chunk both sides changed: the same chunk comparison on
-/// word tokens, under every split / slide normalisation pair (see [`Align`]).
+/// word tokens, under every split / slide normalization pair (see [`Align`]).
 fn tokens_contained(base: &[&str], head: &[&str], local: &[&str]) -> bool {
     let (b, h, l) = (tokens(base), tokens(head), tokens(local));
     let (hr, lr) = (token_diff(&b, &h), token_diff(&b, &l));
@@ -469,7 +469,7 @@ fn chunk_contained(c: &Chunk, h: &[&str], l: &[&str]) -> bool {
 /// into another base→head change (so context lines read the same in base and head); missing edits
 /// whose context meets are one hunk unless another change lies between them.
 fn unified(b: &[&str], h: &[&str], all: &[Edit], missing: &[Edit]) -> Vec<Hunk> {
-    // Context may not cross the neighbouring base→head edits.
+    // Context may not cross the neighboring base→head edits.
     let bounds = |e: &Edit| -> (usize, usize) {
         let k = all.iter().position(|x| x == e).expect("missing edits are head edits");
         let lo = if k == 0 { 0 } else { all[k - 1].be };

@@ -85,7 +85,7 @@ annotary -p scribe show plan
 annotary -p scribe thread reply plan t1 -m "Yes: the CLI comes first."
 ```
 
-The reply appears in your browser straight away. `--resolve` on a reply also closes the Thread, and an
+The reply appears in your browser right away. `--resolve` on a reply also closes the Thread, and an
 agent can block with `annotary -p scribe wait plan`, so it spends no tokens while it waits. It wakes on a new Version, an
 Action or a comment that @mentions it, so write `@scribe` in a reply it should see.
 

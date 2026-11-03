@@ -5,7 +5,7 @@
 //! `document.created {vault, name}`, `version.pushed {version, name, hash, message?, same_as?}`,
 //! `document.deleted|restored|purged {name}`. The Store's single-writer transaction is the
 //! per-Document lock around number allocation + event append. Later tickets extend the same
-//! places: the manifest is validated/normalised by `crate::manifest` (ticket 03; caps in
+//! places: the manifest is validated/normalized by `crate::manifest` (ticket 03; caps in
 //! `crate::caps`; [`version_blob_refs`] lists Asset + derivative hashes), 04/05 call
 //! [`bump_activity`] from Thread/Action events and add their rows to `purge_document`, 07 stores
 //! `placements`, 09 `renderer` / `html_hash`.
@@ -222,7 +222,7 @@ impl Store {
         &self.blobs
     }
 
-    /// Store a blob (any content). Serialised with purge/GC through the store mutex so an
+    /// Store a blob (any content). Serialized with purge/GC through the store mutex so an
     /// uploaded-but-not-yet-committed blob is never swept from under a push.
     pub fn put_blob(&self, bytes: &[u8]) -> Result<(String, bool)> {
         let _guard = self.conn();
@@ -261,7 +261,7 @@ impl Store {
     // ---------------------------------------------------------------- create / push
 
     /// Create a Document with v1 in `vault_id`. The Markdown blob and every manifest blob must
-    /// already be stored; the manifest is validated and normalised (`crate::manifest`, caps in
+    /// already be stored; the manifest is validated and normalized (`crate::manifest`, caps in
     /// `crate::caps`).
     pub fn create_document(&self, by: &str, vault_id: &str, mut input: PushInput) -> Result<DocumentView> {
         validate_name(&input.name)?;

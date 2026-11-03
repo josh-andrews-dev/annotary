@@ -594,7 +594,7 @@ fn sse_ends_when_its_credential_dies() {
             Ok(None) => {}
             other => panic!("{what}: the stream should have ended, got {other:?}"),
         }
-        assert!(started.elapsed() < Duration::from_secs(3), "{what}: ended at once, not by the timeout");
+        assert!(started.elapsed() < Duration::from_secs(3), "{what}: ended immediately, not by the timeout");
     };
 
     // A revoked Token.

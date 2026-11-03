@@ -58,7 +58,7 @@ fn sidecar_declarations_round_trip_through_pull_edit_push() {
     assert_eq!(after, before, "push rewrote the Sidecar from the server (the hand edit is gone)");
 
     // Editing `available` and dropping the flag declares per-Document; the next pull/push shows
-    // the Document's own set (no `inherited`), and `act` honours it.
+    // the Document's own set (no `inherited`), and `act` honors it.
     let declared = before.replace("    ],\n    \"inherited\": true\n", "    ]\n").replace(
         "{\"id\": \"send-back\", \"label\": \"Send back\", \"intent\": \"neutral\"}",
         "{\"id\": \"ship\", \"label\": \"Ship it\", \"intent\": \"positive\"}",

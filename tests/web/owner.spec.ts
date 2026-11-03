@@ -1,5 +1,5 @@
 // Owner screens & login page (ticket 12): the Members screen (Add member → a Token the CLI
-// accepts at once; per-Token last_used; mint / revoke / rename / disable; role + Grants behind
+// accepts immediately; per-Token last_used; mint / revoke / rename / disable; role + Grants behind
 // Advanced), the Settings screen (local password → login page → remembered session; the default
 // Actions editor → a new Document pulls them as `actions.available` with `inherited: true`; Vault
 // create / rename / delete; auto-purge), and owner-only gating for a Member. Tests that change
@@ -30,7 +30,7 @@ const card = (page: Page, handle: string) => page.locator(`.cd-mem[data-handle="
 
 test.describe('Members', () => {
   // spec: S12-01, S12-02
-  test('Add member → the Token line (copyable) works from the CLI at once; the card shows handle, name, role, grants, auth hint, Tokens with last used; mint / revoke / rename / Advanced / disable', async ({ page, context }) => {
+  test('Add member → the Token line (copyable) works from the CLI immediately; the card shows handle, name, role, grants, auth hint, Tokens with last used; mint / revoke / rename / Advanced / disable', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     // CMD-23: /members 308s to the Members page under Settings → Server.
     await page.goto(h().url + '/members');

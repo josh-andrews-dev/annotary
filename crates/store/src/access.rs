@@ -90,7 +90,7 @@ fn active_member(tx: &Transaction, member_id: &str) -> Result<MemberView> {
 }
 
 /// Order rights canonically (`read, comment, action, write`) and drop duplicates.
-fn normalise_rights(rights: &[Right]) -> Vec<Right> {
+fn normalize_rights(rights: &[Right]) -> Vec<Right> {
     Right::ALL.iter().copied().filter(|r| rights.contains(r)).collect()
 }
 
@@ -158,11 +158,11 @@ impl Store {
         })
     }
 
-    /// Validate and normalise a Grant list: every `vault` is `*` or an existing Vault name, each
+    /// Validate and normalize a Grant list: every `vault` is `*` or an existing Vault name, each
     /// Vault appears once (a later entry replaces an earlier one), rights are de-duplicated in
     /// canonical order and never empty (an empty list means "no Grant on that Vault" — drop the
     /// entry instead).
-    pub fn normalise_grants(&self, grants: Vec<Grant>) -> Result<Vec<Grant>> {
+    pub fn normalize_grants(&self, grants: Vec<Grant>) -> Result<Vec<Grant>> {
         let vaults: Vec<String> = self.list_vaults()?.into_iter().map(|v| v.name).collect();
         let mut out: Vec<Grant> = Vec::new();
         for g in grants {
@@ -170,7 +170,7 @@ impl Store {
             if vault != "*" && !vaults.contains(&vault) {
                 return Err(StoreError::VaultNotFound(vault));
             }
-            let rights = normalise_rights(&g.rights);
+            let rights = normalize_rights(&g.rights);
             if rights.is_empty() {
                 return Err(StoreError::InvalidGrant(format!(
                     "rights for {vault} must not be empty (drop the Grant instead)"
@@ -191,7 +191,7 @@ impl Store {
         if vault != "*" && self.vault_by_name(vault)?.is_none() {
             return Err(StoreError::VaultNotFound(vault.to_string()));
         }
-        let rights = normalise_rights(rights);
+        let rights = normalize_rights(rights);
         self.tx(|tx| {
             let m = active_member(tx, member_id)?;
             let mut grants: Vec<Grant> = m.grants.into_iter().filter(|g| g.vault != vault).collect();
@@ -203,9 +203,9 @@ impl Store {
         })
     }
 
-    /// Replace a Member's whole Grant list (validated by [`Store::normalise_grants`]).
+    /// Replace a Member's whole Grant list (validated by [`Store::normalize_grants`]).
     pub fn replace_grants(&self, by: &str, member_id: &str, grants: Vec<Grant>) -> Result<MemberView> {
-        let mut grants = self.normalise_grants(grants)?;
+        let mut grants = self.normalize_grants(grants)?;
         grants.sort_by_key(|g| if g.vault == "*" { String::new() } else { g.vault.clone() });
         self.tx(|tx| {
             let m = active_member(tx, member_id)?;
@@ -641,7 +641,7 @@ mod tests {
         assert_eq!(m.grants, vec![Grant { vault: "notes".into(), rights: vec![Right::Read, Right::Comment] }]);
         let m = store.grant(&owner.id, &linter.id, "notes", &[]).unwrap();
         assert!(m.grants.is_empty());
-        // replace_grants normalises: later entry wins, rights ordered, unknown Vault refused.
+        // replace_grants normalizes: later entry wins, rights ordered, unknown Vault refused.
         store.create_vault(&owner.id, "drafts").unwrap();
         let m = store
             .replace_grants(

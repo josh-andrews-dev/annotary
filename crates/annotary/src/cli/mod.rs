@@ -93,7 +93,7 @@ pub struct Globals {
     /// Result only — no progress, no hints
     #[arg(short = 'q', long, global = true)]
     pub quiet: bool,
-    /// No colour, even on a terminal
+    /// No color, even on a terminal
     #[arg(long, global = true)]
     pub no_color: bool,
     /// Data dir (config.toml, server.json, logs/, store/) [default: ~/.annotary]

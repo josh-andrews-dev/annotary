@@ -2,7 +2,7 @@
 //! (`GET /d/{id}/t/{tid}?v=N`) the page re-draws cards from, the mutation controls the page
 //! renders per viewer (reply / resolve for commenters, edit / delete for the author or an owner,
 //! Action buttons head-only and by intent, none for `[]` or without the `action` right), the pill
-//! / help markup on head, and the extra `#cd-data` fields the script needs. The browser behaviour
+//! / help markup on head, and the extra `#cd-data` fields the script needs. The browser behavior
 //! itself is `tests/web/commenting.spec.ts`, `keyboard.spec.ts`, `live.spec.ts`.
 
 use annotary::testing::TestServer;
