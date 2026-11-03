@@ -168,8 +168,7 @@ phone too. An iPhone and iPad app is coming later; the server's `annotary pair`,
 - [The guide](docs/annotary-guide.html): what Annotary does, with interactive examples.
 - [Glossary](docs/CONTEXT.md): Document, Version, Vault, Thread and the other words used here.
 - [Architecture decisions](docs/adr/) and [smaller decisions](docs/decisions.md): why it works this way.
-- [Contributing](CONTRIBUTING.md), [implementation notes](docs/dev/README.md) and the
-  [Code of Conduct](https://github.com/josh-andrews-dev/annotary/blob/main/CODE_OF_CONDUCT.md).
+- [Contributing](CONTRIBUTING.md) and [implementation notes](docs/dev/README.md).
 - Questions go to [Discussions](https://github.com/josh-andrews-dev/annotary/discussions), bugs and ideas to
   [Issues](https://github.com/josh-andrews-dev/annotary/issues).
 

@@ -483,7 +483,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S32-05 — a Thread made by selecting text on a corpus Document lands on the source range the CLI reports, and its re-anchored state shows on the next Version (story 91)
 - S32-06 — selecting right-to-left, CJK and combining-mark text, by a DOM range and by double-clicking a word, makes a Thread whose quote and code-point range match the source (story 146)
 - S32-07 — a guard fails when test data, code or the docs hold a tailnet hostname other than `example.ts.net`, an email address outside an `example` domain, or a home path other than `/home/linuxbrew`, or an archive or a database it cannot read; a hit planted in a file fails it; nothing under `tests`, `fixtures` or `crates` is exempt
-- S32-08 — what is checked before publishing passes on the committed tree; an email address is allowed only in the files the guard lists by path (the Code of Conduct's contact and the template's record of it)
+- S32-08 — what is checked before publishing passes on the committed tree; an email address is allowed only in the files the guard lists by path (the template's record of the contact it requires)
 <!-- ---- end M5 ---- -->
 <!-- ---- M4 ---- -->
 ## M4 — a server installs from a release, and the repo names no host
