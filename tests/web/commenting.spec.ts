@@ -594,6 +594,60 @@ test.describe('first paint stays complete', () => {
 });
 
 test.describe('hidden resolved Threads (CMD-20)', () => {
+  // spec: S36-01
+  test('a composer on a line whose only Threads are resolved shows, posts there, and Cancel hides the line again', async ({ page }) => {
+    const png = fs.readFileSync(path.join(REPO_ROOT, 'tests', 'e2e', '48-reanchor-seed', 'seed.in', 'img', 'architecture.png'));
+    const md = `# Resolved line
+
+- **Recommended: A.** Leave it running.
+- B. Pause it.
+
+![architecture](img/architecture.png)
+`;
+    const doc = seedDoc('web-c36', md, { 'img/architecture.png': png });
+    cli(h().agent, ['thread', 'new', doc.id, rangeOf(md, 'Recommended: A.'), '-m', 'Resolved span.']);
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    cli(h().agent, ['thread', 'new', doc.id, '--asset', 'img/architecture.png', '-m', 'Resolved Asset.']);
+    cli(h().agent, ['thread', 'resolve', doc.id, 't2']);
+    await openDoc(page, doc.id);
+    const composer = page.locator('.cd-composer');
+    const strip = page.locator('.cd-strip:has(.cd-thread[data-t="t1"])');
+    await expect(strip).toBeHidden();
+
+    // The `c` key on the same words the resolved Thread is on: the box is there, focused.
+    await selectText(page, '.cd-doc li', 'Recommended: A.');
+    await expect(page.locator('#cd-pill')).toBeVisible();
+    await page.keyboard.press('c');
+    await expect(composer.locator('textarea')).toBeVisible();
+    await expect(composer.locator('textarea')).toBeFocused();
+    await expect(page.locator('.cd-thread[data-t="t1"]')).toBeHidden();
+
+    // Cancel: the line's strip goes back to hidden, the resolved Thread stays where it was.
+    await composer.locator('[data-act="cancel"]').click();
+    await expect(composer).toHaveCount(0);
+    await expect(strip).toBeHidden();
+
+    // Posting: the new card shows in that strip; the resolved one stays behind the toggle.
+    await selectText(page, '.cd-doc li', 'Recommended: A.');
+    await page.keyboard.press('c');
+    await postComposer(page, 'Leave it running.');
+    const card = page.locator('.cd-thread[data-t="t3"]');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('Leave it running.');
+    await expect(strip).toBeVisible();
+    await expect(page.locator('.cd-thread[data-t="t1"]')).toBeHidden();
+
+    // A resolved whole-Asset Thread hides its strip the same way.
+    const assetStrip = page.locator('.cd-strip:has(.cd-thread[data-t="t2"])');
+    await expect(assetStrip).toBeHidden();
+    await page.locator('.cd-doc img').click();
+    await page.locator('#cd-pill').click();
+    await expect(composer.locator('textarea')).toBeVisible();
+    await expect(composer.locator('textarea')).toBeFocused();
+    await composer.locator('[data-act="cancel"]').click();
+    await expect(assetStrip).toBeHidden();
+  });
+
   // spec: S28-01
   test('with the toggle off, clicking a resolved Thread\'s text does nothing; an open Thread under it still opens', async ({ page }) => {
     const md = `# Hidden

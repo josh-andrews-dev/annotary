@@ -659,13 +659,14 @@ function main() {
     var rn = $('.cd-res-n');
     if (rn) rn.textContent = String(resolved);
     // A strip whose Threads are all resolved hides with them.
-    $$('.cd-strip', docEl).forEach(function (s) {
-      if (s.classList.contains('cd-strip-orphaned')) return;
-      var ts = $$('.cd-thread', s);
-      var all = ts.length > 0 && ts.every(function (t) { return t.classList.contains('cd-resolved') && !t.classList.contains('cd-composer'); });
-      s.classList.toggle('cd-all-resolved', all);
-    });
+    $$('.cd-strip', docEl).forEach(syncStripHidden);
     updateOrphanedCount();
+  }
+  function syncStripHidden(s) {
+    if (s.classList.contains('cd-strip-orphaned')) return;
+    var ts = $$('.cd-thread', s);
+    var all = ts.length > 0 && ts.every(function (t) { return t.classList.contains('cd-resolved') && !t.classList.contains('cd-composer'); });
+    s.classList.toggle('cd-all-resolved', all);
   }
 
   /* ---------- placing cards: the client-side twin of splice.rs ---------- */
@@ -900,6 +901,8 @@ function main() {
       unhighlight(tid);
       card.remove();
       dropEmptyStrip(strip);
+      // A composer shows a line's strip that resolved Threads had hidden: gone, it hides again.
+      if (strip && strip.isConnected) syncStripHidden(strip);
     } else if (card.getAttribute('data-stale')) {
       card.removeAttribute('data-stale');
       refreshCard(card.getAttribute('data-t'));
@@ -1559,7 +1562,9 @@ function main() {
       card.cdPending = { subject: 'asset', ref: p.ref, hash: p.hash, line: line };
       p.el.classList.add('cd-asset-hl', 'cd-pending-hl');
       p.el.setAttribute('data-t', tid);
-      stripFor(line).appendChild(card);
+      var aStrip = stripFor(line);
+      aStrip.appendChild(card);
+      syncStripHidden(aStrip);
       card.classList.add('cd-open');
       deselect();
       focusEditor(card);
@@ -1593,7 +1598,10 @@ function main() {
       var card = composerCard(tid, '<q>' + esc(quote) + '</q>', '');
       card.setAttribute('data-line', String(m.line));
       card.cdPending = { subject: 'span', range: m.range, exact: m.exact, line: m.line, end: m.end };
-      stripFor(m.line).appendChild(card);
+      // The line's strip may be hidden: its Threads are all resolved. The composer must show it.
+      var strip = stripFor(m.line);
+      strip.appendChild(card);
+      syncStripHidden(strip);
       card.classList.add('cd-open');
       deselect();
       window.getSelection().removeAllRanges();
