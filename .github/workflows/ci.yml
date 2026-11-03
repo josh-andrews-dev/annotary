@@ -57,7 +57,7 @@ jobs:
         run: scripts/standard/gitleaks.sh scan
       # `make ci` runs codespell through uvx (scripts/standard/en_us.py), and a hosted runner has no
       # uv. On the home runner it is on the host.
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.1"
       - name: make ci
