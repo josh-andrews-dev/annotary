@@ -84,3 +84,11 @@ budget; `target/perf/results.json` has every sample. First check the machine (ot
 debug build — `make perf` always builds release, but `ANNOTARY_BIN` can override), then the
 change: the optimization log in `BUDGETS.md` lists what each budget depends on. Raising a budget
 is the last resort and follows the rule.
+
+A failure from a scheduled job needs one more check, because how the suite is started changes the
+numbers. On macOS, launchd throttles a job whose `ProcessType` is unset, and Chromium inherits that.
+On one Mac, at one commit and the same machine load (about 88% idle), a job like that failed 3 runs
+of 3 (FCP 104 – 136 ms, optimistic reply medians 31 – 111 ms and unstable from run to run) while `make perf`
+from an interactive shell passed 3 of 3 (FCP 76 ms, optimistic reply 14 – 18 ms). `taskpolicy -c utility make
+perf` reproduced the failure in that shell. So before looking for a regression, run the same commit
+from a shell on the same machine: a pass there points at the job's scheduling and not the code.
