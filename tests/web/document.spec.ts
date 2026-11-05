@@ -4,6 +4,7 @@
 // the first HTML response carries every Thread (no post-load Thread fetch).
 import { test, expect, type Page } from '@playwright/test';
 import { harness } from './harness';
+import { MIN_INK_GAP, SELECT_NARROWS_BELOW, selectInk } from './select-ink';
 
 const h = () => harness();
 const docUrl = (v?: number) => `${h().url}/d/${h().doc.id}${v ? `/v/${v}` : ''}`;
@@ -294,20 +295,20 @@ test.describe('versions', () => {
     for (const width of [1280, 1000]) {
       await open(page, width);
       const sel = page.locator('#cd-vsel');
-      const box = await sel.evaluate((e: HTMLSelectElement) => {
-        const cs = getComputedStyle(e);
-        const ctx = document.createElement('canvas').getContext('2d')!;
-        ctx.font = cs.font;
-        return {
-          padRight: parseFloat(cs.paddingRight),
-          overflow: cs.textOverflow,
-          label: ctx.measureText(e.options[e.selectedIndex].text).width,
-          room: e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
-        };
+      const cs = await sel.evaluate((e) => {
+        const s = getComputedStyle(e);
+        return { padRight: parseFloat(s.paddingRight), overflow: s.textOverflow };
       });
-      expect(box.label, `width ${width}: the label is long enough to need the room`).toBeGreaterThan(box.room);
-      expect(box.padRight, `width ${width}`).toBeGreaterThanOrEqual(20);
-      expect(box.overflow, `width ${width}`).toBe('ellipsis');
+      const ink = await selectInk(sel);
+      expect(ink.label, `width ${width}: the label is long enough to need the room`).toBeGreaterThan(ink.room);
+      if (width < SELECT_NARROWS_BELOW) expect(ink.width, `width ${width}: the narrower max width`).toBeLessThanOrEqual(170);
+      else {
+        expect(ink.width, `width ${width}: the wide max width`).toBeGreaterThan(170);
+        expect(ink.width, `width ${width}: the wide max width`).toBeLessThanOrEqual(220);
+      }
+      expect(ink.gap, `width ${width}: blank columns between the label and the chevron`).toBeGreaterThanOrEqual(MIN_INK_GAP);
+      expect(cs.padRight, `width ${width}`).toBeGreaterThanOrEqual(20);
+      expect(cs.overflow, `width ${width}`).toBe('ellipsis');
     }
   });
 });
