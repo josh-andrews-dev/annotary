@@ -11,3 +11,7 @@
 <!-- What you ran and what happened: `make lint test`, `make check`, a screenshot for a visible change. -->
 
 Monitoring changes: <!-- does this change how a running server behaves or is watched? Say how, or write "none". -->
+
+## Lessons
+
+<!-- What this change taught that the repo should keep, or "None". The required `lessons` check fails until this section has text. -->
