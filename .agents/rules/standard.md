@@ -19,6 +19,9 @@ to it arrives through a standard upgrade. The repo's own rules are in `AGENTS.md
 A pull request merges when:
 - `make lint test` passes (a change only to docs or agent instructions needs only `make lint`);
 - the `ci` check has passed on the pull request;
+- the pull request body has a `## Lessons` section with what the change taught that the repo
+  should keep, or `None`; the required `lessons` check fails until it does, and editing the body
+  runs it again;
 - for a server change, you have run `make deploy` and `make server-health` passes.
 
 A change touching only docs or agent instructions, made after your last local checks passed, may

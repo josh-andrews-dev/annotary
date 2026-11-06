@@ -87,6 +87,8 @@ fn ci_runs_on_github_hosted_runners_and_perf_is_in_no_workflow() {
     assert!(ci.contains("\non:\n  pull_request:\n  push:\n    branches: [main]\n"), "{ci}");
     let required = read(".github/workflows/ci.yml");
     assert!(job(&required, "ci").contains("runs-on: ubuntu-latest"), "{required}");
+    let lessons = read(".github/workflows/lessons.yml");
+    assert!(job(&lessons, "lessons").contains("runs-on: ubuntu-latest"), "{lessons}");
 
     // Across every workflow: no self-hosted runner, a fork's pull request could reach it, and no
     // `make perf`, whose absolute budgets mean nothing on a shared runner.
@@ -101,7 +103,7 @@ fn ci_runs_on_github_hosted_runners_and_perf_is_in_no_workflow() {
         }
     }
     names.sort();
-    assert_eq!(names, ["checks.yml", "ci.yml", "publish-tap.yml", "release.yml"]);
+    assert_eq!(names, ["checks.yml", "ci.yml", "lessons.yml", "publish-tap.yml", "release.yml"]);
 
     // Every action is pinned to a commit, with what it is in a comment: a tag or a branch can move.
     for name in &names {

@@ -1,0 +1,95 @@
+# Rendered from the repo-standard template; never edited in this repo. The job name `lessons` is a
+# required status check in the repo's ruleset: a pull request merges only once its body has a
+# `## Lessons` section with some text under it (what the change taught that the repo
+# should keep, or `None`). It reads
+# only the event's body, so it needs no checkout; editing the body re-runs it. It runs
+# on a GitHub-hosted runner: the repo is public.
+name: lessons
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: lessons-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lessons:
+    name: lessons
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # The body goes through env, never into the script text. Only prose counts, as Markdown
+      # reads it: HTML comments (the pull request template's hints) and fenced code are not text,
+      # and a heading inside either is not one; an inline code span hides a `<!--` in it; a line
+      # indented four spaces is code, never a heading. POSIX awk: gawk, mawk and macOS awk.
+      - name: lessons section
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n' "$BODY" | tr -d '\r' > "$RUNNER_TEMP/body"
+          if awk '
+            function indent(s,   n) { n = 0; while (substr(s, n + 1, 1) == " ") n++; return n }
+            function run(s, c,   n) { n = 0; while (substr(s, n + 1, 1) == c) n++; return n }
+            function prose(line,   out, i, j, n, rest, k, q, m, r, pos) {
+              out = ""
+              while (line != "") {
+                if (comment) {
+                  i = index(line, "-->")
+                  if (i == 0) return out
+                  line = substr(line, i + 3); comment = 0; continue
+                }
+                i = index(line, "<!--"); j = index(line, "`")
+                if (i == 0 && j == 0) return out line
+                if (j > 0 && (i == 0 || j < i)) {
+                  n = run(substr(line, j), "`"); rest = substr(line, j + n)
+                  # a code span closes only on a run of exactly as many backticks
+                  k = 0; r = rest; pos = 0
+                  while ((q = index(r, "`")) > 0) {
+                    m = run(substr(r, q), "`")
+                    if (m == n) { k = pos + q; break }
+                    pos += q + m - 1; r = substr(r, q + m)
+                  }
+                  if (k == 0) { out = out substr(line, 1, j + n - 1); line = rest; continue }
+                  out = out substr(line, 1, j + n + k + n - 2); line = substr(rest, k + n); continue
+                }
+                out = out substr(line, 1, i - 1); line = substr(line, i + 4)
+                if (substr(line, 1, 1) == ">") { line = substr(line, 2); continue }
+                if (substr(line, 1, 2) == "->") { line = substr(line, 3); continue }
+                comment = 1
+              }
+              return out
+            }
+            {
+              ind = indent($0); rest = substr($0, ind + 1); c = substr(rest, 1, 1)
+              if (fence) {
+                n = run(rest, fch)
+                if (ind <= 3 && n >= flen && substr(rest, n + 1) ~ /^[ \t]*$/) fence = 0
+                next
+              }
+              if (!comment && ind <= 3 && (c == "`" || c == "~")) {
+                n = run(rest, c)
+                if (n >= 3 && !(c == "`" && index(substr(rest, n + 1), "`"))) { fence = 1; fch = c; flen = n; next }
+              }
+              text = prose($0); ind = indent(text); head = substr(text, ind + 1)
+              if (ind <= 3 && (head ~ /^##?[ \t]/ || head ~ /^##?$/)) {
+                head = tolower(head); sub(/[ \t#]+$/, "", head)
+                section = (head ~ /^##[ \t]+lessons$/)
+                next
+              }
+              # a subheading (### to ######) stays inside the section but is not an answer
+              if (ind <= 3 && (head ~ /^###(#?#?#?)[ \t]/ || head ~ /^###(#?#?#?)$/)) next
+              if (section && text ~ /[^ \t]/) found = 1
+            }
+            END { exit !found }
+          ' "$RUNNER_TEMP/body"; then
+            echo "The pull request body has a ## Lessons section."
+            exit 0
+          fi
+          msg='The pull request body needs a "## Lessons" section with text under it: what this change taught that the repo should keep, or "None". Edit the body; the check runs again.'
+          echo "::error title=lessons::$msg"
+          printf '%s\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
