@@ -43,8 +43,8 @@ Status: draft for Josh's review, 2026-11-06. Nothing built.
 
 ## What was checked (2026-11-06)
 
-Hermes source read at `NousResearch/hermes-agent` `8153953654` (2026-11-07), latest tag
-`v2026.9.24`, plus Josh's two shipped Hermes plugins (the Winley Notes Desktop page and the
+Hermes source read at `NousResearch/hermes-agent` `8153953654` (2026-11-07, after release
+`v0.23.0` of 2026-11-05), plus Josh's two shipped Hermes plugins (the Winley Notes Desktop page and the
 hermes-gadget platform plugin), whose notes on the plugin API are confirmed by the source.
 
 Conflicts and hang-ups first:
@@ -65,9 +65,25 @@ Conflicts and hang-ups first:
    webapp`, port 9120; **Settings → Web Access** turns it on for other devices behind a Nous
    account sign-in, or behind an HTTPS address you run). Desktop plugins run there too, and the SDK
    documents how `SandboxedFrame` behaves in it. This is the route to phones for a plugin UI.
-4. **The Hermes iPhone app connects through the gateway's dashboard sign-in** (`desktop.md` names
-   phone chats labeled `mobile` / `ios`). Nothing in the source says it renders Desktop plugins.
-   Details from x.com: see "Mobile" below.
+4. **The Hermes iPhone app is a waitlist beta with no plugin surface.** It connects through the
+   gateway's dashboard sign-in (`desktop.md` names phone chats labeled `mobile` / `ios`). Teknium on
+   2026-11-06: "There is a waitlist"
+   ([post](https://x.com/Teknium/status/2118536433845875104)). No Nous post or doc says it renders
+   plugin pages, web views or Markdown, and one user reports reconnect loops after 0.23. What beta
+   testers are told to use meanwhile is the Webapp in a phone browser: "I would try serving Desktop
+   in mobile browser via tailscale" (a beta tester,
+   [post](https://x.com/3rosika/status/2118697545635447009)). So **mobile means the Webapp**, and
+   the native app only gets links.
+4a. **Hermes v0.23.0 ("The Hearth Release", 2026-11-05)** is the release that serves the Desktop
+   workspace in a browser and loads installed Desktop plugins in a Webapp tab. The entry requires
+   `>=0.23.0`. The web dashboard (`hermes dashboard`) is "going away" (Teknium,
+   [post](https://x.com/Teknium/status/2118536701081772236)), so nothing here builds on dashboard
+   tabs. Practitioners' main pain is a plugin that must run both on a headless server and in Desktop
+   ([post](https://x.com/dmkjr/status/2118886632925569342)); this design is built for exactly that
+   split, which is worth saying in the demo.
+4b. **Desktop's in-app browser has an "Annotate" mode** that pins comments on a live web page and
+   drops them into the composer. It is a one-shot note to the agent, with no document, Versions,
+   Threads or replies. Annotary is different, and the README should say how in one line.
 5. **No profile lifecycle events.** `VALID_HOOKS` has session hooks but nothing for a profile
    being created or deleted. Profiles are folders under `~/.hermes/profiles/` with one of
    `config.yaml`, `.env`, `SOUL.md`, `profile.yaml`, `auth.json`, `state.db`; the default profile
@@ -454,8 +470,8 @@ results go in the plugin README's "Tested on" table.
   on the critical path. Embed mode is the one piece that needs real design care.
 - **Catalog review latency** ("every few days"): the form only needs the PR open, so a late merge
   does not lose the entry. It does delay the Marketplace listing.
-- **Hermes moves daily**: pin `requires_hermes` to the release we test on Monday; re-run
-  validate on Tuesday morning.
+- **Hermes moves daily** (about 1,950 merged PRs between 0.22 and 0.23): `requires_hermes:
+  ">=0.23.0"`, test on the newest release on Monday, re-run validate on Tuesday morning.
 - **Store versions:** an older plugin with an older binary cannot open a store a newer one
   migrated. The plugin exports before it upgrades the binary.
 - **Money:** one Google Cloud VM, `e2-small` in `us-central1` (about $13 a month list price,
@@ -481,4 +497,5 @@ results go in the plugin README's "Tested on" table.
 
 ## Run log
 
-- 2026-11-06: research done; plan drafted. Nothing built.
+- 2026-11-06: research done (Hermes source, Josh's two Hermes plugins, x.com through Grok);
+  plan drafted. Nothing built.
