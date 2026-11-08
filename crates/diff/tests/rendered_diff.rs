@@ -266,6 +266,77 @@ fn line_counts_change_points_and_folds() {
     assert_eq!(annotary_diff::line_counts("a\r\nb\n", "a\nb\nc"), (1, 0), "CRLF and a missing final newline");
 }
 
+// spec: S40-10
+#[test]
+fn only_tags_lose_their_id_and_data_l() {
+    // Raw HTML text keeps a literal `"`: ` id="` in it is text, however the next tag looks.
+    for (gone, kept) in [
+        ("<div><span>foo id=\"bar</span></div>\n", "foo id=\"bar"),
+        ("<p>See id=\"x and <a href=\"https://example.com\">link</a></p>\n", "href=\"https://example.com\""),
+        ("<p>See data-l=\"x and <a href=\"https://example.com\">link</a></p>\n", "See data-l=\"x and"),
+    ] {
+        let a = format!("# T\n\n{gone}\nKept paragraph.\n");
+        let d = diff(&a, "# T\n\nKept paragraph.\n");
+        assert_balanced(&d.html);
+        assert_eq!(d.stats.blocks_removed, 1, "{}", d.html);
+        assert!(d.html.contains(kept), "{kept} in {}", d.html);
+    }
+    // In a tag: both go, quoted values holding either word stay.
+    let d = diff("<div id=\"x\" title=\"a id=b\" data-l=\"3-3\">gone</div>\n\nKept.\n", "Kept.\n");
+    assert!(d.html.contains("title=\"a id=b\""), "{}", d.html);
+    assert!(!d.html.contains("id=\"x\""), "{}", d.html);
+    // Text differing only in such a phrase is a change, not equal.
+    let d = diff("<div>a id=\"1\" b</div>\n", "<div>a id=\"2\" b</div>\n");
+    assert!(d.stats.changes > 0, "{}", d.html);
+}
+
+// spec: S40-11
+#[test]
+fn a_container_with_blocks_on_one_side_is_diffed_by_its_children() {
+    // Tight to loose, nothing in common: the old text removed inside the item, the paragraphs added.
+    let (a, b) = ("- old words only\n", "- brand new text\n\n  more of it\n");
+    let d = diff(a, b);
+    assert_balanced(&d.html);
+    assert!(d.html.contains("<del class=\"cd-del cd-dx-del\" data-cd-dx=\"1\">old words only"), "{}", d.html);
+    assert_eq!(d.html.matches("class=\"cd-dx-add cd-dx-blk\"").count(), 2, "{}", d.html);
+    assert!(!d.html.contains("</del></p>") && !d.html.contains("</p><del"), "{}", d.html);
+    assert_reads_back(a, b);
+    // Loose to tight: the paragraphs removed whole, with their own tags.
+    let d = diff(b, a);
+    assert_balanced(&d.html);
+    assert!(d.html.contains("<p class=\"cd-dx-del cd-dx-blk\""), "{}", d.html);
+    assert_eq!(d.html.matches("cd-dx-del cd-dx-blk").count(), 2, "{}", d.html);
+    assert_reads_back(b, a);
+    // Similar text pairs with its paragraph, word by word, inside the paragraph.
+    let (a, b) = ("- same words stay here\n", "- same words stay here now\n\n  more of it\n");
+    let d = diff(a, b);
+    assert!(d.html.contains("same words stay here<ins class=\"cd-ins\"> now</ins></p>"), "{}", d.html);
+    assert!(d.html.contains("class=\"cd-dx-mod\""), "{}", d.html);
+    assert_reads_back(a, b);
+    assert_reads_back(b, a);
+    // The same text gaining a paragraph tag is only a formatting change.
+    let (a, b) = ("- one item\n- two item\n", "- one item\n\n- two item\n");
+    let d = diff(a, b);
+    assert!(!d.html.contains("cd-ins") && !d.html.contains("cd-del"), "{}", d.html);
+    assert!(d.html.contains("cd-dx-fmt"), "{}", d.html);
+    assert_reads_back(a, b);
+}
+
+// spec: S40-02
+#[test]
+fn a_ticked_task_box_is_marked_tight_and_loose_both_ways() {
+    let tight = ("- [ ] ship it\n", "- [x] ship it\n");
+    let loose = ("- [ ] ship it\n\n- [ ] then rest\n", "- [x] ship it\n\n- [ ] then rest\n");
+    for (a, b) in [tight, (tight.1, tight.0), loose, (loose.1, loose.0)] {
+        let d = diff(a, b);
+        assert_balanced(&d.html);
+        assert!(d.html.contains("<del class=\"cd-del\"><input type=\"checkbox\""), "{}", d.html);
+        assert!(d.html.contains("<ins class=\"cd-ins\"><input type=\"checkbox\""), "{}", d.html);
+        assert!(!d.html.contains("cd-dx-fmt"), "a box is content, not formatting: {}", d.html);
+        assert_reads_back(a, b);
+    }
+}
+
 fn corpus() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/corpus")
 }

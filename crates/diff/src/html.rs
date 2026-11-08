@@ -27,19 +27,29 @@
 //!
 //! Everything here is a pure function of the four texts (no clock, no randomness).
 
+use std::collections::HashMap;
+
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::mapping::equal_str_runs;
+use crate::mapping::{equal_str_runs, heuristic_str_runs};
 
 /// Unchanged top-level blocks kept visible on each side of a change.
 pub const CONTEXT: usize = 2;
 /// A fold hides at least this many blocks (fewer stay visible).
 pub const MIN_FOLD: usize = 3;
-/// Above this many old × new blocks in one changed run, nothing is paired (each side is shown
-/// whole): pairing costs a word diff per pair.
-const MAX_PAIRING: usize = 400;
-/// A run of changed text above this many tokens (old + new) is not diffed word by word.
+/// Above this many old × new blocks in one changed run nothing is paired: each side is shown
+/// whole, in linear time and with no matrix.
+const MAX_PAIRING: usize = 40_000;
+/// A word diff above this many tokens (old + new) shows both sides whole.
 const MAX_WORD_TOKENS: usize = 20_000;
+/// Up to this many tokens a diff is minimal Myers; above it, the bounded heuristic Myers.
+const MAX_MINIMAL_TOKENS: usize = 2_000;
+/// Blocks nest at most this deep in the tree: anything deeper is compared whole, so a pathological
+/// Document can neither overflow the stack nor repeat the work per level.
+const MAX_DEPTH: usize = 32;
+/// The work one diff may do, in token comparisons. Every step charges its worst case first; past
+/// the budget, blocks are shown whole (`DiffStats::shown_whole`).
+pub const WORK_BUDGET: u64 = 400_000_000;
 
 /// What a diff found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -53,6 +63,8 @@ pub struct DiffStats {
     pub blocks_changed: usize,
     /// Change points (`data-cd-dx`): runs of adjacent marks.
     pub changes: usize,
+    /// The work budget ran out, so some blocks are shown whole rather than word by word.
+    pub shown_whole: bool,
 }
 
 /// A rendered diff: the HTML fragment and its numbers.
@@ -60,6 +72,8 @@ pub struct DiffStats {
 pub struct RenderedDiff {
     pub html: String,
     pub stats: DiffStats,
+    /// The work this diff charged (at most [`WORK_BUDGET`]).
+    pub work: u64,
 }
 
 /// Diff Version A (`old_md`, rendered as `old_html`) against Version B (`new_md`, `new_html`).
@@ -67,9 +81,9 @@ pub fn rendered_diff(old_md: &str, new_md: &str, old_html: &str, new_html: &str)
     let (lines_added, lines_removed) = line_counts(old_md, new_md);
     let old = parse(old_html);
     let new = parse(new_html);
-    let mut cx = Cx { stats: DiffStats { lines_added, lines_removed, ..DiffStats::default() }, open: false };
+    let mut cx = Cx { stats: DiffStats { lines_added, lines_removed, ..DiffStats::default() }, open: false, work: 0 };
     let pieces = cx.seq(&old, &new, None);
-    RenderedDiff { html: fold(&pieces), stats: cx.stats }
+    RenderedDiff { html: fold(&pieces), stats: cx.stats, work: cx.work }
 }
 
 /// Lines added and removed between two Markdown texts (histogram line diff, CRLF tolerated).
@@ -186,21 +200,52 @@ fn is_block_open(name: &str, tag: &str) -> bool {
     BLOCK.contains(&name) || (name == "math" && tag.contains("display=\"block\""))
 }
 
+/// The close tag of the `name` element opened before `from`, counting nested `name`s, without
+/// recursing: `(len, len)` when it never closes.
+fn matching_close(s: &str, from: usize, name: &str) -> (usize, usize) {
+    let mut depth = 1usize;
+    let mut i = from;
+    while let Some(k) = s[i..].find('<').map(|p| i + p) {
+        if s[k..].starts_with("<!--") {
+            i = s[k..].find("-->").map(|p| k + p + 3).unwrap_or(s.len());
+            continue;
+        }
+        let closing = s[k..].starts_with("</");
+        if name_at(s, k + if closing { 2 } else { 1 }) == name {
+            let end = tag_end(s, k);
+            if closing {
+                depth -= 1;
+                if depth == 0 {
+                    return (k, end);
+                }
+            } else if !s[k..end].ends_with("/>") {
+                depth += 1;
+            }
+            i = end;
+        } else {
+            i = k + 1;
+        }
+    }
+    (s.len(), s.len())
+}
+
 struct Parser<'a> {
     s: &'a str,
     i: usize,
+    /// The open block elements around the cursor (at most [`MAX_DEPTH`]).
+    stack: Vec<String>,
 }
 
 /// Parse a rendered fragment into its top-level nodes.
 fn parse(html: &str) -> Vec<Node<'_>> {
-    let mut p = Parser { s: html, i: 0 };
-    p.children(&[]).0
+    let mut p = Parser { s: html, i: 0, stack: Vec::new() };
+    p.children().0
 }
 
 impl<'a> Parser<'a> {
     /// Children up to the close tag of `stack`'s last element (or an ancestor's, which is left
     /// for it, or the end). Returns the children and the close tag's byte range.
-    fn children(&mut self, stack: &[String]) -> (Vec<Node<'a>>, (usize, usize)) {
+    fn children(&mut self) -> (Vec<Node<'a>>, (usize, usize)) {
         let s = self.s;
         let mut out: Vec<Node<'a>> = Vec::new();
         let mut text_start = self.i;
@@ -222,11 +267,11 @@ impl<'a> Parser<'a> {
                 let name = name_at(s, k + 2);
                 let end = tag_end(s, k);
                 if BLOCK.contains(&name.as_str()) || name == "math" {
-                    if stack.last() == Some(&name) {
+                    if self.stack.last() == Some(&name) {
                         self.i = end;
                         break (k, end);
                     }
-                    if stack.contains(&name) {
+                    if self.stack.contains(&name) {
                         self.i = k;
                         break (k, k);
                     }
@@ -268,11 +313,24 @@ impl<'a> Parser<'a> {
                     kids: vec![Node::Text(inner)],
                     atomic,
                 }
+            } else if self.stack.len() >= MAX_DEPTH {
+                let (cs, ce) = matching_close(s, end, &name);
+                self.i = ce;
+                let inner = &s[end..cs];
+                El {
+                    name,
+                    open: tag,
+                    inner,
+                    close: &s[cs..ce],
+                    outer: &s[k..ce],
+                    kids: vec![Node::Text(inner)],
+                    atomic: true,
+                }
             } else {
                 self.i = end;
-                let mut st = stack.to_vec();
-                st.push(name.clone());
-                let (kids, (cs, ce)) = self.children(&st);
+                self.stack.push(name.clone());
+                let (kids, (cs, ce)) = self.children();
+                self.stack.pop();
                 El { name, open: tag, inner: &s[end..cs], close: &s[cs..ce], outer: &s[k..ce], kids, atomic: false }
             };
             let mut el = el;
@@ -291,29 +349,79 @@ impl<'a> Parser<'a> {
     }
 }
 
-/// Markup without ` data-l="…"` and ` id="…"` (attribute values are escaped, so both only ever
-/// appear inside a tag): what two blocks are compared by, and what a removed block shows.
+/// Markup without its `data-l` and `id` attributes: what two blocks are compared by, and what a
+/// removed block shows. Only tags are touched, because raw HTML text may hold ` id="` literally.
 fn strip_attrs(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
-    let mut rest = html;
-    loop {
-        let a = rest.find(" data-l=\"");
-        let b = rest.find(" id=\"");
-        let (pos, skip) = match (a, b) {
-            (Some(a), Some(b)) if a < b => (a, 9),
-            (Some(a), None) => (a, 9),
-            (_, Some(b)) => (b, 5),
-            (None, None) => break,
-        };
-        out.push_str(&rest[..pos]);
-        let after = &rest[pos + skip..];
-        rest = match after.find('"') {
-            Some(q) => &after[q + 1..],
-            None => "",
-        };
+    let mut i = 0;
+    while let Some(k) = html[i..].find('<').map(|p| i + p) {
+        out.push_str(&html[i..k]);
+        if html[k..].starts_with("<!--") {
+            let e = html[k..].find("-->").map(|p| k + p + 3).unwrap_or(html.len());
+            out.push_str(&html[k..e]);
+            i = e;
+        } else if html.as_bytes().get(k + 1).is_some_and(u8::is_ascii_alphabetic) {
+            let e = tag_end(html, k);
+            strip_tag(&html[k..e], &mut out);
+            i = e;
+        } else {
+            out.push('<');
+            i = k + 1;
+        }
     }
-    out.push_str(rest);
+    out.push_str(&html[i..]);
     out
+}
+
+/// Copy one open tag without its `data-l` and `id` attributes (values may hold anything quoted).
+fn strip_tag(tag: &str, out: &mut String) {
+    let b = tag.as_bytes();
+    let mut j = 1;
+    while j < b.len() && (b[j].is_ascii_alphanumeric() || b[j] == b'-') {
+        j += 1;
+    }
+    out.push_str(&tag[..j]);
+    loop {
+        let start = j;
+        while j < b.len() && b[j].is_ascii_whitespace() {
+            j += 1;
+        }
+        if j >= b.len() || b[j] == b'>' || b[j] == b'/' {
+            out.push_str(&tag[start..]);
+            return;
+        }
+        let name_start = j;
+        while j < b.len() && !b[j].is_ascii_whitespace() && !matches!(b[j], b'=' | b'>' | b'/') {
+            j += 1;
+        }
+        let name = &tag[name_start..j];
+        let mut v = j;
+        while v < b.len() && b[v].is_ascii_whitespace() {
+            v += 1;
+        }
+        if v < b.len() && b[v] == b'=' {
+            v += 1;
+            while v < b.len() && b[v].is_ascii_whitespace() {
+                v += 1;
+            }
+            if v < b.len() && matches!(b[v], b'"' | b'\'') {
+                let q = b[v];
+                v += 1;
+                while v < b.len() && b[v] != q {
+                    v += 1;
+                }
+                v = (v + 1).min(b.len());
+            } else {
+                while v < b.len() && !b[v].is_ascii_whitespace() && b[v] != b'>' {
+                    v += 1;
+                }
+            }
+            j = v;
+        }
+        if !name.eq_ignore_ascii_case("data-l") && !name.eq_ignore_ascii_case("id") {
+            out.push_str(&tag[start..j]);
+        }
+    }
 }
 
 fn key(n: &Node) -> String {
@@ -425,15 +533,41 @@ fn words(n: &Node) -> Vec<String> {
     tokens(src).iter().filter(|t| t.is_word()).map(|t| t.key().into_owned()).collect()
 }
 
-/// `2 · common / (a + b)` over two word lists (1 when both are empty).
-fn similarity(a: &[String], b: &[String]) -> f64 {
+/// `2 · common / (a + b)` over two sorted bags of word ids (1 when both are empty): an upper bound
+/// of the ordered similarity, in linear time, so pairing never runs a diff per pair.
+fn similarity(a: &[u32], b: &[u32]) -> f64 {
     if a.is_empty() && b.is_empty() {
         return 1.0;
     }
-    let ar: Vec<&str> = a.iter().map(String::as_str).collect();
-    let br: Vec<&str> = b.iter().map(String::as_str).collect();
-    let common: usize = equal_str_runs(&ar, &br).iter().map(|r| r.2).sum();
+    let (mut i, mut j, mut common) = (0, 0, 0usize);
+    while i < a.len() && j < b.len() {
+        match a[i].cmp(&b[j]) {
+            std::cmp::Ordering::Less => i += 1,
+            std::cmp::Ordering::Greater => j += 1,
+            std::cmp::Ordering::Equal => {
+                common += 1;
+                i += 1;
+                j += 1;
+            }
+        }
+    }
     2.0 * common as f64 / (a.len() + b.len()) as f64
+}
+
+/// Could two bags of these sizes reach `threshold` at all?
+fn may_reach(a: usize, b: usize, threshold: f64) -> bool {
+    a + b == 0 || 2.0 * a.min(b) as f64 >= threshold * (a + b) as f64
+}
+
+/// The worst case of a diff of `n` tokens, in comparisons.
+fn diff_cost(n: usize) -> u64 {
+    let n = n as u64;
+    if n as usize <= MAX_MINIMAL_TOKENS { n * n / 2 + n } else { n * (n.isqrt().max(256)) }
+}
+
+/// Equal runs of two token lists, by the cheapest diff that bounds [`diff_cost`].
+fn runs(os: &[&str], ns: &[&str]) -> Vec<(usize, usize, usize)> {
+    if os.len() + ns.len() <= MAX_MINIMAL_TOKENS { equal_str_runs(os, ns) } else { heuristic_str_runs(os, ns) }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -455,9 +589,27 @@ struct Cx {
     stats: DiffStats,
     /// A change point is open (the last thing emitted was a mark).
     open: bool,
+    /// Comparisons charged so far (see [`WORK_BUDGET`]).
+    work: u64,
+}
+
+/// A whole-block mark or a pair, in the order a run of changes emits them.
+struct Emit {
+    top: bool,
+    last: Option<Mark>,
 }
 
 impl Cx {
+    /// Take `cost` from the budget; `false` (and nothing taken) when it does not fit.
+    fn charge(&mut self, cost: u64) -> bool {
+        if self.work.saturating_add(cost) > WORK_BUDGET {
+            self.stats.shown_whole = true;
+            return false;
+        }
+        self.work += cost;
+        true
+    }
+
     /// ` data-cd-dx="N"` when this mark starts a run of changes.
     fn point(&mut self) -> String {
         if self.open {
@@ -470,15 +622,21 @@ impl Cx {
 
     /// Diff two sibling sequences; `parent` is their element (`None` = the top level).
     fn seq(&mut self, old: &[Node], new: &[Node], parent: Option<&str>) -> Vec<Piece> {
+        let bytes: usize = old.iter().chain(new).map(|n| outer(n).len()).sum();
+        let mut out = Vec::new();
+        if !self.charge(bytes as u64 / 8 + diff_cost(old.len() + new.len())) {
+            let mut e = Emit { top: parent.is_none(), last: None };
+            self.whole(old, new, &mut e, &mut out);
+            return out;
+        }
         let ok: Vec<String> = old.iter().map(key).collect();
         let nk: Vec<String> = new.iter().map(key).collect();
         let or: Vec<&str> = ok.iter().map(String::as_str).collect();
         let nr: Vec<&str> = nk.iter().map(String::as_str).collect();
-        let mut runs = equal_str_runs(&or, &nr);
-        runs.push((old.len(), new.len(), 0));
-        let mut out = Vec::new();
+        let mut equal = runs(&or, &nr);
+        equal.push((old.len(), new.len(), 0));
         let (mut oi, mut ni) = (0, 0);
-        for (ro, rn, len) in runs {
+        for (ro, rn, len) in equal {
             self.hunk(&old[oi..ro], &new[ni..rn], parent, &mut out);
             for n in &new[rn..rn + len] {
                 self.open = false;
@@ -498,58 +656,108 @@ impl Cx {
         if m == 0 && n == 0 {
             return;
         }
-        let top = parent.is_none();
-        let mut last: Option<Mark> = None;
-        let mut pair = vec![vec![false; n]; m];
+        let mut e = Emit { top: parent.is_none(), last: None };
         if parent == Some("tr") && m == n {
-            for (i, row) in pair.iter_mut().enumerate() {
-                row[i] = true;
+            for (o, nw) in old.iter().zip(new) {
+                self.emit_pair(o, nw, &mut e, out);
             }
-        } else if m * n <= MAX_PAIRING {
-            let ow: Vec<Vec<String>> = old.iter().map(words).collect();
-            let nw: Vec<Vec<String>> = new.iter().map(words).collect();
-            for i in 0..m {
-                for j in 0..n {
-                    pair[i][j] = pairable(&old[i], &new[j], m == 1 && n == 1, &ow[i], &nw[j]);
-                }
-            }
+            return;
         }
-        // LCS over `pairable`, removals before additions between pairs.
-        let mut dp = vec![vec![0usize; n + 1]; m + 1];
+        let pair = if m * n <= MAX_PAIRING && m * n > 0 { self.pairs(old, new) } else { None };
+        let Some(pair) = pair else {
+            self.whole(old, new, &mut e, out);
+            return;
+        };
+        // LCS over the pairs, removals before additions between them (flat: `(m + 1) × (n + 1)`).
+        let at = |i: usize, j: usize| i * (n + 1) + j;
+        let mut dp = vec![0u32; (m + 1) * (n + 1)];
         for i in (0..m).rev() {
             for j in (0..n).rev() {
-                dp[i][j] = if pair[i][j] { dp[i + 1][j + 1] + 1 } else { dp[i + 1][j].max(dp[i][j + 1]) };
+                dp[at(i, j)] =
+                    if pair[i * n + j] { dp[at(i + 1, j + 1)] + 1 } else { dp[at(i + 1, j)].max(dp[at(i, j + 1)]) };
             }
         }
         let (mut i, mut j) = (0, 0);
         while i < m || j < n {
-            if i < m && j < n && pair[i][j] && dp[i][j] == dp[i + 1][j + 1] + 1 {
-                if top {
-                    self.open = false;
-                }
-                last = None;
-                let html = self.pair(&old[i], &new[j]);
-                out.push(Piece { html, equal: false });
+            if i < m && j < n && pair[i * n + j] && dp[at(i, j)] == dp[at(i + 1, j + 1)] + 1 {
+                self.emit_pair(&old[i], &new[j], &mut e, out);
                 i += 1;
                 j += 1;
-            } else if i < m && (j == n || dp[i + 1][j] >= dp[i][j + 1]) {
-                if top && last.is_none() {
-                    self.open = false;
-                }
-                last = Some(Mark::Del);
-                let html = self.mark(&old[i], Mark::Del);
-                out.push(Piece { html, equal: false });
+            } else if i < m && (j == n || dp[at(i + 1, j)] >= dp[at(i, j + 1)]) {
+                self.emit_mark(&old[i], Mark::Del, &mut e, out);
                 i += 1;
             } else {
-                if top && last.is_none() {
-                    self.open = false;
-                }
-                last = Some(Mark::Add);
-                let html = self.mark(&new[j], Mark::Add);
-                out.push(Piece { html, equal: false });
+                self.emit_mark(&new[j], Mark::Add, &mut e, out);
                 j += 1;
             }
         }
+    }
+
+    /// Which old and new nodes may pair (row-major, `m × n`); `None` when the budget is out.
+    fn pairs(&mut self, old: &[Node], new: &[Node]) -> Option<Vec<bool>> {
+        let (m, n) = (old.len(), new.len());
+        if !self.charge((m * n) as u64) {
+            return None;
+        }
+        let mut ids: HashMap<String, u32> = HashMap::new();
+        let mut bag = |node: &Node| -> Vec<u32> {
+            let mut v: Vec<u32> = words(node)
+                .into_iter()
+                .map(|w| {
+                    let next = ids.len() as u32;
+                    *ids.entry(w).or_insert(next)
+                })
+                .collect();
+            v.sort_unstable();
+            v
+        };
+        let ob: Vec<Vec<u32>> = old.iter().map(&mut bag).collect();
+        let nb: Vec<Vec<u32>> = new.iter().map(&mut bag).collect();
+        let mut pair = vec![false; m * n];
+        for i in 0..m {
+            for j in 0..n {
+                let Some(threshold) = threshold(&old[i], &new[j], m == 1 && n == 1) else { continue };
+                if !may_reach(ob[i].len(), nb[j].len(), threshold) {
+                    continue;
+                }
+                if !self.charge((ob[i].len() + nb[j].len()) as u64) {
+                    return Some(pair);
+                }
+                pair[i * n + j] = similarity(&ob[i], &nb[j]) >= threshold;
+            }
+        }
+        Some(pair)
+    }
+
+    /// Every old node removed, then every new one added: linear, no matrices.
+    fn whole(&mut self, old: &[Node], new: &[Node], e: &mut Emit, out: &mut Vec<Piece>) {
+        for o in old {
+            self.emit_mark(o, Mark::Del, e, out);
+        }
+        for n in new {
+            self.emit_mark(n, Mark::Add, e, out);
+        }
+    }
+
+    fn emit_pair(&mut self, old: &Node, new: &Node, e: &mut Emit, out: &mut Vec<Piece>) {
+        if e.top {
+            self.open = false;
+        }
+        e.last = None;
+        let html = self.pair(old, new);
+        out.push(Piece { html, equal: false });
+    }
+
+    fn emit_mark(&mut self, node: &Node, mark: Mark, e: &mut Emit, out: &mut Vec<Piece>) {
+        if matches!(node, Node::Text(t) if t.trim().is_empty()) {
+            return; // layout between blocks, on a side that has no blocks to separate
+        }
+        if e.top && e.last.is_none() {
+            self.open = false;
+        }
+        e.last = Some(mark);
+        let html = self.mark(node, mark);
+        out.push(Piece { html, equal: false });
     }
 
     /// A node marked whole as added or removed.
@@ -588,12 +796,11 @@ impl Cx {
         }
     }
 
-    /// A paired old and new node: one level down for lists, tables and containers, else words.
+    /// A paired old and new node: one level down when either side holds blocks (a list, a table,
+    /// a tight item become loose), else words.
     fn pair(&mut self, old: &Node, new: &Node) -> String {
         match (old, new) {
-            (Node::El(o), Node::El(n))
-                if RESTRICTED.contains(&n.name.as_str()) || (o.has_blocks() && n.has_blocks()) =>
-            {
+            (Node::El(o), Node::El(n)) if RESTRICTED.contains(&n.name.as_str()) || o.has_blocks() || n.has_blocks() => {
                 let kids = self.seq(&o.kids, &n.kids, Some(&n.name));
                 let sep = if n.has_blocks() { "\n" } else { "" };
                 let mut s = String::from(n.open);
@@ -605,45 +812,76 @@ impl Cx {
                 s.push_str(n.close);
                 s
             }
-            (Node::El(o), Node::El(n)) => {
-                let (body, words_changed) = words_diff(o.inner, n.inner);
-                self.stats.blocks_changed += 1;
-                let point = self.point();
-                let (class, label) = if words_changed {
-                    ("cd-dx-mod", "changed")
-                } else {
-                    ("cd-dx-mod cd-dx-fmt", "formatting changed")
-                };
-                format!("{}<span class=\"cd-sr\">{label}: </span>{body}{}", inject(n.open, class, &point), n.close)
-            }
-            (Node::Text(ot), Node::Text(nt)) => {
-                let (body, words_changed) = words_diff(ot, nt);
-                self.stats.blocks_changed += 1;
-                let point = self.point();
-                let class = if words_changed { "cd-dx-mod" } else { "cd-dx-mod cd-dx-fmt" };
-                format!("<span class=\"{class}\"{point}>{body}</span>")
-            }
-            _ => {
-                // Not reached (`pairable` pairs like with like); kept total.
-                let d = self.mark(old, Mark::Del);
-                format!("{d}{}", self.mark(new, Mark::Add))
-            }
+            (Node::El(o), Node::El(n)) => self.changed_block(o.inner, n),
+            // A tight item's text against the paragraph that replaced it.
+            (Node::Text(t), Node::El(n)) => self.changed_block(t, n),
+            (Node::El(o), Node::Text(t)) => self.changed_inline(o.inner, t),
+            (Node::Text(o), Node::Text(n)) => self.changed_inline(o, n),
         }
+    }
+
+    /// The new block with the words of `old` diffed into it.
+    fn changed_block(&mut self, old: &str, n: &El) -> String {
+        let (body, words_changed) = self.words_diff(old, n.inner);
+        self.stats.blocks_changed += 1;
+        let point = self.point();
+        let (class, label) =
+            if words_changed { ("cd-dx-mod", "changed") } else { ("cd-dx-mod cd-dx-fmt", "formatting changed") };
+        format!("{}<span class=\"cd-sr\">{label}: </span>{body}{}", inject(n.open, class, &point), n.close)
+    }
+
+    /// The new inline run with the words of `old` diffed into it.
+    fn changed_inline(&mut self, old: &str, new: &str) -> String {
+        let (body, words_changed) = self.words_diff(old, new);
+        self.stats.blocks_changed += 1;
+        let point = self.point();
+        let class = if words_changed { "cd-dx-mod" } else { "cd-dx-mod cd-dx-fmt" };
+        format!("<span class=\"{class}\"{point}>{body}</span>")
+    }
+
+    /// Word diff of two inline fragments: the newer fragment with `del` / `ins` marks, and whether
+    /// any word (not just markup) changed. Too long, or past the budget: both sides whole.
+    fn words_diff(&mut self, old: &str, new: &str) -> (String, bool) {
+        let ot = tokens(old);
+        let nt = tokens(new);
+        let n = ot.len() + nt.len();
+        if n > MAX_WORD_TOKENS {
+            self.stats.shown_whole = true;
+            return whole_words(old, new, &ot, &nt);
+        }
+        if !self.charge(diff_cost(n)) {
+            return whole_words(old, new, &ot, &nt);
+        }
+        words_merge(new, &ot, &nt)
     }
 }
 
-/// May an old and a new node be shown as one changed block?
-fn pairable(o: &Node, n: &Node, only: bool, ow: &[String], nw: &[String]) -> bool {
+/// Both inline fragments whole: the older side's words struck, the newer side as it is.
+fn whole_words(old: &str, new: &str, ot: &[Tok], nt: &[Tok]) -> (String, bool) {
+    let mut out = String::new();
+    if ot.iter().any(Tok::visible) {
+        out.push_str(&format!("<del class=\"cd-del\">{}</del>", text_only(ot)));
+    }
+    if nt.iter().any(Tok::visible) {
+        out.push_str(&format!("<ins class=\"cd-ins\">{new}</ins>"));
+    }
+    (out, old != new)
+}
+
+/// The element-similarity threshold for an old and a new node, `None` when they may never pair:
+/// like with like, or a tight item's text with the paragraph that replaced it.
+fn threshold(o: &Node, n: &Node, only: bool) -> Option<f64> {
     match (o, n) {
-        (Node::Text(_), Node::Text(_)) => similarity(ow, nw) >= 0.4,
+        (Node::Text(_), Node::Text(_)) => Some(0.4),
+        (Node::Text(_), Node::El(e)) | (Node::El(e), Node::Text(_)) => (e.name == "p" && !e.atomic).then_some(0.4),
         (Node::El(a), Node::El(b)) if a.name == b.name && !a.atomic && !b.atomic => {
-            if RESTRICTED.contains(&a.name.as_str()) || (a.has_blocks() && b.has_blocks()) {
-                only || similarity(ow, nw) >= 0.2
+            if RESTRICTED.contains(&a.name.as_str()) || a.has_blocks() || b.has_blocks() {
+                Some(if only { 0.0 } else { 0.2 })
             } else {
-                similarity(ow, nw) >= 0.4
+                Some(0.4)
             }
         }
-        _ => false,
+        _ => None,
     }
 }
 
@@ -693,50 +931,43 @@ enum Seg {
     Chg,
 }
 
-/// Word diff of two inline fragments: the newer fragment with `del` / `ins` marks, and whether
-/// any word (not just markup) changed.
-fn words_diff(old: &str, new: &str) -> (String, bool) {
-    let ot = tokens(old);
-    let nt = tokens(new);
-    if ot.len() + nt.len() > MAX_WORD_TOKENS {
-        let changed = old != new;
-        let d = text_only(&ot);
-        let i = text_only(&nt);
-        return (format!("<del class=\"cd-del\">{d}</del><ins class=\"cd-ins\">{i}</ins>"), changed);
-    }
+/// The word diff itself, on tokens already within the limits: the newer fragment with marks, and
+/// whether any word (not just markup) changed.
+fn words_merge(new: &str, ot: &[Tok], nt: &[Tok]) -> (String, bool) {
     let ok: Vec<std::borrow::Cow<str>> = ot.iter().map(Tok::key).collect();
     let nk: Vec<std::borrow::Cow<str>> = nt.iter().map(Tok::key).collect();
     let or: Vec<&str> = ok.iter().map(|c| c.as_ref()).collect();
     let nr: Vec<&str> = nk.iter().map(|c| c.as_ref()).collect();
-    let mut runs = equal_str_runs(&or, &nr);
-    runs.push((ot.len(), nt.len(), 0));
-    // Segments: (kind, old range, new range), alternating.
-    let mut segs: Vec<(Seg, std::ops::Range<usize>, std::ops::Range<usize>)> = Vec::new();
+    let mut equal = runs(&or, &nr);
+    equal.push((ot.len(), nt.len(), 0));
+    // Segments: (kind, old range, new range), in order. Spaces alone between two changes join
+    // them into one, for readability.
+    type Span = (Seg, std::ops::Range<usize>, std::ops::Range<usize>);
+    let mut segs: Vec<Span> = Vec::new();
+    let mut push = |seg: Span| {
+        if seg.0 == Seg::Chg
+            && let [.., before, gap] = segs.as_slice()
+            && before.0 == Seg::Chg
+            && gap.0 == Seg::Eq
+            && nt[gap.2.clone()].iter().all(|t| t.kind == Kind::Text && !t.visible())
+        {
+            segs.pop();
+            let last = segs.last_mut().expect("the change before the gap");
+            last.1.end = seg.1.end;
+            last.2.end = seg.2.end;
+            return;
+        }
+        segs.push(seg);
+    };
     let (mut oi, mut ni) = (0, 0);
-    for (ro, rn, len) in runs {
+    for (ro, rn, len) in equal {
         if ro > oi || rn > ni {
-            segs.push((Seg::Chg, oi..ro, ni..rn));
+            push((Seg::Chg, oi..ro, ni..rn));
         }
         if len > 0 {
-            segs.push((Seg::Eq, ro..ro + len, rn..rn + len));
+            push((Seg::Eq, ro..ro + len, rn..rn + len));
         }
         (oi, ni) = (ro + len, rn + len);
-    }
-    // Readability: spaces alone between two changes join them into one.
-    let mut k = 1;
-    while k + 1 < segs.len() {
-        let (kind, _, ref nr) = segs[k];
-        let trivial = kind == Seg::Eq
-            && segs[k - 1].0 == Seg::Chg
-            && segs[k + 1].0 == Seg::Chg
-            && nt[nr.clone()].iter().all(|t| t.kind == Kind::Text && !t.visible());
-        if trivial {
-            let o = segs[k - 1].1.start..segs[k + 1].1.end;
-            let n = segs[k - 1].2.start..segs[k + 1].2.end;
-            segs.splice(k - 1..k + 2, [(Seg::Chg, o, n)]);
-        } else {
-            k += 1;
-        }
     }
     let mut out = String::with_capacity(new.len() + 64);
     let mut changed = false;

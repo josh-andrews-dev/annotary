@@ -358,3 +358,7 @@ Josh asked for a button that shows what changed between Versions, inline rather 
   rejected hiding them for good, because the reader sometimes needs the surrounding text.
 - Chose a page of its own (`/d/{id}/diff`) with no Thread cards; rejected a mode of the Document page, because the
   card layout keys on the rendered Version's lines, which a diff with removed blocks no longer has.
+- Chose a fixed work budget counted in comparisons, with each step charging its worst case before it runs, and blocks shown whole past it. Rejected a wall-clock deadline, because the diff is a pure function and the same two Versions must always give the same page. Rejected caching alone, because the first request would still be unbounded.
+- Chose bags of words after a length check to decide what pairs. Rejected a Myers diff per pair, because a run of long paragraphs costs one diff per pair on every request. A bag ignores word order, which only lets a reordered block pair; its word diff is still charged to the budget.
+- Chose a depth limit (32) on the block tree, past which blocks are compared whole. Rejected an iterative tree walk, because no real Document nests that deep and whole-block comparison is correct there.
+- Chose a content-keyed cache of finished diffs and two diffs at a time on blocking threads, with a 503 past a 2 s wait. Rejected per-Member rate limits, because the cost belongs to the pair of Versions rather than to who asks.

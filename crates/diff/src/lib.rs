@@ -36,7 +36,7 @@ pub use annotary_sidecar::range::{self, Range};
 pub use crate::contain::{
     AssetChange, AssetChangeKind, Containment, Hunk, contains_changes, format_unified, missing_asset_changes,
 };
-pub use crate::html::{DiffStats, RenderedDiff, line_counts, rendered_diff};
+pub use crate::html::{DiffStats, RenderedDiff, WORK_BUDGET, line_counts, rendered_diff};
 use crate::mapping::{Segment, segments};
 use crate::text::Text;
 

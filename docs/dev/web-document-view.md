@@ -124,6 +124,8 @@ each choice: `docs/decisions.md`, 2026-11-08.
   cell of a row). Change points are `data-cd-dx="N"`: each changed top-level block is one, removed blocks followed by
   added ones are one, adjacent marks inside a list or table share one. Unchanged top-level runs fold into
   `details.cd-dx-same` (`summary.cd-dx-sum`), keeping the first block and `CONTEXT` = 2 on each side of a change.
+- **Its cost is bounded on any input.** Pairing compares sorted bags of word ids after a length check (`may_reach`), never a diff per pair; a run with more than `MAX_PAIRING` old × new blocks is emitted whole with no matrix, and a row keeps its cells by position with none. Every step charges its worst case to `WORK_BUDGET` first (`Cx::charge`, `diff_cost`); past it, blocks are shown whole, `DiffStats::shown_whole` is set and the page says so (`#cd-dxwhole`). Blocks deeper than `MAX_DEPTH` are compared whole, so nesting cannot overflow the stack. A container with blocks on only one side recurses (`Text` pairs with a `p`), so a mark never lands outside its block. `strip_attrs` touches tags only: raw HTML text may hold ` id="`.
+- **Any reader can ask, repeatedly:** `compare::page` takes one of `CONCURRENT_DIFFS` turns (2) and runs on a blocking thread, so the async workers stay free; no turn within `TURN_WAIT` (2 s, under `DRAIN_MAX`) is the 503 page. Finished diffs are kept in `AppState.diffs` by the two Versions' Markdown and HTML hashes, oldest out first, within `CACHE_BYTES`; embed media and asset links are applied after the lookup, so every viewer shares an entry.
 - **The page:** the header (`.cd-dxhdr`, sticky) has `#cd-dxform` (`#cd-dxfrom`, `#cd-dxto`; a GET form, so it works
   without the script and an embed render turns it into a navigation) and `#cd-dxsum` (`+N −M lines`, `#cd-dxpos`,
   `#cd-dxprev` / `#cd-dxnext`); `.cd-dxinfo` under it has the legend and `#cd-dxopen-from` / `#cd-dxopen-to`. The
@@ -133,8 +135,8 @@ each choice: `docs/decisions.md`, 2026-11-08.
 - **Script:** a select's change navigates through `transport.navigate`; ‹ › and `j` / `k` (off with Keyboard
   shortcuts Off) step through `[data-cd-dx]`, open a fold around the target, put `.cd-dx-cur` on it, scroll it to
   the middle and write "Change i of n" into `#cd-dxpos` (`aria-live`).
-- **Tests:** `crates/diff/tests/rendered_diff.rs` (S40-01…03: marks, structure, folds, and every pair of the corpus
-  histories reading back as either Version with the other side's marks taken out), `tests/web_compare.rs` (S40-04,
-  S40-05), `tests/web/compare.spec.ts` (S40-04…06, S40-08), `tests/web/embed.spec.ts` (S40-07),
+- **Tests:** `crates/diff/tests/rendered_diff.rs` (S40-01…03, S40-10, S40-11: marks, structure, folds, and every pair of the corpus
+  histories reading back as either Version with the other side's marks taken out), `crates/diff/tests/rendered_diff_bounds.rs` and `rendered_diff_budget.rs` (S40-09: peak memory, deep nesting, the budget), `server/compare.rs` unit tests (S40-12), `tests/web_compare.rs` (S40-04,
+  S40-05, S40-09), `tests/web/compare.spec.ts` (S40-04…06, S40-08), `tests/web/embed.spec.ts` (S40-07),
   `verify/scenarios/version-diff.spec.ts` (live data).
 <!-- ---- end compare Versions ---- -->

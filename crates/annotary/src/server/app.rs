@@ -32,6 +32,9 @@ pub struct AppState {
     /// list shows them without rendering every Document per request (`ui::title_for`).
     pub titles: Arc<std::sync::Mutex<std::collections::HashMap<String, Option<String>>>>,
     // ---- end ticket 10 ----
+    // Compare Versions (`compare.rs`): finished diffs, and the turns to run one.
+    pub diffs: Arc<super::compare::DiffCache>,
+    pub diff_gate: Arc<tokio::sync::Semaphore>,
     // ---- CMD-4 ----
     /// Failed password sign-ins per client and for the account (`login_guard.rs`), shared by
     /// `POST /login` and `POST /api/v1/login`.
@@ -56,6 +59,8 @@ impl AppState {
             shutdown,
             shutdown_tx: Arc::new(shutdown_tx),
             titles: Arc::default(),
+            diffs: Arc::default(),
+            diff_gate: Arc::new(tokio::sync::Semaphore::new(super::compare::CONCURRENT_DIFFS)),
             login_throttle: Arc::default(),
         }
     }

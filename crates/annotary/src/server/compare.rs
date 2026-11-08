@@ -11,12 +11,16 @@
 //! The page has no Thread cards (the Document page is where Threads live). The Document page's
 //! Compare link (`view.rs`) picks the default pair; the two selects here pick any other.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
+use annotary_diff::RenderedDiff;
 use axum::extract::{Path, Query, State};
-use axum::http::HeaderMap;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use serde::Deserialize;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use annotary_store::{Right, VersionView};
 
@@ -58,6 +62,74 @@ pub fn compare_href(doc_id: &str, n: u32, head: u32) -> String {
     format!("/d/{doc_id}/diff?from={from}&to={head}")
 }
 
+/// Diffs running at once: each is bounded (`annotary_diff::WORK_BUDGET`), and any reader can ask.
+pub const CONCURRENT_DIFFS: usize = 2;
+/// How long a request waits for a turn; under `server::DRAIN_MAX`, so shutdown never waits on it.
+const TURN_WAIT: Duration = Duration::from_secs(2);
+/// Bytes of finished diffs kept: a repeated comparison costs a lookup.
+const CACHE_BYTES: usize = 32 << 20;
+
+/// Finished diffs by the two Versions' content (Markdown and rendered HTML hashes), oldest out
+/// first. A viewer's own settings are applied after it, so every viewer shares an entry.
+#[derive(Default)]
+pub struct DiffCache {
+    inner: Mutex<CacheInner>,
+}
+
+#[derive(Default)]
+struct CacheInner {
+    order: VecDeque<String>,
+    entries: HashMap<String, Arc<RenderedDiff>>,
+    bytes: usize,
+}
+
+impl DiffCache {
+    /// The diff under `key`, computing and keeping it when absent (one too big to keep is returned
+    /// and not kept). The lock is not held while `compute` runs.
+    pub fn get_or(
+        &self,
+        key: &str,
+        compute: impl FnOnce() -> Result<RenderedDiff, ApiError>,
+    ) -> Result<Arc<RenderedDiff>, ApiError> {
+        if let Some(d) = self.lock().entries.get(key) {
+            return Ok(d.clone());
+        }
+        let d = Arc::new(compute()?);
+        let size = d.html.len();
+        if size <= CACHE_BYTES {
+            let mut c = self.lock();
+            if !c.entries.contains_key(key) {
+                while c.bytes + size > CACHE_BYTES {
+                    let Some(old) = c.order.pop_front() else { break };
+                    if let Some(e) = c.entries.remove(&old) {
+                        c.bytes -= e.html.len();
+                    }
+                }
+                c.bytes += size;
+                c.order.push_back(key.to_string());
+                c.entries.insert(key.to_string(), d.clone());
+            }
+        }
+        Ok(d)
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, CacheInner> {
+        self.inner.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+/// A turn to run a diff, or the 503 a request gets when none comes within `wait`.
+async fn turn(gate: Arc<Semaphore>, wait: Duration) -> Result<OwnedSemaphorePermit, ApiError> {
+    match tokio::time::timeout(wait, gate.acquire_owned()).await {
+        Ok(Ok(permit)) => Ok(permit),
+        _ => Err(ApiError::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "busy",
+            "the server is busy comparing other Versions; try again in a moment",
+        )),
+    }
+}
+
 pub async fn page(
     State(st): State<AppState>,
     auth: Auth,
@@ -65,7 +137,19 @@ pub async fn page(
     Path(id): Path<String>,
     Query(q): Query<CompareQuery>,
 ) -> Response {
-    match render_page(&st, &auth, &id, &q, &headers) {
+    let permit = match turn(st.diff_gate.clone(), TURN_WAIT).await {
+        Ok(p) => p,
+        Err(e) => return ui::error_page_for(&st, &auth, &headers, e),
+    };
+    let task = {
+        let (st, auth, headers) = (st.clone(), auth.clone(), headers.clone());
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            render_page(&st, &auth, &id, &q, &headers)
+        })
+    };
+    let result = task.await.unwrap_or_else(|e| Err(ApiError::internal(format!("the diff failed: {e}"))));
+    match result {
         Ok(r) => r,
         Err(e) => ui::error_page_for(&st, &auth, &headers, e),
     }
@@ -103,7 +187,7 @@ fn render_page(
     let name = &doc.head.name;
 
     let only_one = versions.len() < 2;
-    let (va, vb) = if only_one { (find(head)?, find(head)?) } else { (find(a)?, find(b)?) };
+    let (va, vb) = (find(a)?, find(b)?);
 
     // ---- the diff ----
     let (body, summary) = if only_one {
@@ -123,11 +207,13 @@ fn render_page(
             let bytes = st.store.read_blob(&v.md_hash)?.unwrap_or_default();
             Ok(String::from_utf8_lossy(&bytes).into_owned())
         };
-        let html = |v: &VersionView| -> Result<String, ApiError> {
-            let (h, _, _) = ensure_html(st, &auth.0.member_id, v)?;
-            Ok(String::from_utf8_lossy(&h).into_owned())
-        };
-        let d = annotary_diff::rendered_diff(&md(va)?, &md(vb)?, &html(va)?, &html(vb)?);
+        let (html_a, hash_a, _) = ensure_html(st, &auth.0.member_id, va)?;
+        let (html_b, hash_b, _) = ensure_html(st, &auth.0.member_id, vb)?;
+        let key = format!("{}:{}:{hash_a}:{hash_b}", va.md_hash, vb.md_hash);
+        let d = st.diffs.get_or(&key, || {
+            let text = |h: &[u8]| String::from_utf8_lossy(h).into_owned();
+            Ok(annotary_diff::rendered_diff(&md(va)?, &md(vb)?, &text(&html_a), &text(&html_b)))
+        })?;
         let mut out = ui::asset_links_blank(&d.html);
         if prefs.embed {
             // M3: media go through the embedder (`embed.rs`); a removed image is the older Version's.
@@ -143,7 +229,12 @@ fn render_page(
         } else {
             "<p class=\"cd-dx-note\" id=\"cd-dxnote\">Nothing visible changed (whitespace, front matter or Assets the text does not show).</p>".to_string()
         };
-        (format!("{note}{out}"), summary_html(&d.stats))
+        let whole = if d.stats.shown_whole {
+            "<p class=\"cd-dx-note\" id=\"cd-dxwhole\">These Versions differ too much to compare everything word by word, so some blocks are shown whole.</p>"
+        } else {
+            ""
+        };
+        (format!("{note}{whole}{out}"), summary_html(&d.stats))
     };
 
     // ---- the header ----
@@ -274,5 +365,47 @@ mod tests {
         assert_eq!(version_arg("v3"), Some(3));
         assert_eq!(version_arg("0"), None);
         assert_eq!(version_arg("x"), None);
+    }
+
+    fn diff_of(html: String) -> RenderedDiff {
+        RenderedDiff { html, stats: annotary_diff::DiffStats::default(), work: 0 }
+    }
+
+    // spec: S40-12
+    #[test]
+    fn a_repeated_comparison_is_a_lookup_and_the_cache_keeps_to_its_bytes() {
+        let cache = DiffCache::default();
+        let calls = std::cell::Cell::new(0);
+        let make = |html: String| {
+            calls.set(calls.get() + 1);
+            Ok(diff_of(html))
+        };
+        let a = cache.get_or("k1", || make("<p>one</p>".into())).unwrap();
+        let b = cache.get_or("k1", || make("<p>other</p>".into())).unwrap();
+        assert_eq!((calls.get(), a.html.as_str(), Arc::ptr_eq(&a, &b)), (1, "<p>one</p>", true));
+        // Too big to keep: returned, computed again next time.
+        let big = "x".repeat(CACHE_BYTES + 1);
+        assert_eq!(cache.get_or("big", || make(big.clone())).unwrap().html.len(), big.len());
+        cache.get_or("big", || make(big.clone())).unwrap();
+        assert_eq!(calls.get(), 3);
+        // Full: the oldest goes first, and the total stays under the limit.
+        let half = "y".repeat(CACHE_BYTES / 2 + 1);
+        cache.get_or("h1", || make(half.clone())).unwrap();
+        cache.get_or("h2", || make(half.clone())).unwrap();
+        let c = cache.lock();
+        assert!(c.bytes <= CACHE_BYTES, "{}", c.bytes);
+        assert!(!c.entries.contains_key("k1") && !c.entries.contains_key("h1") && c.entries.contains_key("h2"));
+    }
+
+    // spec: S40-12
+    #[tokio::test]
+    async fn a_request_with_no_turn_is_a_503() {
+        let gate = Arc::new(Semaphore::new(CONCURRENT_DIFFS));
+        let first = turn(gate.clone(), Duration::from_millis(10)).await.unwrap();
+        let _second = turn(gate.clone(), Duration::from_millis(10)).await.unwrap();
+        let e = turn(gate.clone(), Duration::from_millis(10)).await.unwrap_err();
+        assert_eq!((e.status, e.code), (StatusCode::SERVICE_UNAVAILABLE, "busy"));
+        drop(first);
+        assert!(turn(gate, Duration::from_millis(10)).await.is_ok(), "a finished diff frees its turn");
     }
 }

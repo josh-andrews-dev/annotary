@@ -134,6 +134,12 @@ fn the_diff_page_composes_the_pair_with_its_defaults() {
     assert_eq!(status, 200);
     assert!(body.contains("Nothing to compare: single has one Version."), "{body}");
     assert!(!body.contains("id=\"cd-dxfrom\""));
+    // An unknown Version on a one-Version Document is still the 404 page.
+    for q in ["from=9", "to=9", "from=2&to=3"] {
+        let (status, body) = get(&ts, &format!("/d/{one}/diff?{q}"), &[]);
+        assert_eq!(status, 404, "{q}: {body}");
+        assert!(body.starts_with("<!doctype html>"), "{q}");
+    }
     // Same content: said, nothing marked.
     let same = create(&ts, "same", V1, json!([]));
     push(&ts, &same, "same", V2, json!([]));
@@ -194,4 +200,39 @@ fn the_document_page_links_compare_only_with_more_than_one_version() {
     );
     let (_, body) = get(&ts, &format!("/d/{id}/v/2"), &[("X-Annotary-Embed", "1")]);
     assert!(body.contains(&format!("href=\"/d/{id}/diff?from=2&amp;to=3\"")), "an embed render too: {body}");
+}
+
+// spec: S40-09
+#[test]
+fn the_page_says_when_blocks_are_shown_whole() {
+    let ts = TestServer::start();
+    let para = |w: &str| {
+        format!(
+            "# Long\n\n{}\n",
+            (0..11_000).map(|i| format!("word{i}{w}")).collect::<Vec<_>>().join(" ").replacen("word5 ", "word5x ", 1)
+        )
+    };
+    let (a, b) = (para(""), para("").replace("word10 ", "ten "));
+    let id = create(&ts, "long", &a, json!([]));
+    push(&ts, &id, "long", &b, json!([]));
+    let (status, body) = get(&ts, &format!("/d/{id}/diff"), &[]);
+    assert_eq!(status, 200);
+    assert!(doc_part(&body).contains("id=\"cd-dxwhole\""), "the note");
+    assert!(doc_part(&body).contains("<ins class=\"cd-ins\">"), "the newer side, whole");
+    // An ordinary comparison has no such note.
+    let id = three_versions(&ts);
+    let (_, body) = get(&ts, &format!("/d/{id}/diff"), &[]);
+    assert!(!doc_part(&body).contains("cd-dxwhole"));
+}
+
+// spec: S40-12
+#[test]
+fn a_repeated_comparison_answers_the_same_page() {
+    let ts = TestServer::start();
+    let id = three_versions(&ts);
+    let path = format!("/d/{id}/diff?from=1&to=3");
+    let (s1, first) = get(&ts, &path, &[]);
+    let (s2, second) = get(&ts, &path, &[]);
+    assert_eq!((s1, s2), (200, 200));
+    assert_eq!(doc_part(&first), doc_part(&second));
 }

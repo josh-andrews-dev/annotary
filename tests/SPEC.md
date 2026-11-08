@@ -563,6 +563,10 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S40-06 — in a browser: Compare on the head opens the previous Version against the head, on an older Version that Version against the head; the selects pick any other pair; added and removed text are marked inline with labels; next and previous step through the changes; folded unchanged blocks open; going back shows the Document page with its cards laid out (story 171)
 - S40-07 — in the fake embedder, Compare and both selects navigate in place and post `annotary-nav`, and the diff renders with its marks (story 171)
 - S40-08 — at a phone width the diff page has no horizontal scroll, the selects and the change buttons fit, and the marks are visible in the dark theme too (story 171)
+- S40-09 — the work of one diff is bounded on any input inside the Markdown cap: a run of changed blocks too large to pair is emitted whole in linear time with no pairing matrix, a row keeps pairing its cells by position without one, pairing compares bags of words after a length check instead of diffing every pair, every step is charged to a fixed budget and past it blocks are shown whole, with the page saying so, and nesting deeper than the parser's limit is compared whole instead of recursing (story 171)
+- S40-10 — a removed block and the comparison of two blocks drop `id` and `data-l` only inside tags: raw HTML text holding ` id="` or ` data-l="` stays text and the output stays balanced (story 171)
+- S40-11 — a paired container with blocks on only one side (a tight list item becoming a loose one, or the reverse) is diffed by its children: a paragraph and the inline text it replaced are compared word by word, anything unpaired is removed or added whole, and no mark lands outside its block (story 171)
+- S40-12 — repeating a comparison does not repeat the work: the result is cached by the two Versions' content within a byte limit, at most two diffs run at once on blocking threads, and a request that cannot get a turn soon is the HTML 503 page (story 171)
 <!-- ---- end compare Versions ---- -->
 
 ## Stories
@@ -741,7 +745,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07, S37-10
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
-- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08
+- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12
 
 ## Deferred
 
