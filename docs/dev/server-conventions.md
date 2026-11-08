@@ -18,3 +18,4 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- M3 (Hermes plan) ---- -->
 - **Embedded requests** (`X-Annotary-Embed: 1`, `server/embed.rs`): the outermost layer, `embed::parts`, cuts an embedded GET answer over `PART_MAX` into `206` parts (`X-Annotary-Part` / `-Parts` / `-Etag` / `-Status`; `412` for a stale etag); embed pages and `GET /embed/shell` carry `Content-Security-Policy: sandbox allow-scripts`. An embedded request is an ordinary Bearer request in every other way (`refuse_cross_site` exempts Bearer).
 <!-- ---- end M3 (Hermes plan) ---- -->
+- Compare Versions: `GET /d/{id}/diff?from=A&to=B` (`compare.rs`, the `web_pages` router, `read`) is a page like `/d/{id}`: errors are the HTML pages, its row in `tests/access_api.rs` is `GET /d/{id}/diff (page)`.

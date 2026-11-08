@@ -330,3 +330,31 @@ is kept: it is the person's own secret, not a credential left lying around.
 
 Chose the same idempotence as disable: enabling an enabled Member exits 0 with a note (`changed: false`) and appends
 no event. Enable needs no last-owner guard, since it only adds an active Member.
+
+## 2026-11-08: Compare Versions is an inline diff of the rendered Document
+
+Josh asked for a button that shows what changed between Versions, inline rather than side by side.
+
+- Chose to diff the two Versions' **rendered HTML** (`annotary_diff::rendered_diff`), block by block and then word
+  by word inside paired blocks, so headings, lists, tables and code render as on the Document page. Rejected a
+  unified diff of the Markdown source, because a reviewer reads the rendered Document and Markdown syntax in a diff
+  is noise; rejected rendering a diffed Markdown text, because markers spliced into Markdown change how it parses
+  (a list, a table, a code fence).
+- Chose to keep the newer block's tags and drop the older block's in a word diff, so the output is always balanced
+  HTML; rejected keeping both sides' markup, because removed tags inside kept ones can nest wrongly. A change only
+  to markup (a link target, emphasis) is marked as a formatting change instead.
+- Chose to diff lists, tables and block quotes one level down (an item, a row, a cell is the unit there) and to pair
+  a row's cells by position; rejected a word diff over a whole list or table, because removed text would land where
+  a list or table allows no text and a removed cell would shift the columns.
+- Chose the oldest-first pair for every URL (`from=7&to=2` shows v2 → v7) and two selects; rejected reverse diffs,
+  because the page always reads as the newer text with what went away struck through.
+- Chose the Compare link's defaults from Josh's words: on the head, the previous Version against it; on an older
+  Version, that Version against the head.
+- Chose `del` / `ins` with visually hidden labels (CSS pseudo text on the inline marks, `span.cd-sr` on blocks),
+  underline and strike-through, and a +/− glyph on whole blocks; rejected color alone, which fails for color-blind
+  readers and screen readers. The colors alias the intent tokens, so both palettes and a later visual refresh
+  follow without new tokens.
+- Chose to fold unchanged top-level runs into closed `details` (the first block and two blocks of context kept);
+  rejected hiding them for good, because the reader sometimes needs the surrounding text.
+- Chose a page of its own (`/d/{id}/diff`) with no Thread cards; rejected a mode of the Document page, because the
+  card layout keys on the rendered Version's lines, which a diff with removed blocks no longer has.

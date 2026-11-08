@@ -98,3 +98,43 @@ over, three times at most). Parts end on UTF-8 character boundaries, so a backen
   `<iframe sandbox="allow-scripts">`, `page.exposeFunction` as the backend — against a private `serve`). Chromium only;
   the Webapp on a phone is WebKit, which the suite does not run.
 <!-- ---- end M3 (Hermes plan) ---- -->
+
+<!-- ---- compare Versions ---- -->
+## Compare Versions
+
+`GET /d/{id}/diff?from=A&to=B` shows Version B's rendered Document with what changed since A marked inline. Why
+each choice: `docs/decisions.md`, 2026-11-08.
+
+- **Files:** `crates/diff/src/html.rs` (`rendered_diff`, `line_counts`: pure, over the renderer's HTML),
+  `server/compare.rs` (the page, `pair_of`, `compare_href`), the Compare link in `view.rs` (`#cd-compare` in
+  `.cd-tools`, only with more than one Version), the "Compare Versions" blocks at the end of `app.css` and `app.js`.
+- **The pair:** the link opens head−1 → head on the head and vN → head on an older Version; `from` alone is against
+  the head, `to` alone against the Version before it, neither is head−1 → head, a reversed pair is shown oldest
+  first, `v7` and `7` both parse, an unknown or malformed number is the 404 page. One Version, or the same one
+  twice, renders a note (`#cd-dxnote`) instead of a diff.
+- **The diff (`annotary_diff::html`):** both Versions' HTML comes from `render::ensure_html`, so it is what the
+  Document page shows. The fragment is read into a tree of block elements; sibling blocks are diffed by their markup
+  without `data-l` / `id` (a block that only moved lines is equal); in a changed run, blocks of the same element are
+  paired by word similarity (an LCS, so order holds; ≥ 0.4 for a leaf, ≥ 0.2 for a container, cells of a row that
+  kept its width by position) and the rest are marked whole. Lists, tables and containers whose both sides hold
+  blocks recurse; any other pair is a word diff that keeps every tag of the newer block (balanced output), drops the
+  older block's tags, and wraps removed words in `del.cd-del` and added ones in `ins.cd-ins` (entities, media and
+  math whole). A removed block loses its `id`s and `data-l`. Every mark has `span.cd-sr` ("added: ", "removed: ",
+  "changed: ", "formatting changed: "), placed where the content model allows (before a list or table, in the first
+  cell of a row). Change points are `data-cd-dx="N"`: each changed top-level block is one, removed blocks followed by
+  added ones are one, adjacent marks inside a list or table share one. Unchanged top-level runs fold into
+  `details.cd-dx-same` (`summary.cd-dx-sum`), keeping the first block and `CONTEXT` = 2 on each side of a change.
+- **The page:** the header (`.cd-dxhdr`, sticky) has `#cd-dxform` (`#cd-dxfrom`, `#cd-dxto`; a GET form, so it works
+  without the script and an embed render turns it into a navigation) and `#cd-dxsum` (`+N −M lines`, `#cd-dxpos`,
+  `#cd-dxprev` / `#cd-dxnext`); `.cd-dxinfo` under it has the legend and `#cd-dxopen-from` / `#cd-dxopen-to`. The
+  diff is `article.cd-doc.cd-dxdoc#cd-dxdoc` (the Document typography; `.cd-app` is `cd-diffpage`, never
+  `cd-docpage`, so none of the Document page's script runs on it). No Thread cards and no `#cd-data`. An embed
+  render runs `embed::media` over the diff with both manifests' sizes.
+- **Script:** a select's change navigates through `transport.navigate`; ‹ › and `j` / `k` (off with Keyboard
+  shortcuts Off) step through `[data-cd-dx]`, open a fold around the target, put `.cd-dx-cur` on it, scroll it to
+  the middle and write "Change i of n" into `#cd-dxpos` (`aria-live`).
+- **Tests:** `crates/diff/tests/rendered_diff.rs` (S40-01…03: marks, structure, folds, and every pair of the corpus
+  histories reading back as either Version with the other side's marks taken out), `tests/web_compare.rs` (S40-04,
+  S40-05), `tests/web/compare.spec.ts` (S40-04…06, S40-08), `tests/web/embed.spec.ts` (S40-07),
+  `verify/scenarios/version-diff.spec.ts` (live data).
+<!-- ---- end compare Versions ---- -->
