@@ -11,7 +11,7 @@ keeps these true:
    `make perf`. `PERF=0 make check` / `make check-ci` is the same without the perf suite, for a
    machine without the release toolchain or Chromium.
    [`.github/workflows/checks.yml`](../.github/workflows/checks.yml) (beside the template's `ci.yml`)
-   runs them in CI ([`perf/README.md`](../perf/README.md) has where the perf suite runs).
+   runs all but `make perf` in CI ([`perf/README.md`](../perf/README.md) has where the perf suite runs).
 2. **Every perf budget is met on the generated fixture** (`make perf`: release build, ≥ 5,000
    lines / ≥ 500 Threads, median of 5 cold runs) — the budgets live only in
    [`perf/BUDGETS.md`](../perf/BUDGETS.md); a budget may be raised only by that file's
