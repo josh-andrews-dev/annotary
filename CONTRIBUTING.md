@@ -14,7 +14,7 @@ You need:
   for `make wasm-check` (`rustup target add wasm32-unknown-unknown`);
 - [Node](https://nodejs.org) LTS for the web tests (`make e2e` runs `npm ci`; then
   `npx playwright install chromium` once);
-- [uv](https://docs.astral.sh/uv/) for `make test` (it checks the icons with `scripts/brand/render.py`);
+- [uv](https://docs.astral.sh/uv/) for `make lint` (its American-English check runs through `uvx`) and `make brand`;
 - [gitleaks](https://github.com/gitleaks/gitleaks) for the git hooks.
 
 macOS and Linux are supported; Windows is not.
