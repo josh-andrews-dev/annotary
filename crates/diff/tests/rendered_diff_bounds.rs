@@ -90,6 +90,7 @@ fn long_paragraphs_at_the_pairing_limit_are_not_diffed_pair_by_pair() {
 // spec: S40-09
 #[test]
 fn nesting_past_the_limit_is_compared_whole_and_does_not_overflow_the_stack() {
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
     let nested = |word: &str| format!("{}{word}{}", "<blockquote>".repeat(20_000), "</blockquote>".repeat(20_000));
     let (a, b) = (nested("old"), nested("new"));
     let d = rendered_diff("", "", &a, &b);
