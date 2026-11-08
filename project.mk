@@ -150,8 +150,8 @@ e2e: web
 # Copies the newest live snapshot (VERIFY_SNAPSHOT_GLOB, over ssh when SERVER_SSH is set), clears its
 # passwords, serves it with this checkout's build on a loopback port, runs verify/scenarios with
 # Playwright, deletes the copy and prints one JSON verdict. Production is never written.
-# ARGS="--no-scenarios" or a scenario name (ARGS="-- cmd-20") narrow it; screenshots for the PR land
-# in target/verify-live/.
+# ARGS="--no-scenarios" or a scenario name (ARGS="-- cmd-20") narrow it; screenshots land in
+# target/verify-live/ (real data: never publish them).
 .PHONY: verify-live
 verify-live: verify-settings build node_modules/.stamp ## Test this build end to end on a throwaway copy of the live data
 	@python3 deploy/with_settings.py VERIFY_SNAPSHOT_GLOB VERIFY_UNIT -- python3 deploy/verify_live.py $(ARGS)
