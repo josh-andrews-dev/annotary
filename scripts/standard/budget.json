@@ -1,0 +1,7 @@
+{
+  "global_md_bytes": 16691,
+  "file_bytes_max": 24000,
+  "combined_tokens_max": 15000,
+  "bytes_per_token": 4,
+  "lines_warn": 200
+}

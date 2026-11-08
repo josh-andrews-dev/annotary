@@ -42,8 +42,10 @@ changed lines; for any other code change the author decides and logs it in the P
   Working plans go in `docs/plans/` while active and move to `docs/archive/` in the PR that
   finishes the work; active docs do not link into `docs/archive/`, and you never read or follow
   `docs/archive/` unless asked about history.
-- Keep each instruction, rule or skill file under 24,000 bytes. Long procedures go in a skill
-  under `.agents/skills/`, history in `docs/`.
+- Keep each instruction, rule or skill file under 24,000 bytes. `make lint` also holds what each
+  harness loads at session start, with a budget for the user's global rules, under 15,000 tokens and
+  the repo's ratchet (`always_loaded_budget`). Long procedures go in a skill under
+  `.agents/skills/`, history in `docs/`.
 - Committed shell scripts never embed Python (`python3 -c`, heredocs); put it in a sibling `.py`
   file. Python the repo needs is pinned with `uv` (`.python-version`, `uv run`).
 - The shipped version comes from the git tag at build time. Never write a version number into a

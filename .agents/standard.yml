@@ -1,10 +1,13 @@
 # Recorded by Copier from the repo-standard template: version (_commit), owner, tier. Read by
 # tools, not agents. Never edit by hand; `copier update` rewrites it. removed_starter_files lists
-# the starter files the repo deleted on purpose; set it with `copier update -d` (copier.yml).
-_commit: v0.15.0
+# the starter files the repo deleted on purpose; always_loaded_budget and always_loaded_extra are
+# the always-loaded ratchet and extra files (scripts/standard/always_loaded.py). Set them with
+# `copier update -d` (copier.yml).
+_commit: v0.16.0
 _src_path: gh:josh-andrews-dev/repo-standard
-description: A service for sharing Markdown documents between humans and agents and
-    commenting on them, with the same standing for both
+always_loaded_budget: 15095
+always_loaded_extra: []
+description: A service for sharing Markdown documents between humans and agents and commenting on them, with the same standing for both
 has_ui: false
 kinds:
 - server
