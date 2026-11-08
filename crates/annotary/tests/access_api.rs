@@ -587,6 +587,11 @@ fn endpoints() -> Vec<Endpoint> {
             let id = fresh_doc(ts, v);
             send(ts, "GET", &format!("/d/{id}/v/1"), tok(c).as_deref(), None)
         }),
+        // Compare Versions (`compare.rs`)
+        ep("GET /d/{id}/diff (page)", Need::Right(Right::Read), move |ts, c, v| {
+            let id = fresh_doc(ts, v);
+            send(ts, "GET", &format!("/d/{id}/diff"), tok(c).as_deref(), None)
+        }),
         ep("GET /d/{id}/t/t1 (fragment)", Need::Right(Right::Read), move |ts, c, v| {
             let id = doc_with_thread(ts, v, &ts.owner_id);
             send(ts, "GET", &format!("/d/{id}/t/t1"), tok(c).as_deref(), None)
@@ -687,7 +692,7 @@ fn expected(need: Need, c: &Caller, vault: &str) -> Expect {
     if ok { Expect::Ok } else { Expect::Forbidden }
 }
 
-// spec: S06-01, S06-02, S06-03, S06-11, S06-14, S06-15, S16-01, S18-08, S29-15, S39-04, S39-05
+// spec: S06-01, S06-02, S06-03, S06-11, S06-14, S06-15, S16-01, S18-08, S29-15, S41-04, S41-05
 #[test]
 fn rights_matrix_every_endpoint_times_every_caller() {
     let ts = TestServer::start();

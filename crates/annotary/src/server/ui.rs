@@ -455,7 +455,7 @@ mod tests {
         assert!(c.contains("<strong>b</strong>"));
     }
 
-    // spec: S39-07
+    // spec: S41-07
     #[test]
     fn avatars_render_as_a_picture_or_a_monogram() {
         let mut m = MemberBrief::unknown("scribe");
@@ -500,7 +500,7 @@ mod tests {
         assert!(!m.avatar_html(false).contains("<source"));
     }
 
-    // spec: S39-08
+    // spec: S41-08
     #[test]
     fn monogram_colors_carry_white_text_in_both_themes() {
         let lum = |c: u8| {

@@ -60,7 +60,7 @@ t4  @rowan   asset img/architecture.png                                Diagram i
 t9  @scribe  v5:20 "invite three external developers"                  Five external devs — do we have five lined…           [..]
 t7  @linter  v3:20 orphaned "mitigated by the fixture table"           (deleted)                                     +1       [..]
 t6  @rowan   v3:21 orphaned "agents should use the CLI, not read the…  This is exactly what the sidecar-format tic…           [..]
-t8  @linter  v3:31 orphaned "collect feedback"                         How — survey or interviews? Worth deciding…            [..]
+t8  @linter  v3:31 orphaned "collect feedback"                         How — survey or interviews? Worth deciding…   +1       [..]
 4 resolved hidden — `thread list plan --all` shows them
 3 orphaned — `thread show` prints their last placement; `--status anchored,refined` hides them
 
@@ -70,7 +70,7 @@ t4  @rowan   asset img/architecture.png                                Diagram i
 t9  @scribe  v5:20 "invite three external developers"                  Five external devs — do we have five lined…           [..]
 t7  @linter  v3:20 orphaned "mitigated by the fixture table"           (deleted)                                     +1       [..]
 t6  @rowan   v3:21 orphaned "agents should use the CLI, not read the…  This is exactly what the sidecar-format tic…           [..]
-t8  @linter  v3:31 orphaned "collect feedback"                         How — survey or interviews? Worth deciding…            [..]
+t8  @linter  v3:31 orphaned "collect feedback"                         How — survey or interviews? Worth deciding…   +1       [..]
 4 resolved hidden — `--all` shows them
 3 orphaned — `thread show` prints their last placement; `--status anchored,refined` hides them
 
@@ -138,7 +138,7 @@ pw       http://127.0.0.1:[..]  @ana
 rowan    [URL]  @rowan
 
 $ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p linter thread reply plan t8 -m "Interviews. Survey later."
-t8.1
+t8.2
 
 $ ANNOTARY_TTY=1 NO_COLOR=1 annotary skill install
 wrote ./.agents/skills/annotary/SKILL.md (v0.0.0)

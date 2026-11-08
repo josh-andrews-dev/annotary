@@ -17,6 +17,8 @@ pub mod auth;
 // Member avatars: set / clear and `/avatars/{hash}` (`avatars.rs` has the table).
 pub mod avatars;
 pub mod blobs;
+// Compare Versions: the inline diff page (`/d/{id}/diff`).
+pub mod compare;
 pub mod docs;
 pub mod error;
 // M3 (Hermes plan): the pages rendered for an embedder's sandboxed frame

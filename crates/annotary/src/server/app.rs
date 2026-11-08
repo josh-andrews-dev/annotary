@@ -32,6 +32,9 @@ pub struct AppState {
     /// list shows them without rendering every Document per request (`ui::title_for`).
     pub titles: Arc<std::sync::Mutex<std::collections::HashMap<String, Option<String>>>>,
     // ---- end ticket 10 ----
+    // Compare Versions (`compare.rs`): finished diffs, and the turns to run one.
+    pub diffs: Arc<super::compare::DiffCache>,
+    pub diff_gate: Arc<tokio::sync::Semaphore>,
     // ---- CMD-4 ----
     /// Failed password sign-ins per client and for the account (`login_guard.rs`), shared by
     /// `POST /login` and `POST /api/v1/login`.
@@ -56,6 +59,8 @@ impl AppState {
             shutdown,
             shutdown_tx: Arc::new(shutdown_tx),
             titles: Arc::default(),
+            diffs: Arc::default(),
+            diff_gate: Arc::new(tokio::sync::Semaphore::new(super::compare::CONCURRENT_DIFFS)),
             login_throttle: Arc::default(),
         }
     }
@@ -86,8 +91,8 @@ impl AppState {
 /// `me/avatar`, `members/{handle}/avatar` and `/avatars/{hash}` (`avatars.rs`).
 pub fn router(state: AppState) -> Router {
     use super::{
-        access, actions, admin, assets, avatars, blobs, docs, events, housekeeping, listing, me_settings, members,
-        pairing, render, settings_page, threads, vaults, view, web,
+        access, actions, admin, assets, avatars, blobs, compare, docs, events, housekeeping, listing, me_settings,
+        members, pairing, render, settings_page, threads, vaults, view, web,
     };
     // ---- ticket 06: web pages sit behind the loopback-trust / login-redirect middleware ----
     let web_pages = Router::new()
@@ -96,6 +101,8 @@ pub fn router(state: AppState) -> Router {
         .route("/d/{id}", get(view::document))
         .route("/d/{id}/v/{n}", get(view::document_version))
         // ---- end ticket 10 ----
+        // Compare Versions: one Version against another, inline (`compare.rs`)
+        .route("/d/{id}/diff", get(compare::page))
         // ---- ticket 11: one Thread's card as JSON (`view::fragment`) for live updates / confirmations ----
         .route("/d/{id}/t/{tid}", get(view::fragment))
         // ---- end ticket 11 ----

@@ -331,6 +331,50 @@ is kept: it is the person's own secret, not a credential left lying around.
 Chose the same idempotence as disable: enabling an enabled Member exits 0 with a note (`changed: false`) and appends
 no event. Enable needs no last-owner guard, since it only adds an active Member.
 
+## 2026-11-08: Compare Versions is an inline diff of the rendered Document
+
+Josh asked for a button that shows what changed between Versions, inline rather than side by side.
+
+- Chose to diff the two Versions' **rendered HTML** (`annotary_diff::rendered_diff`), block by block and then word
+  by word inside paired blocks, so headings, lists, tables and code render as on the Document page. Rejected a
+  unified diff of the Markdown source, because a reviewer reads the rendered Document and Markdown syntax in a diff
+  is noise; rejected rendering a diffed Markdown text, because markers spliced into Markdown change how it parses
+  (a list, a table, a code fence).
+- Chose to keep the newer block's tags and drop the older block's in a word diff, so the output is always balanced
+  HTML; rejected keeping both sides' markup, because removed tags inside kept ones can nest wrongly. A change only
+  to markup (a link target, emphasis) is marked as a formatting change instead.
+- Chose to diff lists, tables and block quotes one level down (an item, a row, a cell is the unit there) and to pair
+  a row's cells by position; rejected a word diff over a whole list or table, because removed text would land where
+  a list or table allows no text and a removed cell would shift the columns.
+- Chose the oldest-first pair for every URL (`from=7&to=2` shows v2 → v7) and two selects; rejected reverse diffs,
+  because the page always reads as the newer text with what went away struck through.
+- Chose the Compare link's defaults from Josh's words: on the head, the previous Version against it; on an older
+  Version, that Version against the head.
+- Chose `del` / `ins` with visually hidden labels (CSS pseudo text on the inline marks, `span.cd-sr` on blocks),
+  underline and strike-through, and a +/− glyph on whole blocks; rejected color alone, which fails for color-blind
+  readers and screen readers. The colors alias the intent tokens, so both palettes and a later visual refresh
+  follow without new tokens.
+- Chose to fold unchanged top-level runs into closed `details` (the first block and two blocks of context kept);
+  rejected hiding them for good, because the reader sometimes needs the surrounding text.
+- Chose a page of its own (`/d/{id}/diff`) with no Thread cards; rejected a mode of the Document page, because the
+  card layout keys on the rendered Version's lines, which a diff with removed blocks no longer has.
+- Chose a fixed work budget counted in comparisons, with each step charging its worst case before it runs, and blocks shown whole past it. Rejected a wall-clock deadline, because the diff is a pure function and the same two Versions must always give the same page. Rejected caching alone, because the first request would still be unbounded.
+- Chose charges measured per byte and per nesting level for all work that can repeat. Rejected charging only the matrix and the diffs, because reading a subtree at every level cost about ten times what the budget counted.
+- Chose bags of words after a length check to decide what pairs. Rejected a Myers diff per pair, because a run of long paragraphs costs one diff per pair on every request. A bag ignores word order, which only lets a reordered block pair; its word diff is still charged to the budget.
+- Chose a depth limit (32) on the block tree, past which blocks are compared whole. Rejected an iterative tree walk, because no real Document nests that deep and whole-block comparison is correct there.
+- Chose a content-keyed cache of finished diffs and two diffs at a time on blocking threads, with a 503 past a 2 s wait. Rejected per-Member rate limits, because the cost belongs to the pair of Versions rather than to who asks.
+- Chose one gate before any diff work, with caps low enough that 2 s and 64 MiB hold for every input (20,000 blocks, table cells included, and 4 MiB of rendered HTML per side), and over either the page says the Versions are too large to compare. Rejected comparing part of a Document, because a partial parse produced markup that could not be marked correctly, and rejected higher caps, because the bound would rest on inputs nobody had tried. A Document with tens of thousands of blocks has nothing a reader could review inline anyway.
+- Chose to measure each block only against its neighbors (within 32 positions) in a large changed run. Rejected every pair, because many similar sections make that cost more than the rest of the diff, and moved blocks across long distances are rare.
+- Chose a count of lines by content (a sort and a merge of hashes) for `+N −M lines`. Rejected a real line diff, because a Histogram diff of repeating lines took 8.7 s on 0.55 MB and no charge makes that a promise; a moved line now counts for neither side, and the change points still show the move.
+- Chose a small classic script ahead of the Version selects, listening on `document`, so a change is never dropped however late the page's main script runs. Rejected drawing the selects disabled until `app.js` binds them, because the page's GET form must keep working without the script, and the selects would be dead on exactly the slow devices this is for. The change buttons do need the script, so they are drawn disabled until it has run.
+
+## 2026-11-07: the Apple Silicon build names `macos-15`, not `macos-latest`
+
+GitHub retired `macos-14`, dist 0.33.1's default for `aarch64-apple-darwin`. Chose to name `macos-15` in
+`[workspace.metadata.dist.github-custom-runners]`; rejected `macos-latest`, because a moving label changes the build
+host without a reviewed change. Rejected regenerating `release.yml` with a newer dist, because that is a larger change
+to the release path than one runner name.
+
 ## 2026-11-08: Member avatars
 
 Each Hermes agent's animated face should sit beside its Comments, and people benefit too.

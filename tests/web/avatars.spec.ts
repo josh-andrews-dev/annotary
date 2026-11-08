@@ -52,7 +52,7 @@ const imgState = (page: Page, sel: string) => page.locator(sel).first().evaluate
   return { src: img.currentSrc, natural: img.naturalWidth, w: box.width, h: box.height, round, tag: img.tagName };
 });
 
-// spec: S39-08
+// spec: S41-08
 test('a card shows the animated avatar, its still under reduced motion, and a monogram for a Member without one', async ({ page }) => {
   const s = await scene();
   await page.goto(`${srv.url}/d/${s.doc}`);
@@ -76,7 +76,7 @@ test('a card shows the animated avatar, its still under reduced motion, and a mo
   await expect.poll(() => imgState(page, '.cd-thread[data-t="t1"] .cd-c .cd-av-pic img').then((i) => i.natural)).toBeGreaterThan(0);
 });
 
-// spec: S39-08
+// spec: S41-08
 test('the comment row stays on one line at a phone width, and the monogram reads on the dark theme', async ({ page }) => {
   const s = await scene();
   await call('PUT', '/api/v1/me/settings', srv.ownerToken, { key: 'appearance', value: 'dark', scope: 'all' });
@@ -99,7 +99,7 @@ test('the comment row stays on one line at a phone width, and the monogram reads
   expect(look.bg).not.toBe(look.page);
 });
 
-// spec: S39-10
+// spec: S41-10
 test('Settings → Profile uploads an avatar and its still, says why a file is refused, and clears', async ({ page }) => {
   await page.goto(`${srv.url}/settings/profile`);
   await page.waitForSelector('.cd-set-ready');
@@ -130,7 +130,7 @@ test('Settings → Profile uploads an avatar and its still, says why a file is r
   expect((await call('GET', '/api/v1/me', srv.ownerToken)).avatar).toBeNull();
 });
 
-// spec: S39-10
+// spec: S41-10
 test('the Members screen shows avatars and an owner clears another Member’s', async ({ page }) => {
   await scene();
   await page.goto(`${srv.url}/settings/server/members`);

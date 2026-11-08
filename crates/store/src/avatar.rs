@@ -806,7 +806,7 @@ mod tests {
         format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 8 8\">{inner}</svg>")
     }
 
-    // spec: S39-01
+    // spec: S41-01
     #[test]
     fn the_plugin_shape_passes_and_is_an_svg() {
         assert_eq!(check_svg(ANIMATED.as_bytes()), Ok(()));
@@ -822,7 +822,7 @@ mod tests {
         assert_eq!(check_svg(b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>"), Ok(()));
     }
 
-    // spec: S39-01
+    // spec: S41-01
     #[test]
     fn scripts_events_and_foreign_content_are_refused() {
         assert!(refused(&wrap("<script>alert(1)</script>")).contains("<script>"));
@@ -846,7 +846,7 @@ mod tests {
         assert!(refused(&wrap("<![CDATA[x]]>")).contains("CDATA"));
     }
 
-    // spec: S39-01
+    // spec: S41-01
     #[test]
     fn references_out_of_the_svg_are_refused() {
         let grad = |attr: &str| {
@@ -870,7 +870,7 @@ mod tests {
         assert!(refused("<g xmlns=\"http://www.w3.org/2000/svg\"/>").contains("root element must be <svg>"));
     }
 
-    // spec: S39-01
+    // spec: S41-01
     #[test]
     fn css_that_loads_or_escapes_is_refused() {
         let style = |css: &str| wrap(&format!("<style>{css}</style>"));
@@ -899,7 +899,7 @@ mod tests {
         );
     }
 
-    // spec: S39-01
+    // spec: S41-01
     #[test]
     fn dtds_entities_and_oddities_are_refused() {
         let xxe = "<?xml version=\"1.0\"?><!DOCTYPE svg [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><svg xmlns=\"http://www.w3.org/2000/svg\"><title>&x;</title></svg>";
@@ -955,7 +955,7 @@ mod tests {
         v
     }
 
-    // spec: S39-02
+    // spec: S41-02
     #[test]
     fn rasters_are_known_by_their_bytes_and_capped() {
         assert_eq!(check_image(&png(64, 64)), Ok(Kind::Png));

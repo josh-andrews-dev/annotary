@@ -370,3 +370,83 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
 /* iOS Safari zooms into a field under 16px on focus: in an embedder's frame (the Webapp on a phone)
    every field is at least 16px. */
 .cd-app.cd-embed input:not([type=checkbox]):not([type=radio]),.cd-app.cd-embed textarea,.cd-app.cd-embed select{font-size:max(16px,1em)}
+
+/* ---------- Compare Versions (`compare.rs`, `annotary_diff::html`) ----------
+   Self-contained: every rule is scoped to `.cd-diffpage` or names a `cd-dx` class, and the
+   colors are aliases of the existing intent tokens (`--cd-pos*` added, `--cd-neg*` removed,
+   `--cd-amber*` changed), so both palettes follow. Marks never rest on color alone: inserted
+   text is underlined, removed text struck through, whole blocks carry a +/− glyph, and every
+   mark has a text label for screen readers (`span.cd-sr`, and the `ins`/`del` pseudo labels). */
+.cd-diffpage{--cd-dx-add-bg:var(--cd-pos-bg);--cd-dx-add-line:var(--cd-pos);--cd-dx-del-bg:var(--cd-neg-bg);--cd-dx-del-line:var(--cd-neg);--cd-dx-mod-line:var(--cd-amber)}
+.cd-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+/* The hidden labels are absolutely positioned: a table or a code block that scrolls sideways must be
+   their containing block, or a label far right in it widens the page. */
+.cd-dxdoc table,.cd-dxdoc pre{position:relative}
+.cd-dxhdr{flex-wrap:wrap;row-gap:6px}
+.cd-dxline{flex:0 1 auto}
+.cd-dxname{color:var(--cd-fg)}
+.cd-dxbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;flex:1 1 auto;min-width:0}
+.cd-dxform{display:inline-flex;margin:0;min-width:0}
+.cd-dxpick{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.cd-dxpick select{font:inherit;font-size:13px;padding:3px 22px 3px 6px;border:1px solid var(--cd-line);border-radius:6px;background:var(--cd-card);color:var(--cd-fg);max-width:220px;min-width:0;text-overflow:ellipsis}
+.cd-dxarrow{color:var(--cd-muted)}
+.cd-dxsum{display:inline-flex;align-items:center;gap:10px;font-size:13px;color:var(--cd-muted);white-space:nowrap}
+.cd-dxplus{color:var(--cd-dx-add-line);font-weight:600}
+.cd-dxminus{color:var(--cd-dx-del-line);font-weight:600}
+.cd-dxpos{color:var(--cd-fg)}
+.cd-dxnav{display:inline-flex;gap:4px}
+.cd-dxnav .cd-btn{min-width:30px;font-size:14px;line-height:1.2}
+.cd-dxinfo{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 16px;font-size:12px;color:var(--cd-muted);border-bottom:1px solid var(--cd-soft)}
+.cd-dxopens{display:inline-flex;gap:6px}
+.cd-dxopens .cd-btn{font-size:12px;padding:2px 8px}
+.cd-dxkey{display:inline-flex;gap:10px;align-items:center}
+.cd-dxkey-del{text-decoration:line-through;text-decoration-color:var(--cd-dx-del-line);background:var(--cd-dx-del-bg);color:var(--cd-fg);padding:0 4px;border-radius:3px}
+.cd-dxkey-add{text-decoration:underline;text-decoration-color:var(--cd-dx-add-line);text-underline-offset:2px;background:var(--cd-dx-add-bg);color:var(--cd-fg);padding:0 4px;border-radius:3px}
+.cd-dxkey-mod{border-left:3px solid var(--cd-dx-mod-line);padding-left:5px}
+.cd-dxmain{padding:0 16px}
+.cd-dxmain .cd-dxdoc{max-width:calc(72ch * var(--cd-text-scale,1));margin:0 auto;grid-column:auto}
+.cd-dx-note{color:var(--cd-muted);font-size:14px;border:1px dashed var(--cd-line);border-radius:8px;padding:10px 14px}
+/* inline marks (word level) */
+.cd-dxdoc ins.cd-ins{background:var(--cd-dx-add-bg);color:inherit;text-decoration:underline;text-decoration-color:var(--cd-dx-add-line);text-underline-offset:2px;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.cd-dxdoc del.cd-del{background:var(--cd-dx-del-bg);color:inherit;text-decoration:line-through;text-decoration-color:var(--cd-dx-del-line);border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.cd-dxdoc ins.cd-ins::before,.cd-dxdoc ins.cd-ins::after,.cd-dxdoc del.cd-del::before,.cd-dxdoc del.cd-del::after{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.cd-dxdoc ins.cd-ins::before{content:" [added: "}
+.cd-dxdoc del.cd-del::before{content:" [removed: "}
+.cd-dxdoc ins.cd-ins::after,.cd-dxdoc del.cd-del::after{content:"] "}
+.cd-dxdoc ins.cd-ins img,.cd-dxdoc ins.cd-ins video{outline:3px solid var(--cd-dx-add-line);outline-offset:2px}
+.cd-dxdoc del.cd-del img,.cd-dxdoc del.cd-del video{outline:3px solid var(--cd-dx-del-line);outline-offset:2px;opacity:.6}
+/* whole blocks */
+.cd-dxdoc .cd-dx-blk{position:relative}
+.cd-dxdoc .cd-dx-add:not(ins){background:var(--cd-dx-add-bg);box-shadow:-3px 0 0 var(--cd-dx-add-line)}
+.cd-dxdoc .cd-dx-del:not(del){background:var(--cd-dx-del-bg);box-shadow:-3px 0 0 var(--cd-dx-del-line);text-decoration:line-through;text-decoration-color:var(--cd-dx-del-line)}
+.cd-dxdoc tr.cd-dx-add>*{background:var(--cd-dx-add-bg)}
+.cd-dxdoc tr.cd-dx-del>*{background:var(--cd-dx-del-bg)}
+.cd-dxdoc>.cd-dx-blk:not(hr)::before{position:absolute;left:-14px;top:0;width:12px;text-align:center;font:600 12px/1.65 var(--cd-mono);text-decoration:none}
+.cd-dxdoc>.cd-dx-add::before{content:"+" / "";color:var(--cd-dx-add-line)}
+.cd-dxdoc>.cd-dx-del::before{content:"\2212" / "";color:var(--cd-dx-del-line)}
+.cd-dxdoc .cd-dx-mod:not(span){box-shadow:-3px 0 0 var(--cd-dx-mod-line)}
+.cd-dxdoc .cd-dx-mod.cd-dx-fmt:not(span){box-shadow:none;border-left:3px dotted var(--cd-dx-mod-line);margin-left:-3px}
+.cd-dxdoc hr.cd-dx-add{border-top:3px solid var(--cd-dx-add-line)}
+.cd-dxdoc hr.cd-dx-del{border-top:3px dashed var(--cd-dx-del-line)}
+.cd-dxdoc [data-cd-dx]{scroll-margin-top:140px}
+.cd-dxdoc .cd-dx-cur{outline:2px solid var(--cd-accent);outline-offset:4px;border-radius:2px}
+/* folded unchanged blocks */
+.cd-dxdoc details.cd-dx-same{margin:.8em 0;border-top:1px dashed var(--cd-line);border-bottom:1px dashed var(--cd-line)}
+.cd-dxdoc details.cd-dx-same>summary{cursor:pointer;list-style:none;padding:4px 0;font-size:12px;color:var(--cd-muted);text-align:center}
+.cd-dxdoc details.cd-dx-same>summary::-webkit-details-marker{display:none}
+.cd-dxdoc details.cd-dx-same>summary::before{content:"\25B8  "}
+.cd-dxdoc details.cd-dx-same[open]>summary::before{content:"\25BE  "}
+.cd-dxdoc details.cd-dx-same[open]{padding-bottom:4px}
+@container cd (min-width: 850px){
+  .cd-dxmain{padding:0 24px}
+}
+@container cd (max-width: 849.98px){
+  .cd-dxhdr{flex-wrap:wrap}
+  .cd-dxhdr .cd-line{flex:1 1 100%;cursor:default;overflow:hidden}
+  .cd-dxbar{flex:1 1 100%;gap:6px 10px}
+  .cd-dxform{flex:1 1 100%}
+  .cd-dxpick{flex:1 1 100%}
+  .cd-dxpick select{flex:1 1 0;max-width:none;width:0}
+  .cd-dxsum{flex:1 1 100%}
+  .cd-dxnav{margin-left:auto}
+}

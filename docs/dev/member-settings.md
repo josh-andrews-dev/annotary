@@ -95,6 +95,6 @@ A Member's picture beside their name. The page side is in [web-document-view.md]
   stores older than v6 without migrating them: `avatar_blob_refs` treats a missing table as no avatars.
 - **Serving:** `GET /avatars/{hash}` is in the `web_pages` router, so a browser's cookie and loopback trust apply. It
   serves only a hash in `member_avatars`, so it cannot be used to read any other blob.
-- **Tests:** `avatar.rs` unit tests (S39-01, S39-02), `tests/avatars_api.rs` (S39-03…05, S39-07), the avatar rows in
-  `tests/access_api.rs`, `tests/e2e/88-avatars/` (S39-06), `tests/web/avatars.spec.ts` (S39-08, S39-10), the avatar test in
-  `tests/web/embed.spec.ts` (S39-09). Fixtures: `fixtures/avatars/` (`make.py` draws the PNGs).
+- **Tests:** `avatar.rs` unit tests (S41-01, S41-02), `tests/avatars_api.rs` (S41-03…05, S41-07), the avatar rows in
+  `tests/access_api.rs`, `tests/e2e/88-avatars/` (S41-06), `tests/web/avatars.spec.ts` (S41-08, S41-10), the avatar test in
+  `tests/web/embed.spec.ts` (S41-09). Fixtures: `fixtures/avatars/` (`make.py` draws the PNGs).

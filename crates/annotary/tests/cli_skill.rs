@@ -42,6 +42,26 @@ fn the_review_flow_leaves_a_review_in_progress_alone() {
     assert!(!skill.contains("Per Thread:"), "SKILL.md tells agents to act on each Thread as it lands");
 }
 
+// spec: S39-01
+#[test]
+fn the_skill_answers_each_thread_like_a_colleague() {
+    let skill = include_str!("../skill/SKILL.md");
+    for rule in [
+        "**After pushing, answer each Thread you acted on**",
+        "what changed, in which Version",
+        "--resolve -m \"Done in v5: ",
+        "or why not (\"Kept: ",
+        "A question gets an answer, no edit.",
+        "Unclear? Ask there, don't guess.",
+        "Resolve only what's done",
+        "push once, answer each Thread.",
+    ] {
+        assert!(skill.contains(rule), "SKILL.md lost the answering rule {rule:?}");
+    }
+    // The old one-liner told agents to resolve everything they replied to.
+    assert!(!skill.contains("**Reply, then resolve**"), "SKILL.md still says reply-then-resolve unconditionally");
+}
+
 // spec: S14-02, S14-01
 #[test]
 fn install_writes_the_embedded_skill_byte_for_byte_with_the_binary_version() {

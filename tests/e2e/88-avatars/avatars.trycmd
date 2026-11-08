@@ -1,4 +1,4 @@
-spec: S39-06
+spec: S41-06
 
 `avatar set | clear | show` for @scribe (profile `agent`), left without an avatar at the end. Text
 is `@handle TYPE SIZE STATIC`, `@handle none` without one, `@handle cleared` after a clear. An

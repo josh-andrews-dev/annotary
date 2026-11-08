@@ -68,7 +68,7 @@ fn avatar_events(store: &Store) -> Vec<(String, Value)> {
         .collect()
 }
 
-// spec: S39-03
+// spec: S41-03
 #[test]
 fn set_and_clear_go_through_events_and_the_gc_keeps_only_current_avatars() {
     let ts = TestServer::start();
@@ -130,7 +130,7 @@ fn set_and_clear_go_through_events_and_the_gc_keeps_only_current_avatars() {
     assert_eq!(avatar_events(&ts.store).len(), 3);
 }
 
-// spec: S39-04
+// spec: S41-04
 #[test]
 fn every_member_sets_and_clears_their_own_and_an_owner_clears_anyones() {
     let ts = TestServer::start();
@@ -193,7 +193,7 @@ fn every_member_sets_and_clears_their_own_and_an_owner_clears_anyones() {
     assert_eq!((s, v["changed"].clone()), (200, json!(false)));
 }
 
-// spec: S39-04
+// spec: S41-04
 #[test]
 fn refused_images_say_why() {
     let ts = TestServer::start();
@@ -226,7 +226,7 @@ fn refused_images_say_why() {
     assert!(ts.store.member_by_handle("scribe").unwrap().unwrap().avatar.is_none());
 }
 
-// spec: S39-05
+// spec: S41-05
 #[test]
 fn avatars_are_served_with_the_servers_type_and_a_locked_down_policy() {
     let ts = TestServer::start();
@@ -274,7 +274,7 @@ fn get_page(ts: &TestServer, path: &str, token: &str, embed: bool) -> String {
     req.call().unwrap().body_mut().read_to_string().unwrap()
 }
 
-// spec: S39-07
+// spec: S41-07
 #[test]
 fn pages_draw_the_one_avatar_renderer() {
     let ts = TestServer::start();

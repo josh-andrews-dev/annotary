@@ -1,4 +1,4 @@
-spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S39-06
+spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06
 
 The `--json ?` contract of every verb in one place (ticket 16's sweep): each lists every field
 its `--json` can carry (`--json a,b` narrows to some of them) and exits 0 without calling the
