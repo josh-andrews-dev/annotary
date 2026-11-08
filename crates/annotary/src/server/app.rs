@@ -172,6 +172,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/members/{handle}", get(access::get_member))
         .route("/api/v1/members/{handle}/rename", post(access::rename))
         .route("/api/v1/members/{handle}/disable", post(access::disable))
+        .route("/api/v1/members/{handle}/enable", post(access::enable))
         .route("/api/v1/members/{handle}/role", post(access::set_role))
         .route("/api/v1/members/{handle}/grants", post(access::grant).put(access::set_grants))
         .route("/api/v1/tokens", get(access::list_tokens).post(access::mint_token))

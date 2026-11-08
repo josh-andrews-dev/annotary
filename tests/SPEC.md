@@ -309,7 +309,7 @@ markers in implementation code — only in tests.
 - S16-02 — the Sidecar round trip carries every field the final format defines: `members` (id + name per handle), `versions[]` with `message`, `assets[]` with `via` and `missing` (a web derivative stays on the Version record — identity is `(ref, hash)` pairs), `actions {available, inherited, log[]}` across two Versions, Threads of every subject with `anchor {original, current (+ `exact` when refined), history[]}` (refined with a two-entry history, orphaned frozen at the last valid placement, asset by hash + ref + line), `mentions`, `edited_at` (root and Reply), tombstoned Reply and root, `resolved`, `replies[]` — built for real through the binary and the server: projection → parse → emit byte-identical, `pull` writes the same bytes, the pulled tree pushes back as `already`; the proptest covers the Action log and the root's `edited_at` / `deleted` too (stories 134–139; Testing seam 3)
 - S16-03 — `push` refuses a moved head whose changes the file lacks (`head_moved`, exit 5) before the re-anchoring line and before anything is uploaded, `--strict` or not — the CLI checks the head it already read for the re-anchoring, the server still refuses at commit (stories 57, 58; S03-05's "before anything is uploaded"; ticket 17 made it the default, it was `--strict` only)
 - S16-04 — CLI parity sweep: every verb has a TTY and a non-TTY golden printing the same fields in the same order (`thread resolve | reopen | edit | delete`, `delete | restore | purge`, `member rename | disable`, `token revoke`, `profile add | default | remove`, `daemon start | restart | stop | uninstall` joined the rest; `serve` is the foreground server — its first-run prompts are stdin-scripted in `00-setup/` and `cli_login.rs`; `daemon install` itself is Deferred S13-12), and `--json ?` of every verb is pinned in one golden (`10-readonly/json-fields.trycmd`) (stories 150, 151, 153)
-- S16-05 — the spec-id checker fails on an id with zero tests that is not Deferred, on a marker naming an unknown id, on an id that is both listed and Deferred, and on a story of the spec missing from the `## Stories` map (or mapped to an unknown id); it runs in `cargo test` and `make check` (Testing Decisions: "Comprehensive")
+- S16-05 — the spec-id checker fails on an id with zero tests that is not Deferred, on a marker naming an unknown id, on an id that is both listed and Deferred, on an id defined on two lines, and on a story of the spec missing from the `## Stories` map (or mapped to an unknown id); it runs in `cargo test` and `make check` (Testing Decisions: "Comprehensive")
 - S16-06 — `make check` = `fmt-check` + `clippy` + `test` + `e2e` (trycmd + Playwright) + `spec-check` + `wasm-check` + `perf` (`PERF=0 make check` / `make check-ci` leave `perf` out where the release toolchain or Chromium is absent); CI (`.github/workflows/checks.yml`) runs on pull requests and pushes to `main`: `cargo test` on Linux and macOS, `make e2e` on Linux; `make perf` runs on one dedicated Mac only, never on a GitHub-hosted runner, and only where `.github/workflows/` and `perf/README.md` say (Testing: Commands and budget)
 - S16-07 — the Phase 1 definition of done is recorded in `docs/PHASE1-DONE.md` (all 16 tickets closed, `make check` green incl. perf, every budget met on the fixture — any raise listed under "Raised budgets" in `perf/BUDGETS.md`, currently none) and linked from AGENTS.md ("Read first")
 <!-- ---- end ticket 16 ---- -->
@@ -538,6 +538,14 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S37-10 — in the fake embedder, a page written over another before the other's script ran binds once (no doubled highlight); an `annotary-init` whose load failed can be sent again and loads; an `annotary-init` for the page shown while another loads keeps the page shown (story 168)
 <!-- ---- end M3 (Hermes plan) ---- -->
 
+<!-- ---- member enable ---- -->
+## `member enable` — a disabled Member comes back
+
+- S38-01 — `Store::enable_member` (owner only, `POST /api/v1/members/{handle}/enable`) clears the Member's and the Membership's `disabled_at` in one transaction with a `member.enabled {member, handle, tokens, sessions}` event; the same Member returns with its id, handle, role, Grants, history and attribution; every Token and session from before stays refused (they are revoked and ended in that transaction) while a newly minted Token works; enabling an enabled Member changes nothing and appends no event (`changed: false`); a member caller gets 403, an unknown handle 404 (stories 17, 18)
+- S38-02 — CLI `member enable HANDLE` prints the Member's updated `member list` row (TTY and non-TTY), `--json` gives the `member list` record, a note on stderr says the old Tokens stay revoked and how to mint one; already enabled ⇒ a note and exit 0; unknown Member ⇒ exit 2; not an owner ⇒ exit 4 (story 17)
+- S38-03 — the owner Members screen: a disabled Member's card has **Enable** (an active one has none); confirming it re-draws the card active with Mint Token, Pair a device and Advanced back, the old Tokens shown as revoked, and the active count up by one (stories 17, 34)
+<!-- ---- end member enable ---- -->
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–170)
@@ -560,8 +568,8 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 14 — hourly in-process ticker (auto-purge, GC, derivative cleanup) → S13-09, S13-10, S13-11
 - 15 — `member add` one step, `ANNOTARY_TOKEN=` once → S01-11, S12-02
 - 16 — web Add member (Token once, env line) → S12-02
-- 17 — `member list|rename|disable|grant|role` → S01-12, S06-02, S06-06
-- 18 — disable, never delete → S06-05
+- 17 — `member list|rename|disable|enable|grant|role` → S01-12, S06-02, S06-06, S38-01, S38-02, S38-03
+- 18 — disable, never delete → S06-05, S38-01
 - 19 — handles unique forever, kebab-case → S01-13, S04-06, S06-05
 - 20 — Token belongs to the Member → S06-07
 - 21 — `token mint|list|revoke`, `last_used_at`, name/expiry → S01-08, S06-07, S06-08, S12-02
@@ -577,7 +585,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 31 — Grant `{vault | *, rights[]}`, `*` covers later Vaults → S06-01, S06-02
 - 32 — owner-only operations, never grantable → S02-31, S06-03, S12-04, S12-05, S29-20, S13-07, S26-01, S26-02, S26-03, S26-09
 - 33 — last owner un-demotable → S06-04
-- 34 — Members screen (auth hint, grants behind Advanced, `last_used_at`) → S12-01
+- 34 — Members screen (auth hint, grants behind Advanced, `last_used_at`) → S12-01, S38-03
 - 35 — `push` without a Sidecar creates v1 → S02-01
 - 36 — `push` with a Sidecar binds by id → next Version → S02-02
 - 37 — `push --doc ID` binds an unbound file → S02-03

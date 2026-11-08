@@ -196,7 +196,10 @@ impl From<StoreError> for ApiError {
             StoreError::LastOwner(_) => ApiError::new(StatusCode::CONFLICT, "last_owner", e.to_string())
                 .hint("make another Member an owner first: annotary member role HANDLE owner"),
             StoreError::MemberDisabled(_) => ApiError::new(StatusCode::CONFLICT, "disabled", e.to_string())
-                .hint("disabled Members keep their history but cannot be granted, promoted or given tokens"),
+                .hint(
+                "disabled Members keep their history but cannot be granted, promoted or given tokens \
+                 until an owner runs `annotary member enable HANDLE`",
+            ),
             StoreError::PasswordNotSet => ApiError::new(StatusCode::CONFLICT, "no_password", e.to_string()).hint(
                 "an owner sets one (PUT /api/v1/settings/password, or the web Settings); until then use a token: \
                  ANNOTARY_TOKEN=… or `annotary member add HANDLE`",

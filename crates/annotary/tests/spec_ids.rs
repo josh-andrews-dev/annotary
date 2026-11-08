@@ -45,6 +45,8 @@ struct Spec {
     deferred: BTreeSet<String>,
     /// `## Stories`: story number → the ids named on its line (ticket 16).
     stories: BTreeMap<u32, Vec<String>>,
+    /// Ids defined on more than one line (two changes that both claimed the next section number).
+    duplicates: BTreeSet<String>,
 }
 
 /// Parse SPEC.md: the listed ids, the deferred ids and the story map.
@@ -69,10 +71,13 @@ fn parse_spec(text: &str) -> Spec {
         if !rest.starts_with(&id) {
             continue;
         }
-        if section.contains("deferred") {
-            spec.deferred.insert(id);
+        let new = if section.contains("deferred") {
+            spec.deferred.insert(id.clone())
         } else {
-            spec.listed.insert(id);
+            spec.listed.insert(id.clone())
+        };
+        if !new {
+            spec.duplicates.insert(id);
         }
     }
     spec
@@ -159,7 +164,7 @@ fn collect_markers(root: &Path) -> BTreeMap<String, BTreeSet<String>> {
 fn every_spec_id_has_a_test_and_every_marker_is_listed() {
     let root = repo_root();
     let text = std::fs::read_to_string(root.join("tests/SPEC.md")).expect("tests/SPEC.md exists");
-    let Spec { listed, deferred, stories } = parse_spec(&text);
+    let Spec { listed, deferred, stories, duplicates } = parse_spec(&text);
     assert!(!listed.is_empty(), "tests/SPEC.md lists no ids");
     assert!(!deferred.is_empty(), "tests/SPEC.md has no Deferred list");
     let markers = collect_markers(&root);
@@ -180,6 +185,12 @@ fn every_spec_id_has_a_test_and_every_marker_is_listed() {
         msg.push_str(&format!(
             "marker names unknown id {id} in {}\n",
             files.iter().cloned().collect::<Vec<_>>().join(", ")
+        ));
+    }
+    if !duplicates.is_empty() {
+        msg.push_str(&format!(
+            "ids defined twice in tests/SPEC.md: {}\n",
+            duplicates.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
         ));
     }
     if !both.is_empty() {
@@ -249,4 +260,17 @@ fn the_checker_fails_on_an_uncovered_id_an_unknown_marker_and_a_missing_story() 
     assert_eq!(missing, vec![4]);
     assert!(spec.stories[&3].is_empty());
     assert!(spec.stories[&2].iter().any(|id| !spec.listed.contains(id) && !spec.deferred.contains(id)));
+}
+
+// spec: S16-05
+#[test]
+fn an_id_defined_twice_is_a_duplicate() {
+    // Two changes that both took the next section number: the same id on two lines, in two
+    // sections or in one, listed or Deferred. A story line naming an id is a reference, not one.
+    let spec = parse_spec(
+        "## Change A\n- S37-01 — a\n- S37-02 — b\n## Change B\n- S37-01 — c\n- S38-01 — d\n- S38-01 — e\n\
+         ## Stories\n- 1 — a → S37-01, S37-02\n## Deferred\n- S09-99 — later\n- S09-99 — again\n",
+    );
+    assert_eq!(spec.duplicates.iter().map(String::as_str).collect::<Vec<_>>(), vec!["S09-99", "S37-01", "S38-01"]);
+    assert!(parse_spec("## A\n- S01-01 — a\n## Stories\n- 1 — a → S01-01\n").duplicates.is_empty());
 }

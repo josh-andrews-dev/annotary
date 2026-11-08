@@ -164,7 +164,7 @@ pub enum Command {
     #[command(after_help = password::AFTER_HELP)]
     Password(password::PasswordArgs),
     // ---- end CMD-22 ----
-    /// Members: add | list | rename | disable | grant | role  (owner)
+    /// Members: add | list | rename | disable | enable | grant | role  (owner)
     #[command(help_template = help::MEMBER)]
     Member {
         #[command(subcommand)]

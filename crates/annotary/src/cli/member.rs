@@ -1,5 +1,6 @@
 //! `member add HANDLE [--name NAME]`, `member list`, and (ticket 06) `member rename HANDLE NEW`,
-//! `member disable HANDLE`, `member grant HANDLE VAULT|* RIGHTS`, `member role HANDLE owner|member`.
+//! `member disable HANDLE`, `member enable HANDLE`, `member grant HANDLE VAULT|* RIGHTS`,
+//! `member role HANDLE owner|member`.
 //!
 //! The mutating verbs (owner-only) print the Member's updated `member list` row
 //! (`@handle name role grants`, `role (disabled)` once disabled) — one line, tab-separated
@@ -27,6 +28,9 @@ pub enum MemberCmd {
     Rename(RenameArgs),
     /// Disable a Member: tokens stop working, history and handle stay (owner only)
     Disable(HandleArg),
+    /// Enable a disabled Member again: same handle, Grants and history; its old Tokens stay
+    /// revoked, so mint a new one (owner only)
+    Enable(HandleArg),
     /// Set a Member's rights on one Vault (or `*` = every Vault, incl. future ones), e.g.
     /// `grant linter notes read,comment`; RIGHTS `none` removes that grant (owner only)
     Grant(GrantArgs),
@@ -96,6 +100,7 @@ pub fn run(ctx: &Ctx, cmd: MemberCmd) -> CliResult<()> {
         // ---- ticket 06 ----
         MemberCmd::Rename(a) => rename(ctx, a),
         MemberCmd::Disable(a) => disable(ctx, a),
+        MemberCmd::Enable(a) => enable(ctx, a),
         MemberCmd::Grant(a) => grant(ctx, a),
         MemberCmd::Role(a) => role(ctx, a),
         // ---- end ticket 06 ----
@@ -239,6 +244,23 @@ fn disable(ctx: &Ctx, a: HandleArg) -> CliResult<()> {
     let m = api.post(&format!("/api/v1/members/{handle}/disable"), &json!({}))?;
     if m["changed"] == json!(false) {
         ctx.out.note(&format!("@{handle} was already disabled"));
+    }
+    print_member(ctx, &m)
+}
+
+fn enable(ctx: &Ctx, a: HandleArg) -> CliResult<()> {
+    if ctx.out.json.as_ref() == Some(&JsonMode::ListFields) {
+        return ctx.out.json_records(&LIST_FIELDS, Vec::new(), true);
+    }
+    let api = ctx.api()?;
+    let handle = clean_handle(&a.handle);
+    let m = api.post(&format!("/api/v1/members/{handle}/enable"), &json!({}))?;
+    if m["changed"] == json!(false) {
+        ctx.out.note(&format!("@{handle} was already enabled"));
+    } else {
+        ctx.out.note(&format!(
+            "@{handle} enabled; its old Tokens stay revoked — a new one: annotary token mint --member {handle}"
+        ));
     }
     print_member(ctx, &m)
 }

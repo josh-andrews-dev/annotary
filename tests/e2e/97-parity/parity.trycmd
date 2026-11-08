@@ -2,7 +2,7 @@ spec: S16-04, S04-16, S06-06, S06-07, S06-13, S02-30
 
 Ticket 16's parity sweep: TTY (`ANNOTARY_TTY=1`, color off) and non-TTY twins for the verbs
 no earlier golden ran on a TTY — `thread resolve | reopen | edit | delete`, `delete | restore |
-purge`, `member rename | disable`, `token revoke` (`revoke.sh`: the id comes from `token list
+purge`, `member rename | disable | enable`, `token revoke` (`revoke.sh`: the id comes from `token list
 --json`), `profile add | remove` — each printing the same fields in the same order
 (two spaces vs tabs). Everything here is this group's own (`par-a`, `@par-agent`, profile
 `par-p`). Merged stdout+stderr; ids and ages are random.
@@ -73,6 +73,10 @@ token [ID] was already revoked
 
 $ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan member disable par-agent
 @par-agent  Parity (renamed)  member (disabled)  *:read,comment,action,write
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan member enable par-agent
+@par-agent enabled; its old Tokens stay revoked — a new one: annotary token mint --member par-agent
+@par-agent  Parity (renamed)  member  *:read,comment,action,write
 
 $ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan profile add par-p --server http://127.0.0.1:1 --token ant_notreal
 profile "par-p" saved → [..]/config.toml

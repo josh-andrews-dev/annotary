@@ -1,4 +1,4 @@
-spec: S06-06, S06-07, S06-12, S06-13
+spec: S06-06, S06-07, S06-12, S06-13, S38-02
 
 `--json ?` lists every field of the ticket-06 verbs and exits without calling the server
 (so it works with any profile, even `down`).
@@ -8,6 +8,9 @@ $ annotary -p down member rename x y --json ?
 handle name role grants disabled created id
 
 $ annotary -p down member disable x --json ?
+handle name role grants disabled created id
+
+$ annotary -p down member enable x --json ?
 handle name role grants disabled created id
 
 $ annotary -p down member grant x notes read --json ?

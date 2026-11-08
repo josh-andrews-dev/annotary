@@ -1,5 +1,5 @@
 // Owner screens & login page (ticket 12): the Members screen (Add member → a Token the CLI
-// accepts immediately; per-Token last_used; mint / revoke / rename / disable; role + Grants behind
+// accepts immediately; per-Token last_used; mint / revoke / rename / disable / enable; role + Grants behind
 // Advanced), the Settings screen (local password → login page → remembered session; the default
 // Actions editor → a new Document pulls them as `actions.available` with `inherited: true`; Vault
 // create / rename / delete; auto-purge), and owner-only gating for a Member. Tests that change
@@ -146,6 +146,52 @@ test.describe('Members', () => {
     await page.locator('#cd-add-handle').fill(handle);
     await page.locator('#cd-addform button[type=submit]').click();
     await expect(page.locator('#cd-addform .cd-err')).toContainText('already taken');
+  });
+
+  // spec: S38-03
+  // A private server: the active count is Tenant-wide, and the first test pins it on the shared one.
+  test('a disabled Member has Enable → the same Member is back, active; its old Token stays refused and a new one works', async ({ page }) => {
+    const srv = await spawnServer();
+    const call = async (method: string, route: string, token: string, body?: unknown) => {
+      const r = await fetch(srv.url + route, {
+        method,
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      return { status: r.status, json: await r.json() };
+    };
+    try {
+      const old = (await call('POST', '/api/v1/members', srv.ownerToken, { handle: 'back', name: 'Comes Back' })).json.token as string;
+      expect((await call('POST', '/api/v1/members/back/disable', srv.ownerToken, {})).status).toBe(200);
+      await page.goto(srv.url + '/settings/server/members');
+      const me = card(page, 'back');
+      await expect(me).toHaveClass(/cd-mem-disabled/);
+      await expect(me.locator('[data-act=disable]')).toHaveCount(0);
+      await expect(card(page, 'rowan').locator('[data-act=enable]')).toHaveCount(0);
+      await expect(page.locator('#cd-memcount')).toHaveText('1 active');
+      await me.locator('[data-act=enable]').click();
+      await me.locator('[data-slot=rename] [data-inline=yes]').click();
+      await expect(me).not.toHaveClass(/cd-mem-disabled/);
+      await expect(me.locator('.cd-chip.cd-disabled')).toHaveCount(0);
+      await expect(me.locator('[data-act=enable]')).toHaveCount(0);
+      await expect(me.locator('[data-act=disable]')).toHaveCount(1);
+      await expect(me.locator('[data-act=mint]')).toHaveCount(1);
+      await expect(me.locator('[data-act=pair]')).toHaveCount(1);
+      await expect(me.locator('details.cd-advanced')).toHaveCount(1);
+      // Same name and Grants; the Token from before is revoked, not live again.
+      await expect(me.locator('.cd-member')).toHaveText('Comes Back');
+      await expect(me.locator('.cd-grants-summary')).toHaveText('every Vault: read, comment, action, write');
+      await expect(me.locator('.cd-notokens')).toHaveText('no Tokens');
+      await expect(me.locator('.cd-memtokhead')).toContainText('1 revoked');
+      await expect(page.locator('#cd-memcount')).toHaveText('2 active');
+      expect((await call('GET', '/api/v1/me', old)).status).toBe(401);
+      const fresh = (await call('POST', '/api/v1/tokens', srv.ownerToken, { member: 'back' })).json.token as string;
+      const meNow = await call('GET', '/api/v1/me', fresh);
+      expect(meNow.status).toBe(200);
+      expect(meNow.json.handle).toBe('back');
+    } finally {
+      await srv.stop();
+    }
   });
 });
 

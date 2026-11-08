@@ -1,16 +1,17 @@
 //! Access model completion (ticket 06) on the [`Store`]: Member management (rename, role,
-//! Grants; `disable_member` lives in `store.rs`), Tokens with an optional expiry, the local
+//! Grants; `disable_member` / `enable_member` live in `store.rs`), Tokens with an optional expiry, the local
 //! password with `login`, and browser sessions.
 //!
 //! - **Rights** are `read / comment / action / write` per Vault; `read` is implied by any other.
 //!   A Membership holds a list of Grants `{vault | "*", rights[]}`; the Grant that applies to a
 //!   Vault is the Vault's own entry when there is one, else `*` ([`Grant::applicable`]) — so `*`
 //!   covers Vaults created later and a Vault-specific Grant restricts (or widens) that one Vault.
-//! - **Owner-only, never grantable:** Member/Membership management (add, rename, disable, role,
+//! - **Owner-only, never grantable:** Member/Membership management (add, rename, disable, enable, role,
 //!   Grants), Vault create, Vault default Actions, purge, the local password. `role ∈
 //!   owner|member`; the last active owner cannot be demoted or disabled ([`StoreError::LastOwner`]).
 //! - **Tokens** belong to the Member: shown once, sha256 at rest, optional `name`/`expires_at`,
-//!   `last_used_at` stamped on use, revoke (idempotent). A disabled Member's Tokens stop working.
+//!   `last_used_at` stamped on use, revoke (idempotent). A disabled Member's Tokens stop working,
+//!   and enabling the Member revokes them for good (it comes back with no credential).
 //! - **Local password** (argon2id PHC string in `members.password_hash`) — set/changed/removed
 //!   by an owner for their own Member ([`Store::set_password`]); [`Store::login`] exchanges it
 //!   for a fresh Token (`WrongPassword` / `PasswordNotSet`). While no active Member has a
@@ -706,6 +707,45 @@ mod tests {
         conn.execute("UPDATE tokens SET expires_at = ?1 WHERE id = ?2", params![past, t2.id]).unwrap();
         assert!(store.authenticate(&t2.plain).unwrap().is_none());
         assert_eq!(store.token_row(&t2.id).unwrap().unwrap().status(&time::now()), "expired");
+    }
+
+    // spec: S38-01
+    #[test]
+    fn enable_brings_the_same_member_back_without_its_old_credentials() {
+        let (_d, store, owner) = fresh();
+        let (linter, tok) = store.add_member(&owner.id, "linter", Some("Linter")).unwrap();
+        let g = store.grant(&owner.id, &linter.id, "notes", &[Right::Comment]).unwrap().grants;
+        let s = store.open_session(&linter.id, "loopback").unwrap();
+        let spare = store.mint_token(&owner.id, &linter.id, Some("spare")).unwrap();
+        store.revoke_token(&owner.id, &spare.id).unwrap();
+        // Enabling an active Member changes nothing and appends no event.
+        let before = kinds(&store).len();
+        assert_eq!(store.enable_member(&owner.id, &linter.id).unwrap(), (false, 0, 0));
+        assert_eq!(kinds(&store).len(), before);
+        assert!(store.authenticate(&tok.plain).unwrap().is_some(), "an active Member's Token is untouched");
+        store.disable_member(&owner.id, &linter.id).unwrap();
+        // Back: the same id, handle, name, role and Grants; one live Token revoked, one session ended.
+        assert_eq!(store.enable_member(&owner.id, &linter.id).unwrap(), (true, 1, 1));
+        let m = store.member_by_id(&linter.id).unwrap().unwrap();
+        assert!(!m.is_disabled());
+        assert_eq!(
+            (m.handle.as_str(), m.display_name.as_str(), m.role, &m.grants),
+            ("linter", "Linter", Role::Member, &g)
+        );
+        // The credentials from before stay dead; a new Token works.
+        assert!(store.authenticate(&tok.plain).unwrap().is_none(), "the old Token is not resurrected");
+        assert!(store.authenticate_session(&s.plain).unwrap().is_none(), "the old session is not resurrected");
+        assert_eq!(store.token_row(&tok.id).unwrap().unwrap().status(&time::now()), "revoked");
+        let fresh_tok = store.mint_token_expiring(&owner.id, &linter.id, None, None).unwrap();
+        assert_eq!(store.authenticate(&fresh_tok.plain).unwrap().unwrap().handle, "linter");
+        assert!(store.grant(&owner.id, &linter.id, "*", &[Right::Read]).is_ok(), "grantable again");
+        // One event, with the counts; idempotent afterwards.
+        let events = store.events_since(0).unwrap();
+        let e = events.iter().find(|e| e.kind == "member.enabled").unwrap();
+        assert_eq!(e.payload["handle"], "linter");
+        assert_eq!((e.payload["tokens"].as_u64(), e.payload["sessions"].as_u64()), (Some(1), Some(1)));
+        assert_eq!(store.enable_member(&owner.id, &linter.id).unwrap(), (false, 0, 0));
+        assert!(matches!(store.enable_member(&owner.id, "nope"), Err(StoreError::MemberNotFound)));
     }
 
     // spec: S06-09, S06-10, S06-11
