@@ -59,6 +59,7 @@ test('real Documents: one header row, a tied selection, nothing sideways on a ph
     if (i === 0) {
       for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
+        await page.waitForTimeout(300); // the hover transitions also fade a change of appearance
         await shot(page, `refresh-doc-desktop-${colorScheme}`);
       }
       await page.emulateMedia({ colorScheme: 'light' });

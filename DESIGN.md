@@ -271,6 +271,8 @@ Easing token: `--cd-ease` = `cubic-bezier(.2,.8,.2,1)`.
 | A Comment from someone else arrives live (`.cd-fresh`) | its ground fades from `--cd-sel-bg` | 1.2 s ease-out |
 | Selecting text | the Comment pill scales in from 96% | 120 ms, `--cd-ease` |
 
+Highlights never transition: the resolved toggle and its tests read a `mark.cd-hl`'s color at once, and a fade makes them read the old one.
+
 ## Visual refresh: decisions (2026-11-08)
 
 Direction "Margin note", from three mock rounds. Josh asked for sleeker, livelier and more striking
