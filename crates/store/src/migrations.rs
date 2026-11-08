@@ -215,6 +215,26 @@ pub const MIGRATIONS: &[&str] = &[
     UPDATE sessions SET device_id = 'web';
     "#,
     // ---- end CMD-23 ----
+    // ---- Member avatars ----
+    // v6 — a Member's avatar: the image and an optional static fallback (shown under reduced
+    // motion), each a content-addressed blob with the type the server read from its bytes. One row
+    // per Member that has one; clearing deletes the row (the events log keeps the history).
+    r#"
+    CREATE TABLE member_avatars (
+        member_id   TEXT PRIMARY KEY REFERENCES members(id),
+        hash        TEXT NOT NULL,
+        type        TEXT NOT NULL,
+        size        INTEGER NOT NULL,
+        static_hash TEXT,
+        static_type TEXT,
+        static_size INTEGER,
+        set_at      TEXT NOT NULL,
+        set_by      TEXT NOT NULL REFERENCES members(id)
+    );
+    CREATE INDEX member_avatars_hash ON member_avatars(hash);
+    CREATE INDEX member_avatars_static ON member_avatars(static_hash);
+    "#,
+    // ---- end Member avatars ----
 ];
 
 /// The schema version this binary writes.

@@ -85,8 +85,8 @@ impl AppState {
 /// (CMD-23, `settings_page.rs`) with the owner pages under `/settings/server/…` (`admin.rs`).
 pub fn router(state: AppState) -> Router {
     use super::{
-        access, actions, admin, assets, blobs, docs, events, housekeeping, listing, me_settings, members, pairing,
-        render, settings_page, threads, vaults, view, web,
+        access, actions, admin, assets, avatars, blobs, docs, events, housekeeping, listing, me_settings, members,
+        pairing, render, settings_page, threads, vaults, view, web,
     };
     // ---- ticket 06: web pages sit behind the loopback-trust / login-redirect middleware ----
     let web_pages = Router::new()
@@ -114,6 +114,8 @@ pub fn router(state: AppState) -> Router {
         .route("/embed/shell", get(super::embed::shell))
         // ticket 03: Assets at a stable URL (`assets.rs`); a browser reaches them with its cookie
         .route("/a/{hash}", get(assets::get))
+        // Member avatars, by content hash (`avatars.rs`)
+        .route("/avatars/{hash}", get(avatars::get))
         .route_layer(axum::middleware::from_fn_with_state(state.clone(), web::require_web_auth));
     // ---- end ticket 06 ----
     Router::new()
@@ -131,6 +133,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/me/devices/{id}/sync", get(me_settings::sync))
         .route("/api/v1/me/rename", post(me_settings::rename_self))
         // ---- end CMD-23 ----
+        // Member avatars (`avatars.rs` has the table)
+        .route("/api/v1/me/avatar", put(avatars::put_me).delete(avatars::delete_me))
+        .route("/api/v1/members/{handle}/avatar", axum::routing::delete(avatars::delete_member))
         .route("/api/v1/members", get(members::list).post(members::add))
         .route("/api/v1/vaults", get(vaults::list).post(access::create_vault)) // POST: ticket 06
         .route("/api/v1/blobs/check", post(blobs::check))

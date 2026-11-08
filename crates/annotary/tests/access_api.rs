@@ -242,6 +242,27 @@ fn endpoints() -> Vec<Endpoint> {
             )
         }),
         // ---- end CMD-23 ----
+        // ---- Member avatars: your own for everyone, another's (clear) for owners ----
+        ep("PUT me/avatar", Need::Any, move |ts, c, _| {
+            let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><title>{}</title></svg>", c.handle);
+            let body = json!({ "image": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, svg) });
+            send(ts, "PUT", "/api/v1/me/avatar", tok(c).as_deref(), Some(&body))
+        }),
+        ep("DELETE me/avatar", Need::Any, move |ts, c, _| {
+            send(ts, "DELETE", "/api/v1/me/avatar", tok(c).as_deref(), None)
+        }),
+        ep("DELETE members/{h}/avatar (other)", Need::Owner, move |ts, c, _| {
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let (id, _) = ts.add_member(&format!("face{n}"));
+            ts.store.set_avatar(&id, &id, b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>", None).unwrap();
+            send(ts, "DELETE", &format!("/api/v1/members/face{n}/avatar"), tok(c).as_deref(), None)
+        }),
+        ep("GET /avatars/{hash}", Need::Any, move |ts, c, _| {
+            let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><title>served {}</title></svg>", c.handle);
+            let (m, _) = ts.store.set_avatar(&ts.owner_id, &ts.owner_id, svg.as_bytes(), None).unwrap();
+            send(ts, "GET", &format!("/avatars/{}", m.avatar.unwrap().hash), tok(c).as_deref(), None)
+        }),
+        // ---- end Member avatars ----
         ep("GET vaults", Need::Any, move |ts, c, _| send(ts, "GET", "/api/v1/vaults", tok(c).as_deref(), None)),
         ep("GET members/{h}", Need::Any, move |ts, c, _| {
             send(ts, "GET", "/api/v1/members/rowan", tok(c).as_deref(), None)
@@ -666,7 +687,7 @@ fn expected(need: Need, c: &Caller, vault: &str) -> Expect {
     if ok { Expect::Ok } else { Expect::Forbidden }
 }
 
-// spec: S06-01, S06-02, S06-03, S06-11, S06-14, S06-15, S16-01, S18-08, S29-15
+// spec: S06-01, S06-02, S06-03, S06-11, S06-14, S06-15, S16-01, S18-08, S29-15, S39-04, S39-05
 #[test]
 fn rights_matrix_every_endpoint_times_every_caller() {
     let ts = TestServer::start();

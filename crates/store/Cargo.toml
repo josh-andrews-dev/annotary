@@ -34,6 +34,10 @@ libc = "0.2"
 tar = "0.4"
 tempfile = { workspace = true }
 # ---- end ticket 13 ----
+# Member avatars: the SVG check reads the XML as events (no DTD, no entity expansion), and a
+# raster avatar must have dimensions its header gives.
+quick-xml = "0.42"
+imagesize = "0.15"
 
 [dev-dependencies]
 tempfile = { workspace = true }

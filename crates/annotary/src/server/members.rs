@@ -24,6 +24,7 @@ pub fn member_json(m: &MemberView) -> Value {
         "created_at": m.created_at,
         "disabled_at": m.disabled_at,
         "has_password": m.has_password,
+        "avatar": m.avatar.as_ref().map(super::avatars::avatar_json),
     })
 }
 

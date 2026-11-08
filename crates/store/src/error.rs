@@ -17,6 +17,9 @@ pub enum StoreError {
     InvalidHandle { handle: String, reason: &'static str },
     #[error("invalid {what}: {reason}")]
     Invalid { what: &'static str, reason: String },
+    /// Member avatars: an image the avatar check refused (`avatar::check_image`), with the reason.
+    #[error("{0}")]
+    InvalidAvatar(String),
     #[error("member not found")]
     MemberNotFound,
     #[error("token not found")]

@@ -546,9 +546,24 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S38-03 — the owner Members screen: a disabled Member's card has **Enable** (an active one has none); confirming it re-draws the card active with Mint Token, Pair a device and Advanced back, the old Tokens shown as revoked, and the active count up by one (stories 17, 34)
 <!-- ---- end member enable ---- -->
 
+<!-- ---- member avatars ---- -->
+## Member avatars
+
+- S39-01 — the avatar SVG check (`annotary_store::avatar`) accepts an animated SVG of the shape the Hermes plugin writes (`<style>` with `@keyframes` and a `prefers-reduced-motion` media rule, nested `<g>` with `animation`, gradients, `clipPath`, `url(#id)` paints, a leading XML declaration and comments) and refuses, never alters, everything else with a reason: `<script>`, an `on*` attribute, `foreignObject` or any element off the allowlist, an attribute off the allowlist, an `href` / `xlink:href` that is not `#fragment` (external, `javascript:`, `data:`), `xml:base`, another namespace, a `DOCTYPE` (entities, XXE, the billion laughs), an unknown entity, a processing instruction, CSS `@import` / `@font-face` / any at-rule but `@keyframes` and `@media`, CSS `url()` to anything but `#fragment`, `image-set()` / `expression()`, a CSS escape, text outside `<style>` / `<title>`, a root other than `<svg>`, non-UTF-8, malformed XML, too deep or too many elements, and more than 64 KiB (story 171)
+- S39-02 — raster avatars are recognized by their bytes, never a client's claim: PNG, JPEG, GIF and WebP up to 256 KiB with readable dimensions; the static fallback is PNG, JPEG or WebP up to 256 KiB; any other bytes are refused `invalid_avatar` and an oversized image `too_large` (story 171)
+- S39-03 — `Store::set_avatar` / `clear_avatar` (schema v6 `member_avatars`) store the image and the optional static fallback as content-addressed blobs in one transaction with `member.avatar_set {member, handle, hash, type, static_hash, static_type}` / `member.avatar_cleared {member, handle}`; setting the same images again or clearing a Member with none changes nothing and appends no event; every Member read (`MemberView.avatar`) carries it; the blob GC and `export` keep a current avatar's blobs and a cleared one's go to the GC (story 171)
+- S39-04 — `PUT /api/v1/me/avatar {image, static?}` (base64) sets the caller's own avatar and `DELETE /api/v1/me/avatar` clears it, for every Member; `DELETE /api/v1/members/{handle}/avatar` is owner-only (403 for a member, 404 for an unknown handle); answers are the Member's JSON with `changed`, and every member JSON carries `avatar {url, type, size, hash, static_url?, static_type?, static_size?, static_hash?, set_at}` or null; a bad image is 400 `invalid_avatar` with the reason, bad base64 400 `invalid`, an oversized one 413 `too_large` (stories 171, 172)
+- S39-05 — `GET /avatars/{hash}` serves a current avatar or static fallback to any signed-in Member with the type the server recorded, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:`, an immutable cache and an `ETag` of the hash; any other hash (a Document's blob, a cleared avatar) is 404 (story 171)
+- S39-06 — CLI `avatar set FILE [--static FILE]`, `avatar clear [--member HANDLE]` and `avatar show [HANDLE]` print `@handle TYPE SIZE STATIC` (TTY aligned two-space fields, non-TTY tab-separated; `none` without an avatar; `cleared` on clear), `--json` the avatar record with `changed`; an unchanged set or a clear of no avatar is a note on stderr and exit 0; a file that cannot be read exit 1, a refused image exit 1, an oversized one exit 5, an unknown Member exit 2, clearing another Member's as a member exit 4, no credential exit 3, unreachable exit 6 (story 171)
+- S39-07 — the Document page and the card fragment draw the author's avatar before the name on every Comment (root and replies) as `<picture class="cd-av-pic">` whose `<source media="(prefers-reduced-motion: reduce)">` is the static fallback and whose `<img>` (never `<object>` or inline SVG) is the avatar, 28 px round; a Member without one gets a monogram (the name's first letter) on one of eight colors chosen by the handle; an embed render keeps the URLs only as `data-cd-av` / `data-cd-av-static` (no `src`, no `<source>`); the Members screen and Settings → Profile use the same renderer (story 171)
+- S39-08 — in a browser, a card by a Member with an animated SVG avatar shows it (loaded, 28 px, round, from `/avatars/…`), the static fallback is what loads under `prefers-reduced-motion: reduce`, a Member without one shows the monogram, the comment row stays on one line at a phone's width, and the dark theme keeps the monogram readable (story 171)
+- S39-09 — in the fake embedder, avatars arrive through the bridge (`binary`), each URL fetched once however many cards show it, the static one under reduced motion, and the frame makes no request of its own (story 171)
+- S39-10 — Settings → Profile shows your avatar (or monogram) with Upload and Clear: choosing an animated SVG and a static PNG uploads both, the preview and the card follow, a refused file says why and keeps the old avatar, Clear goes back to the monogram; the owner Members screen shows every Member's avatar and its Clear avatar clears another Member's (stories 171, 172)
+<!-- ---- end member avatars ---- -->
+
 ## Stories
 
-Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–170)
+Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–172)
 and the ids whose tests cover it — the checker demands every number and only known ids; a story
 whose coverage Phase 1 does not automate points at a Deferred id.
 
@@ -722,6 +737,8 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07, S37-10
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
+- 171 — a Member's avatar (an animated SVG with a static fallback, or a picture) next to their name → S39-01, S39-02, S39-03, S39-04, S39-05, S39-06, S39-07, S39-08, S39-09, S39-10
+- 172 — an owner clears any Member's avatar → S39-04, S39-10
 
 ## Deferred
 

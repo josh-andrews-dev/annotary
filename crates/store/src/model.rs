@@ -132,6 +132,22 @@ pub struct MemberView {
     pub created_at: String,
     pub disabled_at: Option<String>,
     pub has_password: bool,
+    /// The Member's avatar, if they set one (`avatar.rs`).
+    #[serde(default)]
+    pub avatar: Option<Avatar>,
+}
+
+/// A Member's avatar: the image and its optional static fallback, each a blob with the type the
+/// server read from its bytes (`avatar::check_image` / `check_static`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Avatar {
+    pub hash: String,
+    pub content_type: String,
+    pub size: u64,
+    pub static_hash: Option<String>,
+    pub static_type: Option<String>,
+    pub static_size: Option<u64>,
+    pub set_at: String,
 }
 
 impl MemberView {

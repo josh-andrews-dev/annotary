@@ -50,6 +50,8 @@ pulldown-cmark = { version = "0.13", default-features = false }
 imagesize = "0.15"
 kamadak-exif = "0.6"
 image = { version = "0.25", default-features = false, features = ["bmp", "tiff", "png", "jpeg"] }
+# Member avatars: `PUT /api/v1/me/avatar` carries the images base64 in JSON.
+base64 = "0.22"
 # ticket 18: pairing QR codes.
 qrcode = { workspace = true }
 

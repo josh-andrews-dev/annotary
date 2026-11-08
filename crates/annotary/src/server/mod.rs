@@ -14,6 +14,8 @@ pub mod actions;
 pub mod app;
 pub mod assets;
 pub mod auth;
+// Member avatars: set / clear and `/avatars/{hash}` (`avatars.rs` has the table).
+pub mod avatars;
 pub mod blobs;
 pub mod docs;
 pub mod error;

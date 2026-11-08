@@ -431,6 +431,7 @@ mod tests {
             created_at: "2026-08-14T09:12:04.123Z".into(),
             disabled_at: None,
             has_password: false,
+            avatar: None,
         }
     }
 

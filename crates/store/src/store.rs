@@ -555,9 +555,12 @@ impl Store {
     }
 }
 
+// Member avatars: the avatar columns come last, read by name (`avatar::row_avatar`).
 pub(crate) const MEMBER_SELECT: &str = "SELECT m.id, ms.handle, m.display_name, ms.role, ms.grants, ms.created_at,
-    m.disabled_at, m.password_hash IS NOT NULL
-    FROM members m JOIN memberships ms ON ms.member_id = m.id";
+    m.disabled_at, m.password_hash IS NOT NULL, av.hash AS av_hash, av.type AS av_type, av.size AS av_size,
+    av.static_hash AS av_static_hash, av.static_type AS av_static_type, av.static_size AS av_static_size,
+    av.set_at AS av_set_at
+    FROM members m JOIN memberships ms ON ms.member_id = m.id LEFT JOIN member_avatars av ON av.member_id = m.id";
 
 pub(crate) fn row_to_member(r: &rusqlite::Row<'_>) -> rusqlite::Result<MemberView> {
     let grants: String = r.get(4)?;
@@ -571,6 +574,7 @@ pub(crate) fn row_to_member(r: &rusqlite::Row<'_>) -> rusqlite::Result<MemberVie
         created_at: r.get(5)?,
         disabled_at: r.get(6)?,
         has_password: r.get(7)?,
+        avatar: crate::avatar::row_avatar(r),
     })
 }
 
