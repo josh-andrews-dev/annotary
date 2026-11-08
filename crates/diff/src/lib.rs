@@ -26,6 +26,7 @@
 //! changes the head made since the pusher's base? Same line diff and word tokens.
 
 pub mod contain;
+pub mod html;
 pub mod mapping;
 mod text;
 
@@ -35,6 +36,7 @@ pub use annotary_sidecar::range::{self, Range};
 pub use crate::contain::{
     AssetChange, AssetChangeKind, Containment, Hunk, contains_changes, format_unified, missing_asset_changes,
 };
+pub use crate::html::{DiffStats, RenderedDiff, line_counts, rendered_diff};
 use crate::mapping::{Segment, segments};
 use crate::text::Text;
 
