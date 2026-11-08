@@ -579,6 +579,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S41-05 — under `prefers-reduced-motion: reduce` the tie, the wash and the pill do not animate.
 - S41-06 — the palettes' text pairs reach WCAG AA (4.5:1) in light and dark.
 - S41-07 — with Actions, the Document header stays one row at 1280 px.
+- S41-08 — at a phone width the Document list never scrolls sideways, however long a Document's name is.
 
 ## Stories
 
@@ -757,7 +758,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
 - 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13
-- 172 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07
+- 172 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07, S41-08
 
 ## Deferred
 

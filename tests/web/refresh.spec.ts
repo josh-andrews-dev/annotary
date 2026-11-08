@@ -90,3 +90,14 @@ test('with Actions the Document header stays one row at 1280 px', async ({ page 
   const box = await page.locator('.cd-hdr').boundingBox();
   expect(box!.height).toBeLessThanOrEqual(60);
 });
+
+// spec: S41-08
+test('a long Document name does not make the list scroll sideways on a phone', async ({ page }) => {
+  const name = 'release_notes_for_the_quarterly_platform_review_' + 'x'.repeat(40);
+  seedThread(name);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${harness().url}/?name=release_notes`);
+  await expect(page.locator('table.cd-list tr.cd-docrow')).toHaveCount(1);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});

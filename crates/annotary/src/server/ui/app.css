@@ -367,6 +367,15 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
 .cd-empty{color:var(--cd-muted);font-size:14px;padding:24px 8px;text-align:center}
 @container cd (max-width: 640px){
   table.cd-list .cd-col-id,table.cd-list .cd-col-updated{display:none}
+  /* fixed columns: a long name wraps inside its own and the page never scrolls sideways */
+  .cd-listmain{padding:16px}
+  table.cd-list{table-layout:fixed}
+  table.cd-list .cd-col-ver{width:44px}
+  table.cd-list .cd-col-action{width:92px}
+  table.cd-list .cd-col-open{width:72px}
+  table.cd-list th,table.cd-list td{padding-left:6px;padding-right:6px}
+  table.cd-list .cd-chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;display:inline-block}
+  .cd-docname,.cd-title{overflow-wrap:anywhere}
 }
 
 /* ---------- the avatar slot: a round avatar before the author's name (`.cd-who > .cd-av`) ---------- */
