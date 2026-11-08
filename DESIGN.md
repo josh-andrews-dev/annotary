@@ -151,10 +151,10 @@ panels; cards use `--cd-shadow`, a selected card `--cd-shadow-pop` under its rin
 
 ## Components
 
-- **Header (`.cd-hdr`):** the 18 px icon (`.cd-brand`, a link to the Document list) · Vault crumb · Document name (600) · id (mono 12px, hidden under 1600px)
+- **Header (`.cd-hdr`):** the 18 px icon (`.cd-brand`, a link to the Document list) · Vault crumb · Document name (600) · id (mono 12px, hidden under 1800px)
   · Version switcher (`.cd-vsw`: ‹ select ›) · status (`v3 · approved by … · 2 open`) · the
-  resolved toggle chip · History and `?` · the Action chip (hidden from 850 to 1600px: the status
-  says the same, and the header stays one row) and buttons. The list page and the
+  resolved toggle chip · History and `?` · the Action chip (hidden from 850 to 1800px: the status
+  says the same, and the header stays one row; under 1366px its gaps tighten to 8px) and buttons. The list page and the
   owner screens use the top bar variant (`.cd-hdr-nav`: the icon, `annotary` + nav links, the signed-in
   Member, Sign out), which wraps instead of collapsing.
 - **Chips (`.cd-chip`):** pill, 1px `--cd-line`, 12px, `--cd-card`; intent variants `cd-pos`,

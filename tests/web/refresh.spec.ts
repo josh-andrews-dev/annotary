@@ -2,7 +2,7 @@
 // Comment that arrives live, mention tags, reduced motion and the one-row header. Each test pushes
 // its own Document.
 import { test, expect, type Page } from '@playwright/test';
-import { cli, harness, rangeOf, seedDoc } from './harness';
+import { cli, harness, pushVersion, rangeOf, seedDoc } from './harness';
 import { openDoc } from './actions';
 
 const MD = `# Refresh plan
@@ -82,13 +82,16 @@ test('reduced motion stills the tie, and the default draws it', async ({ browser
 });
 
 // spec: S41-07
-test('with Actions the Document header stays one row at 1280 px', async ({ page }) => {
-  const id = seedThread('fresh-header');
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await openDoc(page, id);
-  await expect(page.locator('#cd-actbtns .cd-actbtn').first()).toBeVisible();
-  const box = await page.locator('.cd-hdr').boundingBox();
-  expect(box!.height).toBeLessThanOrEqual(60);
+test('with Actions and Compare the Document header stays one row at common desktop widths', async ({ page }) => {
+  const d = seedDoc('fresh-header-with-a-long-enough-name', MD);
+  pushVersion(d, MD.replace('nobody', 'no one'), 'a small edit to make a second Version');
+  for (const width of [1280, 1366, 1440, 1600, 1920]) {
+    await openDoc(page, d.id, { width });
+    await expect(page.locator('#cd-actbtns .cd-actbtn').first()).toBeVisible();
+    await expect(page.locator('#cd-compare')).toBeVisible();
+    const box = await page.locator('.cd-hdr').boundingBox();
+    expect(box!.height, `width ${width}`).toBeLessThanOrEqual(60);
+  }
 });
 
 // spec: S41-08

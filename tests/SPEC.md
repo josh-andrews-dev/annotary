@@ -578,7 +578,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S41-04 — the row's snippet in layout C has no Markdown emphasis or code markers.
 - S41-05 — under `prefers-reduced-motion: reduce` the tie, the wash and the pill do not animate.
 - S41-06 — the palettes' text pairs reach WCAG AA (4.5:1) in light and dark.
-- S41-07 — with Actions, the Document header stays one row at 1280 px.
+- S41-07 — with Actions, Compare and a short status line, the Document header stays one row from 1280 px up.
 - S41-08 — at a phone width the Document list never scrolls sideways, however long a Document's name is.
 
 ## Stories

@@ -83,8 +83,9 @@ What the build changed from round 3, each found by a test or by looking at the r
 
 - Highlights have no hover transition (round 3's motion table had one): a mid-fade background made
   the resolved toggle's own test read the old color.
-- The Action chip is hidden from 850 to 1600 px, where the status line says the same, so the header
-  holds one row with the Version select's label kept at 190 px or wider.
+- The Action chip is hidden from 850 to 1800 px, where the status line says the same, and the
+  gaps tighten to 8 px under 1366 px, so the header holds one row with Compare (which merged during
+  the build). Hiding the Vault crumb was tried and reverted: `DESIGN.md` (Brand) keeps it there.
 - The tie's dot was dropped: the elbow is drawn with borders, and the card is the note.
 
 ## Cut from the boards
