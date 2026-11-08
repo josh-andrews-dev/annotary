@@ -550,6 +550,7 @@ function main() {
 
   /* ---------- layout A: cards at their anchor line, pushed apart ---------- */
   var layoutPending = false;
+  var tiedStrip = null, tiePending = false;
   var readyOnce = false;
   function markReady() {
     if (readyOnce) return;
@@ -558,7 +559,8 @@ function main() {
     if (window.performance && performance.mark) performance.mark('cd:ready');
   }
   function anchorTop(strip, base) {
-    var t = $('.cd-thread', strip);
+    // A hidden resolved Thread has no place to align with: the strip goes by its first visible one.
+    var t = $(app.classList.contains('cd-show-resolved') ? '.cd-thread' : '.cd-thread:not(.cd-resolved)', strip);
     var tid = t && t.getAttribute('data-t');
     if (!tid) return null;
     var m = marksOf(tid)[0];
@@ -577,6 +579,7 @@ function main() {
     if (!isWide()) {
       strips.forEach(function (s) { s.style.top = ''; });
       docEl.style.minHeight = '';
+      tie();
       markReady();
       return;
     }
@@ -609,7 +612,45 @@ function main() {
       y = t + it.h;
     });
     docEl.style.minHeight = (y + 120) + 'px';
+    tie();
     markReady();
+  }
+  /* The tie (app.css): in layout A the selected card's strip is joined to the Thread's first
+     highlight. The strip gets `cd-tied` and two offsets from its top: --cd-tie-a, the middle of
+     the highlight's first line, and --cd-tie-b, the card's first line. A class already set is
+     left alone, so its draw-in animation runs once per selection. With nothing selected and
+     nothing tied this does no work (a load never pays for it); the measuring waits for the frame,
+     when the browser lays out the strips' new positions anyway, instead of forcing a layout. */
+  function tie() {
+    if (!selected) { setTied(null); return; }
+    if (tiePending) return;
+    tiePending = true;
+    (window.requestAnimationFrame || setTimeout)(drawTie, 0);
+  }
+  function setTied(strip) {
+    if (tiedStrip && tiedStrip !== strip) tiedStrip.classList.remove('cd-tied', 'cd-tied-up');
+    tiedStrip = strip;
+  }
+  function drawTie() {
+    tiePending = false;
+    var target = null, a = 0, b = 0;
+    if (selected && docEl && isWide()) {
+      var card = cardOf(selected), m = marksOf(selected)[0];
+      var strip = card && card.closest('.cd-strip');
+      var line = m && m.getClientRects()[0];
+      if (strip && line && !strip.classList.contains('cd-strip-orphaned') && card.offsetParent) {
+        var top = strip.getBoundingClientRect().top;
+        a = Math.round(line.top + Math.min(line.height, 28) / 2 - top - 1);
+        b = Math.round(card.getBoundingClientRect().top - top + 16);
+        target = strip;
+      }
+    }
+    setTied(target);
+    if (!target) return;
+    target.style.setProperty('--cd-tie-a', a + 'px');
+    target.style.setProperty('--cd-tie-b', b + 'px');
+    target.classList.toggle('cd-tied-up', a > b);
+    target.classList.add('cd-tied');
   }
   function scheduleLayout() {
     if (layoutPending) return;
@@ -650,6 +691,7 @@ function main() {
   function deselect() {
     selected = null;
     $$('.cd-selected').forEach(function (e) { e.classList.remove('cd-selected'); });
+    tie();
   }
   app.addEventListener('click', function (e) {
     var hl = e.target.closest('mark.cd-hl,.cd-asset-hl');
@@ -1001,6 +1043,21 @@ function main() {
     tpl.innerHTML = html;
     return tpl.content.firstElementChild;
   }
+  /* The wash plays once on arrival. The class goes when it ends, or after its length when it never
+     runs (reduced motion, a collapsed row), so opening the card later does not replay it. */
+  var WASH_MS = 1500;
+  function washIn(c) {
+    var timer;
+    function done(e) {
+      if (e && e.target !== c) return;
+      clearTimeout(timer);
+      c.removeEventListener('animationend', done);
+      c.classList.remove('cd-fresh');
+    }
+    c.addEventListener('animationend', done);
+    timer = setTimeout(done, WASH_MS);
+    c.classList.add('cd-fresh');
+  }
   /* Swap the server's card in (or insert a new one) and sync the highlight / data / counts. */
   function applyFragment(tid, frag) {
     if (!frag) return;
@@ -1013,11 +1070,17 @@ function main() {
     var wasOpen = old && old.classList.contains('cd-open');
     var prev = D.threads[itemIndex(tid)];
     var placementChanged = !prev || prev.status !== item.status || prev.line !== item.line || prev.end !== item.end || prev.quote !== item.quote || prev.now !== item.now || prev.occ !== item.occ;
+    var had = old ? $$('.cd-c', old).map(function (c) { return c.getAttribute('data-c'); }) : [];
     if (old) {
       // An open editor survives, empty or not (CMD-13): the card is re-drawn once it closes.
       if ($('.cd-editor', old)) { old.setAttribute('data-stale', '1'); return; }
       old.replaceWith(fresh);
     }
+    // A Comment someone else just posted washes in from the accent tint (app.css, motion).
+    $$('.cd-c', fresh).forEach(function (c) {
+      var who = $('.cd-member', c);
+      if (had.indexOf(c.getAttribute('data-c')) < 0 && who && who.getAttribute('title') !== '@' + D.me) washIn(c);
+    });
     placeCard(fresh, item);
     setItem(item);
     if (placementChanged || !prev || !marksOf(tid).length) { unhighlight(tid); indexBlocks(); highlightThread(item); }

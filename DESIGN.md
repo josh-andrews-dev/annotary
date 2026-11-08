@@ -78,11 +78,13 @@ signed in (login, errors) follow the system.
 | `--cd-hl` / `--cd-hl-sel` | the Member's light pair | the Member's dark pair | highlights (below) |
 | `--cd-hl-ink` | `currentColor` | `#000` | text on a highlight |
 | `--cd-hl-link` / `--cd-hl-code-bg` | `#2563eb` / `#f6f7f9` | `#000` / `rgba(0,0,0,.12)` | a link, inline code inside a highlight |
+| `--cd-raise` | `#f1f2f5` | `#2c2c2e` | one step above a card: Reply / Resolve pills, rules inside a card, rows in layout C, the current nav pill, the segmented control |
+| `--cd-shadow` / `--cd-shadow-pop` | two soft layers / deeper | black, deeper | a card at rest / the selected card and the composer |
 | `--cd-mono` | `ui-monospace, SFMono-Regular, Menlo, monospace` | same | code, ids |
 
 The Settings screen uses the same tokens (`--cd-sel-*` for the scope menu, `--cd-amber*` for
 Mixed). Shadows stay black at low alpha in both palettes (`0 8px 24px rgba(0,0,0,.15)` for
-panels, `0 1px 2px rgba(0,0,0,.04)` for cards, `0 2px 10px rgba(0,0,0,.10)` for a selected card).
+panels; cards use `--cd-shadow`, a selected card `--cd-shadow-pop` under its ring).
 
 ## Highlights
 
@@ -105,8 +107,8 @@ panels, `0 1px 2px rgba(0,0,0,.04)` for cards, `0 2px 10px rgba(0,0,0,.10)` for 
 - **Dark highlights are bright, solid colors, and the text on them is black** (`#000`), like a
   highlighter on a dark page. Rejected: dark, muted highlights with light text (hard to see on
   black; rounds 2 and 3).
-- `mark.cd-hl`: `--cd-hl` ground, 2px radius, `box-decoration-break: clone`; selected =
-  `--cd-hl-sel`. Assets get a 3px outline in the same colors; a block-level Thread a 3px left
+- `mark.cd-hl`: `--cd-hl` ground, 3px radius with a 1px ring of its own color,
+  `box-decoration-break: clone`; selected = `--cd-hl-sel` with a 2px ring. Assets get a 3px outline in the same colors; a block-level Thread a 3px left
   rule; in layout C, a strip's left rule.
 - **Refined** Threads keep their own indigo (`--cd-refined`) and a 2px dotted underline in both
   appearances, so a refined mark never depends on color alone. Purple stays a preset although it
@@ -119,8 +121,8 @@ panels, `0 1px 2px rgba(0,0,0,.04)` for cards, `0 2px 10px rgba(0,0,0,.10)` for 
 
 - **UI:** `-apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif`, 15px / 1.5.
 - **Document text:** 15px × the Member's **Text size** (`--cd-text-scale`; 80%–200%, 100% =
-  15px), line height 1.65, measure `72ch` (scales with the text). Headings 1.9em / 1.35em / 1.1em
-  (h1 line height 1.2); code and `pre` 0.9em in `--cd-mono`. Only the Document text scales; the
+  15px), line height 1.65, measure `72ch` (scales with the text). Headings 2.05em (1.75em in layout C) / 1.3em / 1.1em, weight 700 and tracked in (-.022em, -.012em, -.006em)
+  (h1 line height 1.15); code and `pre` 0.9em in `--cd-mono`. Only the Document text scales; the
   header, cards and lists do not.
 - **Cards and panels:** 13px; meta lines 11–12px.
 - **Labels:** 11px, uppercase, letter-spacing .06em, weight 600, `--cd-muted` (strip heads, table
@@ -129,7 +131,8 @@ panels, `0 1px 2px rgba(0,0,0,.04)` for cards, `0 2px 10px rgba(0,0,0,.10)` for 
 
 ## Spacing, radii, layout
 
-- Header: sticky, `min-height:48px`, padding `8px 16px`, gap 10px, a bottom `--cd-line` rule.
+- Header: sticky, `min-height:52px`, padding `8px 20px` (16px in layout C), gap 12px, a bottom `--cd-line` rule.
+- **Document tables:** horizontal rules only, the head on a 2px rule, tabular figures.
 - Document: padding `24px 0 120px`; layout C pads the page `0 16px`.
 - **The 850px rule.** `.cd-app` is a size container (`container-name: cd`). At **850px and
   wider** (layout A) the Document is a grid of the reading column and a **320px margin** (gap
@@ -140,35 +143,49 @@ panels, `0 1px 2px rgba(0,0,0,.04)` for cards, `0 2px 10px rgba(0,0,0,.10)` for 
   line with the rest in a tap-to-open overlay. The same 850px splits the Settings screen (sidebar
   beside the group, or the group list as its own page). iOS uses 900pt.
 - Lists: max width 1100px (Document list), 960px (owner screens), 36rem (simple pages).
-- Radii: 999px chips and pills; 6px buttons, fields, code blocks, layout C rows; 8px cards in the
-  margin, toasts; 10px panels and owner-screen boxes; 4px inline code and `kbd`; 2px highlights.
+- Radii: 999px chips, pills, Reply / Resolve and the nav; 8px buttons and fields; 6px code blocks;
+  10px layout C rows, toasts, panels, owner-screen boxes; 12px cards and an open row; 4px inline
+  code, `kbd` and mention tags; 3px highlights.
 - Off-screen blocks and cards from the 61st child of `.cd-doc` on are `content-visibility:auto`
   (except blocks that hold or precede a strip), so a long Document paints fast.
 
 ## Components
 
-- **Header (`.cd-hdr`):** the 18 px icon (`.cd-brand`, a link to the Document list) · Vault crumb · Document name (600) · id (mono 12px, hidden under 1100px)
+- **Header (`.cd-hdr`):** the 18 px icon (`.cd-brand`, a link to the Document list) · Vault crumb · Document name (600) · id (mono 12px, hidden under 1800px)
   · Version switcher (`.cd-vsw`: ‹ select ›) · status (`v3 · approved by … · 2 open`) · the
-  resolved toggle chip · History and `?` · the Action chip and buttons. The list page and the
+  resolved toggle chip · History and `?` · the Action chip (hidden from 850 to 1800px: the status
+  says the same, and the header stays one row; under 1366px its gaps tighten to 8px) and buttons. The list page and the
   owner screens use the top bar variant (`.cd-hdr-nav`: the icon, `annotary` + nav links, the signed-in
   Member, Sign out), which wraps instead of collapsing.
 - **Chips (`.cd-chip`):** pill, 1px `--cd-line`, 12px, `--cd-card`; intent variants `cd-pos`,
   `cd-neu`, `cd-neg` (tinted, no border), `cd-warn`, `cd-none` (muted). A checkbox may sit inside.
-- **Buttons (`.cd-btn`):** 1px `--cd-line`, 6px radius, 13px, `--cd-card`, hover `--cd-soft`;
+- **Buttons (`.cd-btn`):** 1px `--cd-line`, 8px radius, 13px, `--cd-card`, hover `--cd-soft`;
   `.cd-sm` 12px; `.cd-primary` filled `--cd-primary`; Action buttons (`.cd-actbtn`) take the intent
-  colors; a count badge is `--cd-accent` with `--cd-accent-ink`. Text buttons are `.cd-link`
-  (dotted underline).
-- **Cards (`.cd-thread`):** in layout A, `--cd-card`, 1px `--cd-line`, 8px radius, a faint
-  shadow; selected = `--cd-fg` border, stronger shadow, nudged 14px left. Row: status dot (8px;
-  open / resolved / orphaned), the frozen quote (refined adds "now:" in `--cd-refined-ink`), id in
-  mono. Comments separate with a `--cd-soft` rule; the editor's textarea is `--cd-field` with a
-  2px accent focus ring.
+  colors, the positive one filled (`--cd-pos` with `--cd-bg` text, the one thing a reviewer comes to do); a count badge is `--cd-accent` with `--cd-accent-ink`. Text buttons are `.cd-link`
+  (dotted underline; a Comment's edit / delete have none, and appear on hover or focus on a pointer
+  device, always on a touch screen).
+- **Cards (`.cd-thread`):** in layout A, `--cd-card`, 1px `--cd-line`, 12px radius, `--cd-shadow`;
+  selected = a 1.5px `--cd-fg` ring and `--cd-shadow-pop`, no movement. Row: status dot (8px; open
+  filled, resolved a hollow `--cd-res` ring, orphaned gray), the frozen quote (refined adds "now:"
+  in `--cd-refined-ink`), id in mono. Comments separate with a `--cd-raise` rule; the author line
+  centers its items and takes a 28px round avatar (`.cd-who > .cd-av`) before the name. Reply and
+  Resolve are pills on `--cd-raise`. In layout C a row is a 10px pill on `--cd-raise`, and an open
+  row is a card. The editor's textarea is `--cd-field`, 10px, with a 2px accent focus ring; the
+  composer has an accent ring. A posting Comment is muted text at full opacity.
+- **The tie (`.cd-strip.cd-tied`):** in layout A, the selected card's strip is joined to its
+  highlight by a 2px line in `--cd-hl-sel`, the mark's margin note in the page. It leaves the
+  column at the highlight's first line and bends to the card when the margin pushed the card lower,
+  or up to it when the highlight is below the card (a later Thread of a shared strip) (`tie()` in `app.js` sets `--cd-tie-a` / `--cd-tie-b` on the strip; on the strip because a
+  deep card's `content-visibility` clips outside its box).
+- **Mentions (`.cd-mention`):** a resolved `@handle` in a Comment body (server markup,
+  `ui::mention_spans`, never in code or links) is a tag in `--cd-sel-bg` / `--cd-sel-ink`; "@you" in
+  the status and the list is the same tag, fully rounded.
 - **Avatars (`.cd-av`):** 28 px round, before the author's name on every Comment (64 px in Settings); an `<img>` in a
   `<picture>` with a still for reduced motion, or a monogram: the name's first letter, 13px 600 white, on one of eight
   fixed colors (`.cd-av-h0` to `-h7`) the handle picks, the same in both themes. Decorative: the name is beside it.
 - **Banners (`.cd-banner`):** full width under the header, 13px: the older-Version banner in the
   note colors, the new-Version banner (`.cd-newver`) in the info colors, each with one button.
-- **Errors:** inline `.cd-err` (err colors, 6px radius) inside the card or form that failed; the
+- **Errors:** inline `.cd-err` (err colors, 8px radius) inside the card or form that failed; the
   header-level toast (`.cd-toast`) top right, dismissed by a click.
 - **Selection pill (`.cd-pill`):** a `--cd-primary` pill with "Comment `c`"; panels (`.cd-panel`:
   History, the keyboard help) are `--cd-card`, 10px radius, shadowed, top right.
@@ -242,6 +259,38 @@ Member who never chose a color.
   with its lines; the highlight and dot), set for default, dark, clear and tinted.
 - **The icon does not change the UI palette**: the accent stays blue, and the default highlight
   for comments stays Yellow.
+- **Sign-in**: the small master at 40 px beside the wordmark (`brand::logo_mark`).
+
+## Motion
+
+Motion says where a thing came from, and nothing moves position (CLS stays 0). Everything below sits
+under `prefers-reduced-motion: no-preference`; with reduced motion the end state appears at once.
+Easing token: `--cd-ease` = `cubic-bezier(.2,.8,.2,1)`.
+
+| Moment | What moves | Duration |
+|---|---|---|
+| Selecting a Thread | the tie draws from the column to the card | 220 ms, `--cd-ease` |
+| Hover (buttons, nav, rows, cards) | background, ring, shadow | 150 ms |
+| A Comment from someone else arrives live (`.cd-fresh`) | its ground fades from `--cd-sel-bg` | 1.2 s ease-out |
+| Selecting text | the Comment pill scales in from 96% | 120 ms, `--cd-ease` |
+
+Highlights never transition: the resolved toggle and its tests read a `mark.cd-hl`'s color at once, and a fade makes them read the old one.
+
+## Visual refresh: decisions (2026-11-08)
+
+Direction "Margin note", from three mock rounds. Josh asked for sleeker, livelier and more striking
+within the minimal look, and approved shipping it; the design agent took each round's
+recommendation.
+
+- **The one new visual idea is the mark's own:** a selected card is joined to its highlight, in the
+  Member's highlight color. Rejected: pink as the accent, a colored header bar, per-Member name
+  colors (the brand rule above; a seventh hue).
+- **People and agents read alike.** No "AI" badge: the model has no Member kind, and identity comes
+  from the avatars.
+- **System fonts only.** Rejected: a web font (a request in every page and embed answer, a swap
+  against the CLS 0 budget) and a system serif for Documents (differs on every platform).
+- **The selected ring is ink.** Rejected: the highlight color (1.4:1 with Yellow, under WCAG 1.4.11)
+  and the accent (reads as keyboard focus).
 
 ## Keyboard
 

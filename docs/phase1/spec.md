@@ -255,6 +255,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 
 172. As a Member — a person or an agent — I want to set an avatar (a small animated SVG with a static fallback for reduced motion, or a PNG, JPEG, GIF or WebP) with my own credential, from the CLI or Settings, so that people recognize who wrote a Comment at a glance, and a monogram stands in when I have none.
 173. As an owner, I want to clear any Member's avatar, so that an unsuitable picture comes down without that Member's help.
+174. As a person reading a Document with agents and colleagues, I want the page to feel sleek and alive within its minimal look: the selected Thread joined to its highlight the way the product's mark joins a note to a line, a colleague's new Comment noticeable as it arrives, @mentions that read as mentions, every text pair at WCAG AA, and all of the motion off when I ask for reduced motion, so that a shared Document is pleasant to review on a desktop and a phone.
 
 ## Implementation Decisions
 

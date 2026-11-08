@@ -429,6 +429,66 @@ pub fn comment_html(body: &str) -> String {
     asset_links_blank(&strip_data_l(&r.html))
 }
 
+/// Wraps each `@handle` the store resolved for this Comment in `span.cd-mention`: in text only,
+/// never inside a tag, `code`, `pre` or a link. Word boundaries as in `mention_candidates`.
+pub fn mention_spans(html: &str, handles: &[String]) -> String {
+    if handles.is_empty() || !html.contains('@') {
+        return html.to_string();
+    }
+    let mut out = String::with_capacity(html.len() + 64);
+    let mut skip = 0usize;
+    let mut rest = html;
+    while let Some(lt) = rest.find('<') {
+        let (text, after) = rest.split_at(lt);
+        push_mentions(&mut out, text, handles, skip > 0);
+        let Some(gt) = after.find('>') else {
+            out.push_str(after);
+            return out;
+        };
+        let tag = &after[..=gt];
+        let name = tag[1..tag.len() - 1].trim_start_matches('/').split([' ', '\t', '\n', '/']).next().unwrap_or("");
+        if matches!(name, "code" | "pre" | "a") {
+            if tag.starts_with("</") {
+                skip = skip.saturating_sub(1);
+            } else {
+                skip += 1;
+            }
+        }
+        out.push_str(tag);
+        rest = &after[gt + 1..];
+    }
+    push_mentions(&mut out, rest, handles, skip > 0);
+    out
+}
+
+fn push_mentions(out: &mut String, text: &str, handles: &[String], verbatim: bool) {
+    if verbatim || !text.contains('@') {
+        out.push_str(text);
+        return;
+    }
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let mut copied = 0;
+    for (at, _) in text.match_indices('@') {
+        if at < copied || text[..at].chars().next_back().is_some_and(is_word) {
+            continue;
+        }
+        let tail = &text[at + 1..];
+        let len =
+            tail.find(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')).unwrap_or(tail.len());
+        let handle = tail[..len].trim_end_matches('-');
+        let end = at + 1 + handle.len();
+        let bounded = !text[end..].chars().next().is_some_and(is_word);
+        if bounded && handles.iter().any(|h| h == handle) {
+            out.push_str(&text[copied..at]);
+            out.push_str("<span class=\"cd-mention\">@");
+            out.push_str(handle);
+            out.push_str("</span>");
+            copied = end;
+        }
+    }
+    out.push_str(&text[copied..]);
+}
+
 /// Serialize a JSON value for an inline `<script type="application/json">` (no `</script>` escape).
 pub fn json_for_script(v: &serde_json::Value) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".into()).replace("</", "<\\/")
@@ -437,6 +497,29 @@ pub fn json_for_script(v: &serde_json::Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // spec: S42-03
+    #[test]
+    fn mention_spans_wrap_resolved_handles_in_text_only() {
+        let h = vec!["rowan".to_string(), "mei-t".to_string()];
+        assert_eq!(mention_spans("<p>hi @rowan.</p>", &h), "<p>hi <span class=\"cd-mention\">@rowan</span>.</p>");
+        assert_eq!(
+            mention_spans("<p>@mei-t and @rowan</p>", &h),
+            "<p><span class=\"cd-mention\">@mei-t</span> and <span class=\"cd-mention\">@rowan</span></p>"
+        );
+        for same in [
+            "<p>@nobody</p>",                   // not resolved by the store
+            "<p>a@rowan</p>",                   // an address, not a mention
+            "<p>@rowans</p>",                   // a longer word
+            "<p><code>@rowan</code></p>",       // code
+            "<pre><code>@rowan\n</code></pre>", // a code block
+            "<p><a href=\"/x\">@rowan</a></p>", // already a link
+            "<p title=\"@rowan\">x</p>",        // an attribute
+        ] {
+            assert_eq!(mention_spans(same, &h), same);
+        }
+        assert_eq!(mention_spans("<p>@rowan</p>", &[]), "<p>@rowan</p>");
+    }
 
     #[test]
     fn strips_data_l_and_blanks_asset_links() {
@@ -539,6 +622,51 @@ mod tests {
         assert_eq!(rel_age("2026-08-14T09:12:04.123Z", at(86_400 * 45)), "2mo");
         assert_eq!(rel_age("2026-08-14T09:12:04.123Z", at(86_400 * 800)), "2y");
         assert_eq!(esc("a<b>&\"'"), "a&lt;b&gt;&amp;&quot;&#39;");
+    }
+
+    // spec: S42-06
+    #[test]
+    fn the_palettes_text_pairs_reach_aa() {
+        fn block(sel: &str) -> String {
+            let at = CSS.find(&format!("{sel}{{")).unwrap_or_else(|| panic!("no {sel} block"));
+            let rest = &CSS[at..];
+            rest[..rest.find('}').unwrap()].to_string()
+        }
+        fn hex(b: &str, name: &str) -> [f64; 3] {
+            let key = format!("--cd-{name}:#");
+            let at = b.find(&key).unwrap_or_else(|| panic!("no {name}")) + key.len();
+            let v: String = b[at..].chars().take_while(char::is_ascii_hexdigit).collect();
+            let v = if v.len() == 3 { v.chars().flat_map(|c| [c, c]).collect() } else { v };
+            [0, 2, 4].map(|i| u8::from_str_radix(&v[i..i + 2], 16).unwrap() as f64)
+        }
+        fn lum(c: [f64; 3]) -> f64 {
+            let f = |v: f64| {
+                let v = v / 255.0;
+                if v <= 0.03928 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+            };
+            0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+        }
+        let pairs = [
+            ("fg", "bg"),
+            ("fg", "card"),
+            ("muted", "bg"),
+            ("muted", "card"),
+            ("accent", "bg"),
+            ("sel-ink", "sel-bg"),
+            ("pos", "pos-bg"),
+            ("bg", "pos"),
+            ("neu", "neu-bg"),
+            ("neg", "neg-bg"),
+            ("fg", "raise"),
+            ("primary-ink", "primary"),
+        ];
+        for (name, b) in [("light", block(":root")), ("dark", block(".cd-app.cd-theme-dark"))] {
+            for (fg, bg) in pairs {
+                let (x, y) = (lum(hex(&b, fg)), lum(hex(&b, bg)));
+                let ratio = (x.max(y) + 0.05) / (x.min(y) + 0.05);
+                assert!(ratio >= 4.5, "{name}: --cd-{fg} on --cd-{bg} is {ratio:.2}:1");
+            }
+        }
     }
 
     /// CMD-23: the dark palette is written twice in app.css (`.cd-theme-dark`, and

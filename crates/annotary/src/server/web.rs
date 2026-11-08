@@ -142,10 +142,11 @@ fn simple_page(title: &str, inner: &str) -> Html<String> {
 
 fn login_form(next: &str, error: Option<&str>) -> Html<String> {
     let err = error.map(|e| format!("<p class=\"cd-err\" role=\"alert\">{}</p>", esc(e))).unwrap_or_default();
+    let mark = super::brand::logo_mark();
     simple_page(
         "Sign in — annotary",
         &format!(
-            "<h1 class=\"cd-logo\">annotary</h1><p class=\"cd-muted\">This server has a local password. Sign in to continue.</p>{err}\
+            "<h1 class=\"cd-logo\">{mark}annotary</h1><p class=\"cd-muted\">This server has a local password. Sign in to continue.</p>{err}\
              <form method=\"post\" action=\"/login\" class=\"cd-loginform\" id=\"cd-loginform\"><input type=\"hidden\" name=\"next\" value=\"{}\">\
              <label>Password <input type=\"password\" name=\"password\" autofocus autocomplete=\"current-password\" required></label> \
              <button type=\"submit\" class=\"cd-btn cd-primary\">Sign in</button></form>\
@@ -200,6 +201,7 @@ pub async fn login_page(
 /// so say how to get in instead — set a password from a browser on the server's machine (where
 /// loopback trust signs it in), or pair the iPhone / iPad app with `annotary pair`.
 fn no_password_page(server_url: &str) -> Html<String> {
+    let mark = super::brand::logo_mark();
     let set_password = match loopback_url(server_url) {
         Some(url) => format!(
             "On the machine running the server, open <code>{}</code> (a browser there is signed in \
@@ -217,7 +219,7 @@ fn no_password_page(server_url: &str) -> Html<String> {
     simple_page(
         "Sign in — annotary",
         &format!(
-            "<h1 class=\"cd-logo\">annotary</h1><p>This server has no local password yet, so a \
+            "<h1 class=\"cd-logo\">{mark}annotary</h1><p>This server has no local password yet, so a \
              browser on another device cannot sign in.</p><ol class=\"cd-loginsteps\" id=\"cd-loginsteps\">\
              <li>{set_password}</li><li>For the iPhone or iPad app, run <code>annotary pair</code> on \
              that machine and scan the code it shows.</li></ol>"

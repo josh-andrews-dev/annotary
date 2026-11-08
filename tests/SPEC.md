@@ -6,7 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## Stories` section at the end maps every numbered story of the spec (1–173) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–174) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -586,9 +586,24 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S41-10 — Settings → Profile shows your avatar (or monogram) with Upload and Clear: choosing an animated SVG and a static PNG uploads both, the preview and the card follow, a refused file says why and keeps the old avatar, Clear goes back to the monogram; the owner Members screen shows every Member's avatar and its Clear avatar clears another Member's (stories 172, 173)
 <!-- ---- end member avatars ---- -->
 
+## The margin-note visual refresh
+
+- S42-01 — in layout A the selected Thread's strip is tied to its highlight: `cd-tied` with `--cd-tie-a` (the highlight's first line) no lower than `--cd-tie-b` (the card); gone on deselect; never in layout C.
+- S42-02 — a Comment someone else posts arrives with `cd-fresh`; your own never does.
+- S42-03 — an `@handle` the store resolved is a `span.cd-mention` in a Comment body; not in code or a link, and not an unknown handle.
+- S42-04 — the row's snippet in layout C has no Markdown emphasis or code markers.
+- S42-05 — under `prefers-reduced-motion: reduce` the tie, the wash and the pill do not animate.
+- S42-06 — the palettes' text pairs reach WCAG AA (4.5:1) in light and dark.
+- S42-07 — with Actions, Compare and a short status line, the Document header stays one row from 1280 px up.
+- S42-08 — at a phone width the Document list never scrolls sideways, however long a Document's name is.
+- S42-09 — a `.cd-av` (a monogram or a `picture`) in a card's `.cd-who` is 28 px round and keeps its own background.
+- S42-10 — the tie never queries the Document for `.cd-tied`, and clears when the selection ends, the width drops to layout C or the card goes away.
+- S42-11 — a strip holding several Threads aligns with its first visible Thread, and the tie still connects when the highlight is below the card.
+- S42-12 — a live Comment's wash plays once: reopening its card does not replay it, and under reduced motion it never plays and leaves no class behind.
+
 ## Stories
 
-Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–173)
+Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–174)
 and the ids whose tests cover it — the checker demands every number and only known ids; a story
 whose coverage Phase 1 does not automate points at a Deferred id.
 
@@ -766,6 +781,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 
 - 172 — a Member's avatar (an animated SVG with a static fallback, or a picture) next to their name → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07, S41-08, S41-09, S41-10
 - 173 — an owner clears any Member's avatar → S41-04, S41-10
+- 174 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S42-01, S42-02, S42-03, S42-04, S42-05, S42-06, S42-07, S42-08, S42-09, S42-10, S42-11, S42-12
 
 ## Deferred
 
