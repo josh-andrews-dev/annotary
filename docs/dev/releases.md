@@ -41,11 +41,11 @@ The hand edits, each because dist has no setting for it, and which `tests/phase1
    `id-token: write` and `attestations: write`. Check a download with
    `gh attestation verify annotary-x86_64-unknown-linux-gnu.tar.gz --repo josh-andrews-dev/annotary`.
 
-8. **Runners in `Cargo.toml`, not the workflow**: `[workspace.metadata.dist.github-custom-runners]` names
-   `macos-15` for `aarch64-apple-darwin`, because dist 0.33.1's default, `macos-14`, is retired on GitHub
-   (v0.4.0's build was canceled: "The configuration 'macos-14-arm64-us-default' is not supported"). The
-   build matrix comes from `dist plan` at run time, so this needs no regenerated `release.yml`; a pull request's
-   `plan` job shows the runner each target gets.
+**Runners** are a dist setting, not a hand edit: `[workspace.metadata.dist.github-custom-runners]` in `Cargo.toml`
+names `macos-15` for `aarch64-apple-darwin`, because dist 0.33.1's default, `macos-14`, is retired on GitHub
+(v0.4.0's build was canceled: "The configuration 'macos-14-arm64-us-default' is not supported"). The build matrix
+comes from `dist plan` at run time, so it needs no regenerated `release.yml`; a pull request's `plan` job shows the
+runner each target gets. `tests/phase1_done.rs` does not check it.
 
 ## The tap
 
