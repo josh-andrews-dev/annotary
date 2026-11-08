@@ -85,6 +85,9 @@ handle name role grants disabled created id
 $ annotary -p down member disable x --json ?
 handle name role grants disabled created id
 
+$ annotary -p down member enable x --json ?
+handle name role grants disabled created id
+
 $ annotary -p down member grant x notes read --json ?
 handle name role grants disabled created id
 

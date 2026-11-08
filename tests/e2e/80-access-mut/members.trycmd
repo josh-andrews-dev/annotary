@@ -1,10 +1,11 @@
-spec: S06-02, S06-03, S06-04, S06-05, S06-06
+spec: S06-02, S06-03, S06-04, S06-05, S06-06, S38-02
 
 Member management on a Member of its own (`granted`): `grant` upserts one Vault's Grant (and
 `*` can be dropped, so the Member ends up with `notes: read,comment` only), unknown Vault /
 right, `rename` (display name only — the handle stays), `role` up and down (TTY parity, JSON),
 `disable` (idempotent; the row keeps its history), refusals on a disabled Member, the handle
-never reused, and the owner-only / last-owner refusals. Merged stdout+stderr.
+never reused, `enable` (the same Member back, grantable again; idempotent), and the owner-only /
+last-owner / unknown-Member refusals. Merged stdout+stderr.
 
 ```console
 $ annotary -p rowan member add granted --name "Granted Agent"
@@ -62,15 +63,15 @@ $ annotary -p rowan member disable granted --json
 
 $ annotary -p rowan member grant granted notes read
 ? 5
-error: @granted is disabled — disabled Members keep their history but cannot be granted, promoted or given tokens
+error: @granted is disabled — disabled Members keep their history but cannot be granted, promoted or given tokens until an owner runs `annotary member enable HANDLE`
 
 $ annotary -p rowan member role granted owner
 ? 5
-error: @granted is disabled — disabled Members keep their history but cannot be granted, promoted or given tokens
+error: @granted is disabled — disabled Members keep their history but cannot be granted, promoted or given tokens until an owner runs `annotary member enable HANDLE`
 
 $ annotary -p rowan token mint --member granted
 ? 5
-error: @granted is disabled — disabled Members keep their history but cannot be granted, promoted or given tokens
+error: @granted is disabled — disabled Members keep their history but cannot be granted, promoted or given tokens until an owner runs `annotary member enable HANDLE`
 
 $ annotary -p rowan member add granted
 ? 5
@@ -78,6 +79,29 @@ error: handle @granted is already taken (handles are unique per Tenant forever)
 
 $ annotary -p rowan member rename granted "Still renamable"
 @granted	Still renamable	member (disabled)	notes:comment
+
+$ annotary -p rowan member enable granted
+@granted enabled; its old Tokens stay revoked — a new one: annotary token mint --member granted
+@granted	Still renamable	member	notes:comment
+
+$ ANNOTARY_TTY=1 annotary -p rowan member enable @granted --no-color
+@granted was already enabled
+@granted  Still renamable  member  notes:comment
+
+$ annotary -p rowan member enable granted --json
+@granted was already enabled
+{"handle":"granted","name":"Still renamable","role":"member","grants":[{"vault":"notes","rights":["comment"]}]}
+
+$ annotary -p rowan member grant granted notes read
+@granted	Still renamable	member	notes:read
+
+$ annotary -p rowan member enable nobody
+? 2
+error: no Member @nobody — `annotary member list` shows who
+
+$ annotary -p agent member enable granted
+? 4
+error: member enable is owner-only — ask an owner (`annotary member list` shows who)
 
 $ annotary -p agent member disable granted
 ? 4

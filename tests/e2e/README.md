@@ -55,7 +55,7 @@ Run with `make e2e` (= `cargo test -p annotary --test e2e -- --ignored`); regene
   bad right / unknown Vault / unknown Member, `token list` views incl. TTY, `login` refusal on the
   passwordless server, `profile list` incl. TTY/JSON, `json-help.trycmd` = `--json ?` of every new
   verb); `80-access-mut/` holds `members.trycmd` (`granted`: grant upsert / `*` drop / rename /
-  role / disable and the refusals), `tokens.trycmd` (mint for another Member with name + expiry,
+  role / disable / enable and the refusals), `tokens.trycmd` (mint for another Member with name + expiry,
   own tokens, lists; `token-mint-tty.toml`), `login.trycmd` (login → works → wrong password →
   logout → `--default` → `--all` list → restore no default) and `reply-allowed.trycmd` (the
   ticket's scenario: reply ok, `act` exit 4, grant `action`, `act` ok, `write` refused);
@@ -155,7 +155,8 @@ Run with `make e2e` (= `cargo test -p annotary --test e2e -- --ignored`); regene
 - Web owner screens / login (ticket 12): `owner.spec.ts` — the Members screen (Add member → the
   `ANNOTARY_TOKEN=` line, copied, and the Token driving `annotary status` immediately; per-Token
   last used on the next draw; mint / revoke / rename / Advanced role + Grants / disable, each
-  checked through the CLI's exit code), the Settings screen (Vault create → the default Actions
+  checked through the CLI's exit code; a disabled Member's Enable → active again, its old Token
+  still refused and a new one working), the Settings screen (Vault create → the default Actions
   editor → `push` into that Vault + `pull` → the Sidecar's `actions.available` with
   `inherited: true`, the Document view's buttons, rename, delete refused while it holds a
   Document), and a Member's hidden nav + 403 pages — all on the shared main server (unique

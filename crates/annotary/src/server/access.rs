@@ -6,6 +6,7 @@
 //! | `GET /api/v1/members/{handle}` | any Member | one Member; owner or self also gets `tokens[]` |
 //! | `POST /api/v1/members/{handle}/rename {name}` | owner | display name (the handle never changes) |
 //! | `POST /api/v1/members/{handle}/disable` | owner | disable, never delete (`changed`); 409 `last_owner` |
+//! | `POST /api/v1/members/{handle}/enable` | owner | enable again (`changed`, `tokens_revoked`, `sessions_ended`): the old Tokens and sessions stay dead |
 //! | `POST /api/v1/members/{handle}/role {role}` | owner | `owner|member`; 409 `last_owner` when demoting the last one |
 //! | `POST /api/v1/members/{handle}/grants {vault, rights[]}` | owner | set the Grant on one Vault (`*` allowed; `[]` removes it) |
 //! | `PUT /api/v1/members/{handle}/grants {grants[]}` | owner | replace the whole Grant list |
@@ -123,6 +124,31 @@ pub async fn disable(
     let m = load_member(&st, &handle)?;
     let mut v = member_json(&m);
     v["changed"] = json!(changed);
+    Ok(Json(v))
+}
+
+/// `member enable`: the mirror of [`disable`]. The Member's Tokens and sessions from before are
+/// revoked in the same transaction (`Store::enable_member`), so the answer says how many.
+pub async fn enable(
+    State(st): State<AppState>,
+    auth: Auth,
+    Path(handle): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    auth.require_owner("member enable")?;
+    let m = load_member(&st, &handle)?;
+    let (changed, tokens, sessions) = st.store.enable_member(&auth.0.member_id, &m.id)?;
+    if changed {
+        tracing::info!(
+            "member @{} enabled by @{} ({tokens} old Tokens revoked, {sessions} sessions ended)",
+            m.handle,
+            auth.0.handle
+        );
+    }
+    let m = load_member(&st, &handle)?;
+    let mut v = member_json(&m);
+    v["changed"] = json!(changed);
+    v["tokens_revoked"] = json!(tokens);
+    v["sessions_ended"] = json!(sessions);
     Ok(Json(v))
 }
 

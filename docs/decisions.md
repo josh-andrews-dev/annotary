@@ -314,3 +314,19 @@ enough and a file of a secret is one more thing to clean up. `serve --json` with
 (a running server has no result to print). The release job attests each tarball's build provenance with
 `actions/attest-build-provenance`, so a catalog reviewer or an installer can check a download with
 `gh attestation verify`; only the job that makes the release gets `id-token` and `attestations` write.
+
+## 2026-11-07: `member enable` brings a disabled Member back with no credential
+
+Chose to add `member enable HANDLE` (owner only, `POST /api/v1/members/{handle}/enable`) as the way back from
+`disable`, so a Member that returns, such as a Hermes profile recreated with the same name, keeps its id, handle,
+Grants and attribution; rejected adding a new Member, because handles are never reused.
+
+Disable only gates a Member's Tokens and sessions; it does not revoke them. Chose to revoke every Token still live
+and end every session in the enable transaction, so the Member comes back with no credential and gets a new Token
+from `token mint --member` or pairing. Rejected letting them work again, because a Token given up with a deleted
+profile or a departed person would quietly start working again. Rejected revoking them on disable instead, because
+that changes what disable has always done and what the Members screen shows for a disabled Member. A local password
+is kept: it is the person's own secret, not a credential left lying around.
+
+Chose the same idempotence as disable: enabling an enabled Member exits 0 with a note (`changed: false`) and appends
+no event. Enable needs no last-owner guard, since it only adds an active Member.

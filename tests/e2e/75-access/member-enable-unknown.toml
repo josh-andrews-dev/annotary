@@ -1,0 +1,8 @@
+# spec: S38-02
+bin.name = "annotary"
+args = ["-p", "rowan", "member", "enable", "nobody"]
+status.code = 2
+stdout = ""
+stderr = """
+error: no Member @nobody — `annotary member list` shows who
+"""

@@ -538,6 +538,14 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S37-10 — in the fake embedder, a page written over another before the other's script ran binds once (no doubled highlight); an `annotary-init` whose load failed can be sent again and loads; an `annotary-init` for the page shown while another loads keeps the page shown (story 168)
 <!-- ---- end M3 (Hermes plan) ---- -->
 
+<!-- ---- member enable ---- -->
+## `member enable` — a disabled Member comes back
+
+- S38-01 — `Store::enable_member` (owner only, `POST /api/v1/members/{handle}/enable`) clears the Member's and the Membership's `disabled_at` in one transaction with a `member.enabled {member, handle, tokens, sessions}` event; the same Member returns with its id, handle, role, Grants, history and attribution; every Token and session from before stays refused (they are revoked and ended in that transaction) while a newly minted Token works; enabling an enabled Member changes nothing and appends no event (`changed: false`); a member caller gets 403, an unknown handle 404 (stories 17, 18)
+- S38-02 — CLI `member enable HANDLE` prints the Member's updated `member list` row (TTY and non-TTY), `--json` gives the `member list` record, a note on stderr says the old Tokens stay revoked and how to mint one; already enabled ⇒ a note and exit 0; unknown Member ⇒ exit 2; not an owner ⇒ exit 4 (story 17)
+- S38-03 — the owner Members screen: a disabled Member's card has **Enable** (an active one has none); confirming it re-draws the card active with Mint Token, Pair a device and Advanced back, the old Tokens shown as revoked, and the active count up by one (stories 17, 34)
+<!-- ---- end member enable ---- -->
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–170)
@@ -560,8 +568,8 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 14 — hourly in-process ticker (auto-purge, GC, derivative cleanup) → S13-09, S13-10, S13-11
 - 15 — `member add` one step, `ANNOTARY_TOKEN=` once → S01-11, S12-02
 - 16 — web Add member (Token once, env line) → S12-02
-- 17 — `member list|rename|disable|grant|role` → S01-12, S06-02, S06-06
-- 18 — disable, never delete → S06-05
+- 17 — `member list|rename|disable|enable|grant|role` → S01-12, S06-02, S06-06, S38-01, S38-02, S38-03
+- 18 — disable, never delete → S06-05, S38-01
 - 19 — handles unique forever, kebab-case → S01-13, S04-06, S06-05
 - 20 — Token belongs to the Member → S06-07
 - 21 — `token mint|list|revoke`, `last_used_at`, name/expiry → S01-08, S06-07, S06-08, S12-02
@@ -577,7 +585,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 31 — Grant `{vault | *, rights[]}`, `*` covers later Vaults → S06-01, S06-02
 - 32 — owner-only operations, never grantable → S02-31, S06-03, S12-04, S12-05, S29-20, S13-07, S26-01, S26-02, S26-03, S26-09
 - 33 — last owner un-demotable → S06-04
-- 34 — Members screen (auth hint, grants behind Advanced, `last_used_at`) → S12-01
+- 34 — Members screen (auth hint, grants behind Advanced, `last_used_at`) → S12-01, S38-03
 - 35 — `push` without a Sidecar creates v1 → S02-01
 - 36 — `push` with a Sidecar binds by id → next Version → S02-02
 - 37 — `push --doc ID` binds an unbound file → S02-03

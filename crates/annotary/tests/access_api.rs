@@ -258,6 +258,12 @@ fn endpoints() -> Vec<Endpoint> {
             let (_, _) = ts.add_member(&format!("victim{n}"));
             send(ts, "POST", &format!("/api/v1/members/victim{n}/disable"), tok(c).as_deref(), None)
         }),
+        ep("POST members/{h}/enable", Need::Owner, move |ts, c, _| {
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let (id, _) = ts.add_member(&format!("revived{n}"));
+            ts.store.disable_member(&ts.owner_id, &id).unwrap();
+            send(ts, "POST", &format!("/api/v1/members/revived{n}/enable"), tok(c).as_deref(), None)
+        }),
         ep("POST members/{h}/role", Need::Owner, move |ts, c, _| {
             let n = COUNTER.fetch_add(1, Ordering::SeqCst);
             let (_, _) = ts.add_member(&format!("promo{n}"));
@@ -935,6 +941,7 @@ fn owner_only_member_management_last_owner_disable_rename_and_handle_reuse() {
     for (m, path, body) in [
         ("POST", "/api/v1/members/linter/rename", json!({ "name": "Me" })),
         ("POST", "/api/v1/members/linter/disable", json!({})),
+        ("POST", "/api/v1/members/linter/enable", json!({})),
         ("POST", "/api/v1/members/linter/role", json!({ "role": "owner" })),
         ("POST", "/api/v1/members/linter/grants", json!({ "vault": "notes", "rights": ["read"] })),
         ("PUT", "/api/v1/settings/password", json!({ "password": "x" })),
@@ -1011,6 +1018,65 @@ fn owner_only_member_management_last_owner_disable_rename_and_handle_reuse() {
         assert_eq!(b["error"], "disabled");
     }
     let _ = linter_id;
+}
+
+// spec: S38-01
+#[test]
+fn enable_brings_the_same_member_back_and_its_old_token_stays_dead() {
+    let ts = TestServer::start();
+    let owner = ts.owner_token.clone();
+    let (linter_id, linter) = ts.add_member("linter");
+    let (_, agent) = ts.add_member("helper");
+    let id = fresh_doc(&ts, "notes");
+    let (_, t) = send(
+        &ts,
+        "POST",
+        &format!("/api/v1/docs/{id}/threads"),
+        Some(&linter),
+        Some(&json!({ "subject": "document", "body": "first" })),
+    );
+    let thread = t["id"].as_str().unwrap().to_string();
+    // Enabling an active Member: 200, nothing changed.
+    let (status, m) = send(&ts, "POST", "/api/v1/members/linter/enable", Some(&owner), None);
+    assert_eq!(status, 200, "{m}");
+    assert_eq!((m["changed"].clone(), m["tokens_revoked"].clone()), (json!(false), json!(0)));
+    assert_eq!(send(&ts, "GET", "/api/v1/me", Some(&linter), None).0, 200, "untouched");
+    // Owner-only, and an unknown handle is 404.
+    let (status, b) = send(&ts, "POST", "/api/v1/members/linter/enable", Some(&agent), None);
+    assert_eq!(status, 403, "{b}");
+    assert!(b["message"].as_str().unwrap().contains("member enable is owner-only"), "{b}");
+    assert_eq!(send(&ts, "POST", "/api/v1/members/nobody/enable", Some(&owner), None).0, 404);
+    // Disable, then enable: the same Member, its old Token still refused.
+    send(&ts, "POST", "/api/v1/members/linter/disable", Some(&owner), None);
+    let (status, m) = send(&ts, "POST", "/api/v1/members/linter/enable", Some(&owner), None);
+    assert_eq!(status, 200, "{m}");
+    assert_eq!(m["changed"], true);
+    assert_eq!(m["tokens_revoked"], 1);
+    assert!(m["disabled_at"].is_null(), "{m}");
+    assert_eq!((m["id"].as_str().unwrap(), m["handle"].as_str().unwrap()), (linter_id.as_str(), "linter"));
+    assert_eq!(send(&ts, "GET", "/api/v1/me", Some(&linter), None).0, 401, "the old Token is not resurrected");
+    // A new Token works, attribution is intact, and the Member can be granted again.
+    let (status, nt) = send(&ts, "POST", "/api/v1/tokens", Some(&owner), Some(&json!({ "member": "linter" })));
+    assert_eq!(status, 201, "{nt}");
+    let fresh = nt["token"].as_str().unwrap().to_string();
+    let (status, me) = send(&ts, "GET", "/api/v1/me", Some(&fresh), None);
+    assert_eq!(status, 200, "{me}");
+    let (_, t1) = send(&ts, "GET", &format!("/api/v1/docs/{id}/threads/{thread}"), Some(&fresh), None);
+    assert_eq!(t1["author"], "linter", "attribution stays");
+    let (status, b) = send(
+        &ts,
+        "POST",
+        "/api/v1/members/linter/grants",
+        Some(&owner),
+        Some(&json!({ "vault": "notes", "rights": ["read"] })),
+    );
+    assert_eq!(status, 200, "{b}");
+    // The event the live feed and `wait` see.
+    let (_, ev) = send(&ts, "GET", "/api/v1/events?since=0", Some(&owner), None);
+    let enabled: Vec<&Value> =
+        ev["events"].as_array().unwrap().iter().filter(|e| e["type"] == "member.enabled").collect();
+    assert_eq!(enabled.len(), 1, "one event for the one change: {ev}");
+    assert_eq!((enabled[0]["by"].as_str(), enabled[0]["payload"]["tokens"].as_u64()), (Some("rowan"), Some(1)));
 }
 
 // spec: S06-07, S06-08, S06-13

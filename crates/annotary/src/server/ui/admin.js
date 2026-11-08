@@ -223,6 +223,10 @@
         inlineConfirm($('[data-slot=rename]', card), 'Disable @' + handle + '? Its Tokens and sessions are refused from now on; history and attribution stay. The handle is never reused.', 'Disable', function () {
           return api('POST', base + '/disable').then(function (res) { return res.ok ? refreshMember(handle) : res; });
         });
+      } else if (act === 'enable') {
+        inlineConfirm($('[data-slot=rename]', card), 'Enable @' + handle + '? The same Member comes back with its Grants and history; its old Tokens and sessions stay refused (they are revoked now), so mint a new Token.', 'Enable', function () {
+          return api('POST', base + '/enable').then(function (res) { return res.ok ? refreshMember(handle) : res; });
+        });
       } else if (act === 'mint') {
         var slot = $('[data-slot=mint]', card);
         slot.innerHTML = '<label>Name <input type="text" data-f="name" placeholder="optional, e.g. laptop" spellcheck="false"></label> ' +

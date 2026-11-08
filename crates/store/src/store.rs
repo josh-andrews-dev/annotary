@@ -324,6 +324,38 @@ impl Store {
         })
     }
 
+    /// Enable a disabled Member again (`member enable`): the same Member — id, handle, role,
+    /// Grants, history — can be granted and given Tokens again. Disable only gates the Member's
+    /// Tokens and sessions, so enabling would bring them back to life; instead every Token
+    /// still live is revoked and every session ended in the same transaction, and the Member
+    /// comes back with no credential (a new Token comes from `mint_token` / pairing; a local
+    /// password is kept). Returns `(changed, tokens revoked, sessions ended)`; enabling an
+    /// enabled Member changes nothing (`(false, 0, 0)`, no event).
+    pub fn enable_member(&self, by: &str, member_id: &str) -> Result<(bool, usize, usize)> {
+        self.tx(|tx| {
+            let m = load_member(tx, member_id)?.ok_or(StoreError::MemberNotFound)?;
+            if !m.is_disabled() {
+                return Ok((false, 0, 0));
+            }
+            let now = time::now();
+            let tokens = tx.execute(
+                "UPDATE tokens SET revoked_at = ?1 WHERE member_id = ?2 AND revoked_at IS NULL",
+                params![now, member_id],
+            )?;
+            let sessions = tx.execute("DELETE FROM sessions WHERE member_id = ?1", [member_id])?;
+            tx.execute("UPDATE members SET disabled_at = NULL WHERE id = ?1", [member_id])?;
+            tx.execute("UPDATE memberships SET disabled_at = NULL WHERE member_id = ?1", [member_id])?;
+            append_event(
+                tx,
+                Some(by),
+                "member.enabled",
+                None,
+                serde_json::json!({ "member": member_id, "handle": m.handle, "tokens": tokens, "sessions": sessions }),
+            )?;
+            Ok((true, tokens, sessions))
+        })
+    }
+
     // ---------------------------------------------------------------- tokens
 
     /// Mint an additional Token for a Member.

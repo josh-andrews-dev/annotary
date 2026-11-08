@@ -21,7 +21,7 @@
 //! | `GET /settings/vaults/{name}` | owner | `{name, id, html}` — one Vault's card |
 //!
 //! Every mutation the screens make goes through `/api/v1` with the session cookie
-//! (`POST members`, `…/rename|disable|role|grants`, `POST/DELETE tokens`, `PUT settings/password`,
+//! (`POST members`, `…/rename|disable|enable|role|grants`, `POST/DELETE tokens`, `PUT settings/password`,
 //! `POST vaults`, `…/rename`, `DELETE vaults/{name}`, `PUT vaults/{name}/actions`,
 //! `PUT settings/auto-purge`, `POST housekeeping`) — nothing page-specific was added to the API.
 
@@ -278,7 +278,7 @@ pub fn member_card(m: &MemberView, tokens: &[TokenRow], vaults: &[Vault], me: &s
         role = m.role.as_str()
     );
     let tools = if disabled {
-        "<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"rename\">Rename</button>".to_string()
+        "<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"rename\">Rename</button> <button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"enable\">Enable</button>".to_string()
     } else {
         "<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"rename\">Rename</button> <button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"disable\">Disable</button>".to_string()
     };
@@ -304,7 +304,7 @@ pub fn member_card(m: &MemberView, tokens: &[TokenRow], vaults: &[Vault], me: &s
         "<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"mint\">Mint Token</button> <button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"pair\">Pair a device</button>".to_string()
     };
     let disabled_note = if disabled {
-        "<p class=\"cd-muted cd-small\">Disabled — history and attribution kept; its Tokens and sessions are refused; it cannot be granted, promoted or given Tokens (the handle stays taken).</p>"
+        "<p class=\"cd-muted cd-small\">Disabled — history and attribution kept; its Tokens and sessions are refused; it cannot be granted, promoted or given Tokens (the handle stays taken). Enable brings the same Member back, with its old Tokens revoked.</p>"
     } else {
         ""
     };
@@ -434,6 +434,7 @@ mod tests {
         }
     }
 
+    // spec: S38-03
     #[test]
     fn member_card_shows_handle_name_role_grants_hint_and_tokens() {
         let m = member("linter", vec![Grant::all(), Grant { vault: "notes".into(), rights: vec![Right::Comment] }]);
@@ -449,7 +450,9 @@ mod tests {
         assert!(html.contains("<details class=\"cd-advanced\">"));
         assert!(html.contains("data-act=\"pair\">Pair a device</button>")); // ticket 18
         assert!(!html.contains("bot"));
-        // No Grants at all reads as "no access"; a disabled Member has no Advanced / Disable / Mint.
+        // No Grants at all reads as "no access"; a disabled Member has no Advanced / Disable / Mint,
+        // and Enable instead (an active one has no Enable).
+        assert!(!html.contains("data-act=\"enable\""));
         let mut d = member("old", vec![]);
         d.disabled_at = Some("2026-08-15T00:00:00.000Z".into());
         let html = member_card(&d, &[], &[], "rowan");
@@ -461,6 +464,7 @@ mod tests {
                 && !html.contains("data-act=\"mint\"")
                 && !html.contains("data-act=\"pair\"")
         );
+        assert!(html.contains("data-act=\"enable\">Enable</button>"));
     }
 
     #[test]

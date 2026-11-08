@@ -40,15 +40,15 @@ Actions
   act DOC ACTION              Take an Action on head (--version N guards against a moved head)
   actions DOC                 Action history, newest first
 Wait
-  wait [DOC]                  Block until a new Version, Action or @mention (then print it and exit)
+  wait [DOC]                  Block until a new Version, Action or @mention, then print it and exit
 Local server
   serve                       Run the server in the foreground (127.0.0.1:7377)
   daemon <cmd>                install | uninstall | status | start | stop | restart (macOS LaunchAgent)
   export FILE.tar             Archive the store
   password --clear | --set    Change a local password in a stopped data dir
-  rerender DOC | --all        Re-run the renderer after an upgrade
+  rerender DOC | --all        Re-render after an upgrade
 Members & credentials (owner)
-  member <cmd>                add | list | rename | disable | grant | role
+  member <cmd>                add | list | rename | disable | enable | grant | role
   token <cmd>                 mint | list | revoke
   vault <cmd>                 list | create | rename | delete
   settings <cmd>              list | get | set | reset  (yours)
@@ -56,7 +56,7 @@ Members & credentials (owner)
   pair                        Pair a phone or tablet: a new Token as a QR code
   login | logout              Get a token with the local password / forget it
   profile <cmd>               list | add | remove  (list shows whose each profile is)
-  skill install               Write the agent skill file for this CLI version
+  skill install               Write the agent skill for this CLI version
 
 Options (every command)
   -p, --profile NAME          Who you are: a profile in ~/.annotary/config.toml (no default;
@@ -196,6 +196,7 @@ Usage: annotary member <cmd>  (owner only; `list` for everyone)
   list                     handle  name  role  grants  (disabled)
   rename HANDLE NEW        Changes the display name; the handle itself never changes
   disable HANDLE           Keeps history; token stops working
+  enable HANDLE            Same Member back; old tokens stay revoked (mint a new one)
   grant HANDLE VAULT|* RIGHTS   e.g. grant linter notes read,comment — `none` removes the grant
   role HANDLE owner|member
 ";
