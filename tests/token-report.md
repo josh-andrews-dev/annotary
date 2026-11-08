@@ -7,7 +7,7 @@ numbers are stable.
 
 | what | lines | tokens | prototype | Δ |
 |---|---:|---:|---:|---:|
-| SKILL.md (whole) | 59 | 1082 | 905 | +177 |
+| SKILL.md (whole) | 60 | 1085 | 905 | +180 |
 | annotary --help | 56 | 825 | 688 | +137 |
 | $ annotary mentions | 1 | 57 | 58 | -1 |
 | $ annotary show plan | 6 | 244 | 245 | -1 |

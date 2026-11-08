@@ -9,34 +9,35 @@ metadata:
 # annotary
 
 Humans and agents comment on shared Markdown with equal standing. Pass `-p NAME` on **every** command.
-- **Your profile** (`annotary profile list`) is your agent Member, never the human's. None? Ask the human.
+- **Your profile** (`annotary profile list`) is your agent Member, never the human's. None? Ask them.
 - **Post as the human** only when they ask ("comment this as me"): their profile, that command only.
 
 ## Do this
 
-- **Read through the CLI**: `show DOC`. **Never open `*.annotary`**.
-- **Cite Threads by id + quoted text** (`t7 "testable in isolation"`), never by line number.
-- **Pull, edit, push.** `pull DOC` writes `NAME.md`; `push NAME.md -m "…"` uploads a Version. Refused with a
-  diff (exit 5)? Someone pushed first: add their changes, push again. Never `--discard-head-changes` unasked.
-- **Reply, then resolve**: `thread reply DOC t7 --resolve -m "Done in v5: …"`; `@handle` mentions.
-- **Links:** give a person only the URL `annotary link DOC [t7]` prints, as a plain Markdown link, not in code;
+- **Read through the CLI** (`show DOC`); **never open `*.annotary`**. Cite `t7 "quoted text"`, never line numbers.
+- **Pull, edit, push.** `pull DOC` writes `NAME.md`; `push NAME.md -m "…"` uploads a Version. Refused (exit 5)?
+  Someone pushed first: merge its diff, push again. Never `--discard-head-changes` unasked.
+- **After pushing, answer each Thread you acted on**, briefly, like a colleague: what changed, in which Version
+  (`thread reply DOC t7 --resolve -m "Done in v5: split the intro"`), or why not ("Kept: the spec fixes it").
+  A question gets an answer, no edit. Unclear? Ask there, don't guess. Resolve only what's done; `@handle` mentions.
+- **Links:** give a person only the URL `annotary link DOC [t7]` prints, as a plain link, not in code;
   127.0.0.1 only with them on that machine. T3 Code: `preview_open` it too.
-- **Guard `act` and `thread new` with `--version N`**: refused (exit 5) if head moved.
-- **Wait, don't poll.** `wait DOC` blocks until a new Version, Action or @mention; resume: `--cursor SEQ` (`status`).
+- **Guard `act`, `thread new` with `--version N`**: exit 5 if head moved.
+- **Wait, don't poll.** `wait DOC` blocks for a new Version, Action or @mention; `--cursor SEQ` (`status`) resumes.
 - **`--json`** to parse (`--json id,anchor,body` narrows, `--json ?` lists).
 
 ## A document for the human's review
 
-Markdown you wrote for them to decide on: plans (`docs/plans/`), requirements, design notes, research,
-handoffs, proposed standards. Not mock boards, PR bodies, tracker items. The repo file stays the source; push a copy:
+Markdown you wrote for them to decide on (plans, requirements, design notes, research, handoffs; not
+PR bodies or tracker items). The repo file stays the source; push a copy:
 1. `D=~/.cache/annotary/review; mkdir -p $D; cp docs/plans/x.md $D/REPO:docs:plans:x.md; push` that file (Name
    `REPO:docs:plans:x`: no `/`). Give its link, say "comment, then Send back or tell me when you're done", `wait` it.
 2. **Mid-review, never push** (it stops their commenting) **or add `--on thread,reply`.** Review ends at `send-back`,
    `approve` or their word in chat. An @mention: answer that Thread, no push.
-3. Review over: read every open Thread, fix the repo file, copy it over, push once, reply naming the Version, resolve.
+3. Review over: read every open Thread, fix the repo file, copy it over, push once, answer each Thread.
 4. `approve`, no Threads open, is agreement: `pull DOC --version N --out $D --force`, copy to the repo path, commit.
 
-## Commands (each also takes `-p NAME`)
+## Commands
 
 ```
 show DOC                          header + open Threads
@@ -52,8 +53,8 @@ wait [DOC] [--on version,action,mention] [--timeout 30m] [--cursor SEQ]
 list [NAME] [--mentions-me|--action ID|none|--since 2h]
 ```
 
-DOC = id, unique Name, or path to a pulled `.md`. Anchor `refined`: text changed (`thread show` has it);
+DOC = id, unique Name, or path to a pulled `.md`. Anchor `refined`: text changed (`thread show`);
 `orphaned`: span gone, still replyable. Exit: 0 ok · 1 usage · 2 not found · 3 no credential ·
-4 missing right · 5 conflict / refused · 6 unreachable · 7 wait timed out.
+4 missing right · 5 refused · 6 unreachable · 7 timed out.
 
 `annotary --version` ≠ `metadata.version` above → `annotary skill install`, reload. More: `<command> --help`.
