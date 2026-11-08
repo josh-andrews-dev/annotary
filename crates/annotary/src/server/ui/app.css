@@ -372,6 +372,9 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
    mark has a text label for screen readers (`span.cd-sr`, and the `ins`/`del` pseudo labels). */
 .cd-diffpage{--cd-dx-add-bg:var(--cd-pos-bg);--cd-dx-add-line:var(--cd-pos);--cd-dx-del-bg:var(--cd-neg-bg);--cd-dx-del-line:var(--cd-neg);--cd-dx-mod-line:var(--cd-amber)}
 .cd-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+/* The hidden labels are absolutely positioned: a table or a code block that scrolls sideways must be
+   their containing block, or a label far right in it widens the page. */
+.cd-dxdoc table,.cd-dxdoc pre{position:relative}
 .cd-dxhdr{flex-wrap:wrap;row-gap:6px}
 .cd-dxline{flex:0 1 auto}
 .cd-dxname{color:var(--cd-fg)}

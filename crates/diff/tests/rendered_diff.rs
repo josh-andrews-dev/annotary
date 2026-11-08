@@ -89,11 +89,12 @@ fn text(html: &str, skip: &dyn Fn(&str) -> bool) -> String {
 fn is_label(tag: &str) -> bool {
     tag.contains("class=\"cd-sr\"") || tag.contains("cd-dx-sum")
 }
+// The diff's own marks only: a Document's `~~struck~~` text renders as a `<del>` of its own.
 fn added(tag: &str) -> bool {
-    tag.starts_with("<ins") || tag.contains("cd-dx-add")
+    tag.contains("cd-ins") || tag.contains("cd-dx-add")
 }
 fn removed(tag: &str) -> bool {
-    tag.starts_with("<del") || tag.contains("cd-dx-del")
+    tag.contains("cd-del") || tag.contains("cd-dx-del")
 }
 
 fn same(got: &str, want: &str, side: &str, html: &str) {
@@ -220,6 +221,8 @@ fn lists_tables_quotes_and_footnotes_diff_by_item() {
     assert!(d.html.contains("<span class=\"cd-sr\">formatting changed: </span>"), "{}", d.html);
     assert!(!d.html.contains("cd-ins") && !d.html.contains("cd-del"), "{}", d.html);
     assert!(d.html.contains("<a href=\"https://example.com/b\">the docs</a> <em>now</em>"), "{}", d.html);
+    // A Document's own strikethrough is content, not a mark.
+    assert_reads_back("- ~~Buy the domain~~ pending\n- Other\n", "- ~~Buy the domain~~: done 2026-11-01\n- Other\n");
     // A task ticked: the old box removed, the new one added.
     let d = diff("- [ ] ship\n", "- [x] ship\n");
     assert!(d.html.contains("<del class=\"cd-del\"><input type=\"checkbox\" disabled></del><ins class=\"cd-ins\"><input type=\"checkbox\" checked disabled></ins>"), "{}", d.html);

@@ -181,3 +181,19 @@ test('at a phone width nothing scrolls sideways, and the marks show in both them
     await ctx.close();
   }
 });
+
+// spec: S40-08
+test('a change far right in a wide table or a long code line does not widen the page', async ({ page }) => {
+  const row = (last: string) => `| ${Array.from({ length: 8 }, (_, i) => `column ${i} text`).join(' | ')} | ${last} |`;
+  const head = `| ${Array.from({ length: 9 }, (_, i) => `h${i}`).join(' | ')} |\n|${'---|'.repeat(9)}`;
+  const code = (end: string) => '```\n' + 'let value = compute(alpha, beta, gamma, delta, epsilon, zeta, eta, theta, iota) + ' + end + ';\n```';
+  const a = `# Wide\n\n${head}\n${row('old')}\n\n${code('one')}\n`;
+  const b = `# Wide\n\n${head}\n${row('new')}\n\n${code('two')}\n`;
+  const d = seedDoc('cmp-wide', a);
+  pushVersion(d, b);
+  await openDiff(page, diffUrl(d.id, 1, 2), 390);
+  await expect(page.locator('#cd-dxdoc td.cd-dx-mod ins.cd-ins')).toHaveText('new');
+  await expect(page.locator('#cd-dxdoc pre ins.cd-ins')).toHaveText('two');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

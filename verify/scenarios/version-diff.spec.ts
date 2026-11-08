@@ -5,7 +5,8 @@
 // hold real text, so the pull request shows the corpus screenshots instead). Then every real
 // Document with more than one Version is compared head−1 → head and v1 → head: the page loads with
 // no script error, nothing scrolls sideways at a phone width, and with the removed marks and labels
-// taken out the diff reads exactly as the newer Version's page.
+// taken out the diff reads exactly as the newer Version's page (a Document's own `~~struck~~` text
+// is a `<del>` too: only the diff's marks are taken out).
 import { test, type Page } from '@playwright/test';
 import { cliJson, documents, expect, openDoc, shot } from '../lib';
 
@@ -17,7 +18,7 @@ const versionsOf = (id: string): V[] => cliJson<V[]>(['versions', id]) ?? [];
 const diffText = (page: Page) =>
   page.locator('#cd-dxdoc').evaluate((root) => {
     const c = root.cloneNode(true) as HTMLElement;
-    c.querySelectorAll('del, .cd-dx-del, .cd-sr, .cd-dx-sum, #cd-dxnote').forEach((e) => e.remove());
+    c.querySelectorAll('del.cd-del, .cd-dx-del, .cd-sr, .cd-dx-sum, #cd-dxnote').forEach((e) => e.remove());
     return (c.textContent || '').replace(/\s+/g, '');
   });
 
@@ -114,7 +115,27 @@ test('every real Document with more than one Version reads back as its newer Ver
     }
     await page.setViewportSize({ width: 390, height: 844 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow, `${d.id}: nothing scrolls sideways at a phone width`).toBeLessThanOrEqual(0);
+    if (overflow > 0) {
+      const widest = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const clipped = (e: Element) => {
+          if (getComputedStyle(e).position === 'absolute') return false; // escapes a non-positioned scroller
+          for (let p = e.parentElement; p; p = p.parentElement) if (getComputedStyle(p).overflowX !== 'visible') return true;
+          return false;
+        };
+        for (const e of Array.from(document.querySelectorAll('body *'))) {
+          const r = e.getBoundingClientRect();
+          if (r.right > vw + 1 && !clipped(e)) {
+            const cs = getComputedStyle(e);
+            return { w: r.right, tag: e.tagName.toLowerCase(), cls: e.getAttribute('class'), display: cs.display, ox: cs.overflowX, parent: e.parentElement?.tagName.toLowerCase() + '.' + e.parentElement?.getAttribute('class') };
+          }
+        }
+        return null;
+      });
+      await openDoc(page, d.id, 390);
+      const docOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      throw new Error(`${d.id}: the diff scrolls sideways by ${overflow}px at 390 (widest: ${JSON.stringify(widest)}); its Document page by ${docOverflow}px`);
+    }
   }
   test.info().annotations.push({ type: 'data', description: `${multi.length} Documents, ${pairs} pairs` });
   expect(pairs).toBeGreaterThan(0);
