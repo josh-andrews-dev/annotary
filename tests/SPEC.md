@@ -603,7 +603,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 
 ## Stories
 
-Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–173)
+Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–174)
 and the ids whose tests cover it — the checker demands every number and only known ids; a story
 whose coverage Phase 1 does not automate points at a Deferred id.
 
