@@ -15,6 +15,8 @@
 //!   both, the page renders every `<time>` absolute on the server ([`WebPrefs::times`] →
 //!   [`Times::tag`]) and adds `data-cd-tz`; until then times render relative, as before.
 //! - **Keyboard shortcuts / Send key**: `data-cd-keys` / `data-cd-send` on `.cd-app`.
+//! - **Embed mode** (`embed.rs`): `cd-embed` on `.cd-app`; the zone and hour cycle come from the
+//!   embedder's `X-Annotary-Tz` / `X-Annotary-Hc` headers, and no cookie is read.
 //!
 //! Every browser is the Member's one Web Device, so two browsers resolve the same values.
 
@@ -56,6 +58,8 @@ pub struct WebPrefs {
     pub tz: Option<String>,
     /// The `cd_hc` cookie (`12` / `24`), when the browser has sent it.
     pub hc: Option<u8>,
+    /// An embed render (`X-Annotary-Embed: 1`, `embed.rs`): `tz` / `hc` came from its headers.
+    pub embed: bool,
 }
 
 impl Default for WebPrefs {
@@ -76,6 +80,7 @@ impl Default for WebPrefs {
             send_key: "enter".into(),
             tz: None,
             hc: None,
+            embed: false,
         }
     }
 }
@@ -95,7 +100,11 @@ fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
 
 /// The `cd_hc` cookie: `12` or `24` (anything else is ignored).
 pub fn hc_cookie(headers: &HeaderMap) -> Option<u8> {
-    match cookie(headers, HC_COOKIE)?.as_str() {
+    hc_value(&cookie(headers, HC_COOKIE)?)
+}
+
+fn hc_value(v: &str) -> Option<u8> {
+    match v {
         "12" => Some(12),
         "24" => Some(24),
         _ => None,
@@ -104,7 +113,19 @@ pub fn hc_cookie(headers: &HeaderMap) -> Option<u8> {
 
 /// The `cd_tz` cookie (an IANA name such as `Europe/Berlin`; anything else is ignored).
 pub fn tz_cookie(headers: &HeaderMap) -> Option<String> {
-    let val = cookie(headers, TZ_COOKIE)?.replace("%2F", "/").replace("%2f", "/");
+    tz_value(cookie(headers, TZ_COOKIE)?.replace("%2F", "/").replace("%2f", "/"))
+}
+
+/// An embed request's zone and hour cycle (`X-Annotary-Tz` / `X-Annotary-Hc`), checked as the
+/// cookies are.
+pub fn embed_zone(headers: &HeaderMap) -> (Option<String>, Option<u8>) {
+    (
+        super::embed::header(headers, super::embed::TZ_HEADER).and_then(tz_value),
+        super::embed::header(headers, super::embed::HC_HEADER).and_then(|v| hc_value(&v)),
+    )
+}
+
+fn tz_value(val: String) -> Option<String> {
     (!val.is_empty()
         && val.len() <= 64
         && val.bytes().all(|b| b.is_ascii_alphanumeric() || b"/_-+".contains(&b))
@@ -154,7 +175,11 @@ impl WebPrefs {
     pub fn load(st: &AppState, auth: &Auth, headers: &HeaderMap) -> Result<WebPrefs, ApiError> {
         let device = st.store.ensure_device(&auth.0.member_id, WEB_DEVICE, None)?;
         let rows = st.store.resolved_settings(&auth.0.member_id, Some(&device.id))?;
-        let mut p = WebPrefs { tz: tz_cookie(headers), hc: hc_cookie(headers), ..WebPrefs::default() };
+        // Embed mode: what a browser keeps in cookies comes from the embedder's headers, and no
+        // cookie is read (the frame has none).
+        let embed = super::embed::is_embed(headers);
+        let (tz, hc) = if embed { embed_zone(headers) } else { (tz_cookie(headers), hc_cookie(headers)) };
+        let mut p = WebPrefs { tz, hc, embed, ..WebPrefs::default() };
         for r in rows {
             let s = r.value.as_str().unwrap_or_default().to_string();
             match r.def.key {
@@ -178,6 +203,9 @@ impl WebPrefs {
         let mut c = format!("cd-theme-{}", self.appearance);
         if self.show_resolved {
             c.push_str(" cd-show-resolved");
+        }
+        if self.embed {
+            c.push_str(" cd-embed");
         }
         c
     }

@@ -132,7 +132,7 @@ fn ci_runs_on_github_hosted_runners_and_perf_is_in_no_workflow() {
     }
 }
 
-// spec: S34-07
+// spec: S34-07, S37-09
 #[test]
 fn the_release_workflow_keeps_what_the_pipeline_relies_on() {
     let release = read(".github/workflows/release.yml");
@@ -168,6 +168,15 @@ fn the_release_workflow_keeps_what_the_pipeline_relies_on() {
         let stamp = block.find("deploy/stamp_version.py").unwrap_or_else(|| panic!("{name} stamps"));
         let first_call = ["dist $", "dist build", "dist host"].iter().filter_map(|c| block.find(c)).min().unwrap();
         assert!(stamp < first_call, "{name} stamps before it calls dist:\n{block}");
+    }
+    // spec: S37-09 — the release tarballs carry build provenance, attested in the job that makes the
+    // release (the only one that may mint an OIDC token or write attestations), before the release.
+    let attest = host.find("uses: actions/attest-build-provenance@").expect("the attestation step");
+    assert!(host[attest..].contains("subject-path: \"artifacts/*.tar.gz\""), "{host}");
+    assert!(attest < host.rfind("gh release create").unwrap(), "attested before the release: {host}");
+    for perm in ["\"id-token\": \"write\"", "\"attestations\": \"write\""] {
+        assert!(host.contains(perm), "{perm} in host: {host}");
+        assert_eq!(release.matches(perm).count(), 1, "{perm} in one job only");
     }
     // Notes from the pull request titles, which the `ci` job holds to Conventional Commits.
     assert!(release.contains("--generate-notes"), "{release}");

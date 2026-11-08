@@ -25,3 +25,76 @@ index is [README.md](README.md)). Extend them with the code they describe.
 - **Live (S29-25):** the Document page subscribes with `&me=1` and listens for `setting.changed`; the list page opens `GET /api/v1/events?me=1&kinds=setting.changed` (idle, after the first paint). Either way `applySettings()` (debounced 50 ms) re-reads `GET /api/v1/me/settings?device=web` and the catalog (once, for the preset colors; `hlPair` derives a custom color's selected shade with the rule of `settings::highlight_colors` — keep them equal) and puts the same classes, variables and data attributes on `.cd-app`; a changed Show resolved or text size re-runs `layout()`, a changed Times / Clock re-localizes every `<time>`. `window.cd.applySettings` is there for the Settings screen.
 - **Tests:** `tests/web_theme.rs` (S29-24: both palettes for Follow system, Light / Dark, highlight and text-size variables, Show resolved, absolute times with `cd_tz` / `cd_hc`, the fragment, two sessions alike, login and error pages) and `tests/web/theme.spec.ts` (colors drawn in both `colorScheme`s, a change in one context applied in another without a reload, CLS 0 with large text + absolute times + Show resolved, the Send key). Each spec spawns its own server: a settings change is the Member's, and the shared server's owner is every other spec's browser.
 <!-- ---- end CMD-23 ---- -->
+
+<!-- ---- M3 (Hermes plan) ---- -->
+## Embed mode (M3 of the Hermes plan)
+
+The list and the Document view rendered for an **embedder** (the Hermes plugin): a host that shows them in a
+sandboxed frame with an opaque origin and carries everything over `postMessage` to a backend that calls this server
+with a Bearer Token. Why each choice: `docs/decisions.md`, 2026-11-07.
+
+- **Files:** `server/embed.rs` (the header, `is_embed`, `media`, the `/embed/shell` route, the `parts` middleware and
+  `cuts`, the constants `IMAGE_MAX` = 700 KiB and `PART_MAX` = 384 KiB), `server/ui/embed.js` (the transport core,
+  inlined in the shell and in the head of every embed render), `app.js` (the `transport` object at the top of
+  `main`, and the embed block after it), `prefs.rs` (`WebPrefs.embed`, the zone headers), `ui::page_for`,
+  `ui::top_nav(…, embed)`, the `.cd-embed` block at the end of `app.css`.
+- **Which request:** `X-Annotary-Embed: 1`. The page wears `.cd-app.cd-embed`; `ui::page_for` inlines `embed.js`
+  in the head in place of the icon links and adds `Content-Security-Policy: sandbox allow-scripts`; every page (both
+  kinds) carries `Vary: X-Annotary-Embed`. The list's top bar is Documents only (no Settings, no Sign out); the
+  Document page has no "Open in Annotary". Error pages for a signed-in Member are embed renders too.
+- **Media (`embed::media`, Document HTML only, before `splice`):** an Asset `img` / `video` / `audio` / `object` keeps
+  its `/a/…` URL only as `data-cd-src`, and `button.cd-embed-open[data-cd-open][data-cd-kind]` follows it (after the
+  closing tag for video, audio and PDF): hidden after an image the script fetches, shown after video, audio, PDF and
+  an image over `IMAGE_MAX` (`data-cd-big`). The button has no text node (`app.css` draws "Open KIND"), so the text
+  `mapSelection` and `highlight` read is unchanged; `app.js` matches Asset outlines on `data-cd-src` too. Cards are
+  untouched (Comment bodies never embed media).
+- **One transport (`app.js`):** `transport.request / events / navigate / hash / pref / savePrefs` are what the page
+  always did in a browser (`fetch` with the cookie, `EventSource`, `location.href`, `location.hash`, the `cd_tz` /
+  `cd_hc` cookies). In an embed render (and only when `window.AnnotaryEmbed` exists: `embed.js` defines it only in a
+  framed opaque origin) they go through `embed.js`; `events` becomes a poll of the same URL (below). The embed block
+  turns clicks on links into navigation (`/…`), `annotary-open-external` (an Asset, `target=_blank`, a modified
+  click, an outside `http(s)` / `mailto` link) or an in-page scroll (`#…`); GET forms (the list's filters: submit
+  button, Enter, `submit`) into a navigation with the fields as the query; `button.cd-embed-open` into
+  `annotary-open-external`; and fetches each `img[data-cd-src]:not([data-cd-big])` as a blob URL, showing its button
+  when that fails. Listeners sit on `window`, after the page's own `document` handlers. Fields are at least 16 px
+  in embed mode (iOS Safari zooms into smaller ones on focus).
+- **Navigation is in place.** `AnnotaryEmbed.navigate(path)` posts `annotary-nav` and loads the page: a GET through
+  the embedder (redirects followed, three at most), then `document.open / write / close`. The page's own copy of
+  `embed.js` takes over; `window.__cdEmbedGen` makes the previous copy's listeners, requests and timers stand down.
+  `window.__cdEmbedPath` / `__cdEmbedHash` say where the frame is (`hash()` replaces `location.hash` for `#tN`).
+  The realm survives the write, and so do frame callbacks a page scheduled: `app.js` keeps the `AnnotaryEmbed` it
+  booted with and its `main` returns when that copy is no longer `current()`, so a page written over another
+  before the other's script ran binds once (S37-10). A failed load clears `loading`, so the same `annotary-init`
+  can try again; an init for the page shown drops a load in flight.
+- **Live:** `transport.events` polls the SSE URL (`doc=`, `me=1`, `kinds=`) as a long-poll answer from the page's
+  `seq` with `limit=200`, every `EMBED_POLL_MS` (4 s) while `document.visibilityState` is not `hidden`, at once on
+  `visibilitychange` to visible and on any `annotary-event`; one poll at a time; `.cd-live` once the first answer
+  arrived. Events are applied once (by `seq`) and only the types the browser's `EventSource` listened to.
+
+### The protocol (version 1)
+
+Every message is a plain object posted with target `'*'`. The frame accepts messages only from `window.parent` and
+ignores any other `type`; the embedder should accept them only from its frame (`e.source === frame.contentWindow`).
+
+| direction | message | meaning |
+|---|---|---|
+| frame → host | `{type:'annotary-ready', protocol:1}` | the shell is listening |
+| host → frame | `{type:'annotary-init', path}` (or `{doc, thread?}`) | show this page (`/`, `/d/ID`, `/d/ID/v/2`, `/d/ID#t3`); may be sent again at any time, without a new frame. Without one the shell shows its fragment's path (`#` + `encodeURIComponent(path)`) or, after 1.5 s, `/` |
+| frame → host | `{type:'annotary-req', id, method, path, headers, body, binary?}` | one HTTP request; `path` starts with `/` (never `//`); `body` a string or null; `binary` = answer as bytes |
+| host → frame | `{type:'annotary-res', id, status, headers, body, encoding?}` | its answer; `headers` at least `content-type` (and the `x-annotary-*` ones); `body` text, or base64 with `encoding:'base64'` (also an `ArrayBuffer` / `Uint8Array` / `Blob`); `status: 0` = the server could not be reached |
+| host → frame | `{type:'annotary-event', payload}` | something changed: the page looks now (the payload, a `/api/v1/events` frame, is optional) |
+| frame → host | `{type:'annotary-nav', path}` | the frame now shows `path` (remember it; no reply needed) |
+| frame → host | `{type:'annotary-open-external', path}` or `{…, url}` | open outside the frame: a server path (an Asset, a page in a new tab) or an outside `http(s)` / `mailto` URL |
+
+The embedder's backend sends each request to this server with `Authorization: Bearer <Token>` and
+`X-Annotary-Embed: 1` (also passed in `headers`), forwards the request's `headers` (`Content-Type`, `Accept`,
+`X-Annotary-Tz`, `X-Annotary-Hc`, `X-Annotary-Part`, `X-Annotary-Etag`), does not follow redirects, and returns the
+answer's headers. **Parts:** an embedded GET answer over `PART_MAX` comes back `206` with `X-Annotary-Parts` (count),
+`X-Annotary-Part` (this one, from 0), `X-Annotary-Etag` and the real status in `X-Annotary-Status`; `embed.js` asks
+for parts 1… with `X-Annotary-Part` and `X-Annotary-Etag` and joins them (a `412` means the answer changed: it starts
+over, three times at most). Parts end on UTF-8 character boundaries, so a backend may pass text on as text.
+- **Tests:** `tests/web_embed.rs` (S37-01…05: both renders, media, the zone headers, the shell, parts),
+  `tests/web/embed.spec.ts` (S37-06/07: a fake embedder — a host page at its own origin, the shell as a `data:` URL in
+  `<iframe sandbox="allow-scripts">`, `page.exposeFunction` as the backend — against a private `serve`). Chromium only;
+  the Webapp on a phone is WebKit, which the suite does not run.
+<!-- ---- end M3 (Hermes plan) ---- -->

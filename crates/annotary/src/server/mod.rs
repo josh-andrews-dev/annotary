@@ -17,6 +17,8 @@ pub mod auth;
 pub mod blobs;
 pub mod docs;
 pub mod error;
+// M3 (Hermes plan): the pages rendered for an embedder's sandboxed frame
+pub mod embed;
 // ---- ticket 08 ----
 pub mod events;
 // ---- end ticket 08 ----

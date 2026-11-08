@@ -548,6 +548,10 @@ fn endpoints() -> Vec<Endpoint> {
             send(ts, "PUT", "/api/v1/settings/auto-purge", tok(c).as_deref(), Some(&json!({ "days": null })))
         }),
         ep("GET / (list page)", Need::Any, move |ts, c, _| send(ts, "GET", "/", tok(c).as_deref(), None)),
+        // M3 (Hermes plan): the embedder's bootstrap page, for any Member (`embed.rs`)
+        ep("GET /embed/shell (page)", Need::Any, move |ts, c, _| {
+            send(ts, "GET", "/embed/shell", tok(c).as_deref(), None)
+        }),
         ep("GET /d/{id} (page)", Need::Right(Right::Read), move |ts, c, v| {
             let id = fresh_doc(ts, v);
             send(ts, "GET", &format!("/d/{id}"), tok(c).as_deref(), None)

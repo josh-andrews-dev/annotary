@@ -125,7 +125,7 @@ fn json_script(v: &Value) -> String {
 pub fn render(st: &AppState, auth: &Auth, headers: &HeaderMap, f: Frame<'_>) -> Result<Response, ApiError> {
     let prefs = WebPrefs::load(st, auth, headers)?;
     let attrs = prefs.app_attrs(if f.admin { "cd-settingspage cd-adminpage" } else { "cd-settingspage" });
-    let header = ui::top_nav(st, auth, "/settings")?;
+    let header = ui::top_nav(st, auth, "/settings", false)?;
     let side = sidebar(auth, f.active);
     let mode = if f.index { "cd-set-index" } else { "cd-set-grouppage" };
     let mut data = f.data;

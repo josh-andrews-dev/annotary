@@ -11,3 +11,7 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- end ticket 09 ---- -->
 
 <!-- ---- ticket 10 ---- -->
+
+<!-- ---- M3 (Hermes plan) ---- -->
+- **Embed mode post-processes the stored HTML** for the viewer only (`server/embed.rs::media`, after `ui::asset_links_blank`, before `splice`): Asset media keep their `/a/…` URL as `data-cd-src` and get an open button. The stored blob and the contract above are unchanged; the renderer knows nothing of it.
+<!-- ---- end M3 (Hermes plan) ---- -->
