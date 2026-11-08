@@ -528,6 +528,7 @@ function main() {
 
   /* ---------- layout A: cards at their anchor line, pushed apart ---------- */
   var layoutPending = false;
+  var tiedStrip = null, tiePending = false;
   var readyOnce = false;
   function markReady() {
     if (readyOnce) return;
@@ -536,7 +537,8 @@ function main() {
     if (window.performance && performance.mark) performance.mark('cd:ready');
   }
   function anchorTop(strip, base) {
-    var t = $('.cd-thread', strip);
+    // A hidden resolved Thread has no place to align with: the strip goes by its first visible one.
+    var t = $(app.classList.contains('cd-show-resolved') ? '.cd-thread' : '.cd-thread:not(.cd-resolved)', strip);
     var tid = t && t.getAttribute('data-t');
     if (!tid) return null;
     var m = marksOf(tid)[0];
@@ -594,8 +596,21 @@ function main() {
   /* The tie (app.css): in layout A the selected card's strip is joined to the Thread's first
      highlight. The strip gets `cd-tied` and two offsets from its top: --cd-tie-a, the middle of
      the highlight's first line, and --cd-tie-b, the card's first line. A class already set is
-     left alone, so its draw-in animation runs once per selection. */
+     left alone, so its draw-in animation runs once per selection. With nothing selected and
+     nothing tied this does no work (a load never pays for it); the measuring waits for the frame,
+     when the browser lays out the strips' new positions anyway, instead of forcing a layout. */
   function tie() {
+    if (!selected) { setTied(null); return; }
+    if (tiePending) return;
+    tiePending = true;
+    (window.requestAnimationFrame || setTimeout)(drawTie, 0);
+  }
+  function setTied(strip) {
+    if (tiedStrip && tiedStrip !== strip) tiedStrip.classList.remove('cd-tied', 'cd-tied-up');
+    tiedStrip = strip;
+  }
+  function drawTie() {
+    tiePending = false;
     var target = null, a = 0, b = 0;
     if (selected && docEl && isWide()) {
       var card = cardOf(selected), m = marksOf(selected)[0];
@@ -608,10 +623,11 @@ function main() {
         target = strip;
       }
     }
-    $$('.cd-strip.cd-tied', docEl || app).forEach(function (s) { if (s !== target) s.classList.remove('cd-tied'); });
+    setTied(target);
     if (!target) return;
     target.style.setProperty('--cd-tie-a', a + 'px');
     target.style.setProperty('--cd-tie-b', b + 'px');
+    target.classList.toggle('cd-tied-up', a > b);
     target.classList.add('cd-tied');
   }
   function scheduleLayout() {
@@ -1005,6 +1021,21 @@ function main() {
     tpl.innerHTML = html;
     return tpl.content.firstElementChild;
   }
+  /* The wash plays once on arrival. The class goes when it ends, or after its length when it never
+     runs (reduced motion, a collapsed row), so opening the card later does not replay it. */
+  var WASH_MS = 1500;
+  function washIn(c) {
+    var timer;
+    function done(e) {
+      if (e && e.target !== c) return;
+      clearTimeout(timer);
+      c.removeEventListener('animationend', done);
+      c.classList.remove('cd-fresh');
+    }
+    c.addEventListener('animationend', done);
+    timer = setTimeout(done, WASH_MS);
+    c.classList.add('cd-fresh');
+  }
   /* Swap the server's card in (or insert a new one) and sync the highlight / data / counts. */
   function applyFragment(tid, frag) {
     if (!frag) return;
@@ -1026,7 +1057,7 @@ function main() {
     // A Comment someone else just posted washes in from the accent tint (app.css, motion).
     $$('.cd-c', fresh).forEach(function (c) {
       var who = $('.cd-member', c);
-      if (had.indexOf(c.getAttribute('data-c')) < 0 && who && who.getAttribute('title') !== '@' + D.me) c.classList.add('cd-fresh');
+      if (had.indexOf(c.getAttribute('data-c')) < 0 && who && who.getAttribute('title') !== '@' + D.me) washIn(c);
     });
     placeCard(fresh, item);
     setItem(item);

@@ -230,8 +230,10 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
   /* the tie: the selected card's strip is joined to its highlight, like the mark's margin note.
      On the strip, not the card: a card deep in the Document has content-visibility (paint
      containment clips outside its box). The script sets --cd-tie-a / --cd-tie-b (`tie()`). */
-  .cd-strip.cd-tied::before{content:"";position:absolute;right:calc(100% + 14px);width:15px;top:var(--cd-tie-a,16px);height:max(2px,calc(var(--cd-tie-b,16px) - var(--cd-tie-a,16px) + 2px));
+  .cd-strip.cd-tied::before{content:"";position:absolute;right:calc(100% + 14px);width:15px;top:min(var(--cd-tie-a,16px),var(--cd-tie-b,16px));height:calc(max(var(--cd-tie-a,16px),var(--cd-tie-b,16px)) - min(var(--cd-tie-a,16px),var(--cd-tie-b,16px)) + 2px);
     border:solid var(--cd-hl-sel);border-width:2px 2px 0 0;border-top-right-radius:6px;pointer-events:none}
+  /* the highlight is below the card (a later Thread of a strip): the line leaves the column at the bottom */
+  .cd-strip.cd-tied-up::before{border-width:0 2px 2px 0;border-radius:0 0 6px 0}
   .cd-strip.cd-tied::after{content:"";position:absolute;right:100%;width:15px;top:var(--cd-tie-b,16px);height:2px;background:var(--cd-hl-sel);pointer-events:none}
   .cd-quote{white-space:normal}
   .cd-snip,.cd-meta{display:none}
@@ -383,8 +385,9 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
   .cd-docname,.cd-title{overflow-wrap:anywhere}
 }
 
-/* ---------- the avatar slot: a round avatar before the author's name (`.cd-who > .cd-av`) ---------- */
-.cd-who>.cd-av{width:28px;height:28px;border-radius:50%;flex:none;overflow:hidden;background:var(--cd-raise)}
+/* ---------- the avatar slot: a round avatar before the author's name. Size and shape only, at the
+   specificity of one class: an avatar's own class decides its background. ---------- */
+:where(.cd-who)>.cd-av{width:28px;height:28px;border-radius:50%;flex:none;overflow:hidden}
 
 /* ---------- motion: only what says where a thing came from (DESIGN.md, Motion). Nothing moves
    position, so CLS stays 0; under prefers-reduced-motion everything here is off. ---------- */

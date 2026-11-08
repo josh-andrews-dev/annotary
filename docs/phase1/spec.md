@@ -250,7 +250,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 ### Comparing Versions (after Phase 1; `docs/dev/web-document-view.md`, "Compare Versions")
 
 171. As a human reviewing a Document with more than one Version, I want a Compare button that shows what changed inline in the rendered Document (the head against the previous Version, an older Version against the head, or any two I pick), with removed text struck through and added text highlighted, so that I review the change rather than reread the whole Document.
-172. As a person reading a Document with agents and colleagues, I want the page to feel sleek and alive within its minimal look: the selected Thread joined to its highlight the way the product's mark joins a note to a line, a colleague's new Comment noticeable as it arrives, @mentions that read as mentions, every text pair at WCAG AA, and all of the motion off when I ask for reduced motion, so that a shared Document is pleasant to review on a desktop and a phone.
+174. As a person reading a Document with agents and colleagues, I want the page to feel sleek and alive within its minimal look: the selected Thread joined to its highlight the way the product's mark joins a note to a line, a colleague's new Comment noticeable as it arrives, @mentions that read as mentions, every text pair at WCAG AA, and all of the motion off when I ask for reduced motion, so that a shared Document is pleasant to review on a desktop and a phone.
 
 ## Implementation Decisions
 

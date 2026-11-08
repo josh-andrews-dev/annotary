@@ -174,8 +174,8 @@ panels; cards use `--cd-shadow`, a selected card `--cd-shadow-pop` under its rin
   composer has an accent ring. A posting Comment is muted text at full opacity.
 - **The tie (`.cd-strip.cd-tied`):** in layout A, the selected card's strip is joined to its
   highlight by a 2px line in `--cd-hl-sel`, the mark's margin note in the page. It leaves the
-  column at the highlight's first line and bends down to the card when the margin pushed the card
-  lower (`tie()` in `app.js` sets `--cd-tie-a` / `--cd-tie-b` on the strip; on the strip because a
+  column at the highlight's first line and bends to the card when the margin pushed the card lower,
+  or up to it when the highlight is below the card (a later Thread of a shared strip) (`tie()` in `app.js` sets `--cd-tie-a` / `--cd-tie-b` on the strip; on the strip because a
   deep card's `content-visibility` clips outside its box).
 - **Mentions (`.cd-mention`):** a resolved `@handle` in a Comment body (server markup,
   `ui::mention_spans`, never in code or links) is a tag in `--cd-sel-bg` / `--cd-sel-ink`; "@you" in

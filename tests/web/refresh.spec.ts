@@ -3,7 +3,7 @@
 // its own Document.
 import { test, expect, type Page } from '@playwright/test';
 import { cli, harness, pushVersion, rangeOf, seedDoc } from './harness';
-import { openDoc } from './actions';
+import { openDoc, waitLive } from './actions';
 
 const MD = `# Refresh plan
 
@@ -21,7 +21,7 @@ function seedThread(name: string, body = 'Is this settled?', token = harness().a
 const tieVar = (page: Page, name: string) =>
   page.locator('.cd-strip.cd-tied').evaluate((e, n) => parseFloat((e as HTMLElement).style.getPropertyValue(n)), name);
 
-// spec: S41-01
+// spec: S42-01
 test('the selected Thread is tied to its highlight in the margin, and only there', async ({ page }) => {
   const id = seedThread('fresh-tie');
   await openDoc(page, id);
@@ -39,22 +39,34 @@ test('the selected Thread is tied to its highlight in the margin, and only there
   await expect(page.locator('.cd-strip.cd-tied')).toHaveCount(0);
 });
 
-// spec: S41-02
+/** Count every `cd-wash` that starts from now on, by Comment. */
+async function watchWash(page: Page) {
+  await page.evaluate(() => {
+    (window as any).__wash = [];
+    document.addEventListener('animationstart', (e) => {
+      if (e.animationName === 'cd-wash') (window as any).__wash.push((e.target as HTMLElement).dataset.c);
+    }, true);
+  });
+}
+const washes = (page: Page) => page.evaluate(() => (window as any).__wash as string[]);
+
+// spec: S42-02
 test('a Comment from someone else washes in; your own does not', async ({ page }) => {
   const id = seedThread('fresh-wash');
   await openDoc(page, id);
-  await page.waitForSelector('.cd-app.cd-live');
+  await waitLive(page);
+  await watchWash(page);
   const card = page.locator('.cd-thread[data-t="t1"]');
   cli(harness().agent, ['thread', 'reply', id, 't1', '-m', 'An answer from the agent.']);
   await expect(card.locator('.cd-c')).toHaveCount(2);
-  await expect(card.locator('.cd-c.cd-fresh')).toHaveCount(1);
-  await expect(card.locator('.cd-c.cd-fresh .cd-cbody')).toContainText('An answer from the agent.');
+  await expect.poll(() => washes(page)).toHaveLength(1);
   cli(harness().owner, ['thread', 'reply', id, 't1', '-m', 'My own reply.']);
   await expect(card.locator('.cd-c')).toHaveCount(3);
-  await expect(card.locator('.cd-c.cd-fresh')).toHaveCount(0);
+  await page.waitForTimeout(200);
+  expect(await washes(page)).toHaveLength(1);
 });
 
-// spec: S41-03
+// spec: S42-03
 test('a resolved @handle in a Comment is a tag; code and unknown handles are not', async ({ page }) => {
   const id = seedThread('fresh-mention', 'Over to @rowan, not `@rowan` and not @nobody.');
   await openDoc(page, id);
@@ -64,7 +76,7 @@ test('a resolved @handle in a Comment is a tag; code and unknown handles are not
   await expect(body.locator('code')).toHaveText('@rowan');
 });
 
-// spec: S41-05
+// spec: S42-05
 test('reduced motion stills the tie, and the default draws it', async ({ browser }) => {
   const id = seedThread('fresh-motion');
   const anim = async (reducedMotion: 'reduce' | 'no-preference') => {
@@ -81,7 +93,7 @@ test('reduced motion stills the tie, and the default draws it', async ({ browser
   expect(await anim('no-preference')).toBe('cd-tie');
 });
 
-// spec: S41-07
+// spec: S42-07
 test('with Actions and Compare the Document header stays one row at common desktop widths', async ({ page }) => {
   const d = seedDoc('fresh-header-with-a-long-enough-name', MD);
   pushVersion(d, MD.replace('nobody', 'no one'), 'a small edit to make a second Version');
@@ -94,7 +106,7 @@ test('with Actions and Compare the Document header stays one row at common deskt
   }
 });
 
-// spec: S41-08
+// spec: S42-08
 test('a long Document name does not make the list scroll sideways on a phone', async ({ page }) => {
   const name = 'release_notes_for_the_quarterly_platform_review_' + 'x'.repeat(40);
   seedThread(name);
@@ -103,4 +115,135 @@ test('a long Document name does not make the list scroll sideways on a phone', a
   await expect(page.locator('table.cd-list tr.cd-docrow')).toHaveCount(1);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+// spec: S42-09
+test('the avatar slot sizes a monogram or a picture and leaves its color alone', async ({ page }) => {
+  const id = seedThread('fresh-avatar');
+  await openDoc(page, id);
+  await page.addStyleTag({ content: '.cd-av-h0{background:rgb(179,64,42);color:#fff}' });
+  const got = await page.evaluate(() => {
+    const who = document.querySelector('.cd-thread[data-t="t1"] .cd-who')!;
+    const read = (el: HTMLElement) => {
+      who.prepend(el);
+      const s = getComputedStyle(el);
+      return { w: s.width, h: s.height, radius: s.borderTopLeftRadius, bg: s.backgroundColor };
+    };
+    const mono = document.createElement('span');
+    mono.className = 'cd-av cd-av-mono cd-av-h0';
+    const pic = document.createElement('picture');
+    pic.className = 'cd-av';
+    return { mono: read(mono), pic: read(pic) };
+  });
+  expect(got.mono).toEqual({ w: '28px', h: '28px', radius: '50%', bg: 'rgb(179, 64, 42)' });
+  expect(got.pic).toMatchObject({ w: '28px', h: '28px', radius: '50%' });
+});
+
+// spec: S42-10
+test('the tie never queries the Document, and clears when its selection goes', async ({ page }) => {
+  await page.addInitScript(() => {
+    const all = Element.prototype.querySelectorAll;
+    (window as any).__tiedQueries = 0;
+    Element.prototype.querySelectorAll = function (this: Element, sel: string) {
+      if (String(sel).includes('cd-tied')) (window as any).__tiedQueries++;
+      return all.call(this, sel);
+    } as typeof all;
+  });
+  const id = seedThread('fresh-tie-clear');
+  await openDoc(page, id);
+  await waitLive(page);
+  const tied = page.locator('.cd-strip.cd-tied');
+  const mark = page.locator('mark.cd-hl[data-t="t1"]');
+  await mark.click();
+  await expect(tied).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(tied).toHaveCount(0);
+  await mark.click();
+  await expect(tied).toHaveCount(1);
+  await page.setViewportSize({ width: 600, height: 900 });
+  await expect(tied).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(tied).toHaveCount(1);
+  cli(harness().agent, ['thread', 'delete', id, 't1']);
+  await expect(page.locator('.cd-thread[data-t="t1"]')).toHaveCount(0);
+  await expect(tied).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__tiedQueries)).toBe(0);
+});
+
+const FILLER = 'The cache keeps every rendered tile for a while, and the renderer writes through both tiers. '.repeat(16);
+const LONG = `# Shared line\n\nAlpha marker opens this paragraph. ${FILLER}Omega marker closes it.\n`;
+
+/** Two Threads starting on one source line, so one strip: t1 at its start, t2 many wrapped lines lower. */
+function seedSharedStrip(name: string) {
+  const d = seedDoc(name, LONG);
+  cli(harness().agent, ['thread', 'new', d.id, rangeOf(LONG, 'Alpha marker'), '-m', 'First.']);
+  cli(harness().agent, ['thread', 'new', d.id, rangeOf(LONG, 'Omega marker'), '-m', 'Second.']);
+  return d.id;
+}
+
+// spec: S42-11
+test('a strip aligns with its first visible Thread', async ({ page }) => {
+  const id = seedSharedStrip('fresh-strip-visible');
+  cli(harness().agent, ['thread', 'reply', id, 't1', '--resolve', '-m', 'Done.']);
+  await openDoc(page, id);
+  const top = (sel: string) => page.locator(sel).first().evaluate((e) => e.getBoundingClientRect().top);
+  expect(Math.abs((await top('.cd-strip')) - (await top('mark.cd-hl[data-t="t2"]')))).toBeLessThanOrEqual(2);
+});
+
+// spec: S42-11
+test('the tie reaches a highlight below its card', async ({ page }) => {
+  const id = seedSharedStrip('fresh-tie-up');
+  await openDoc(page, id);
+  await page.locator('mark.cd-hl[data-t="t2"]').click();
+  const strip = page.locator('.cd-strip.cd-tied');
+  await expect(strip).toHaveCount(1);
+  const a = await tieVar(page, '--cd-tie-a');
+  const b = await tieVar(page, '--cd-tie-b');
+  expect(a).toBeGreaterThan(b);
+  const before = await strip.evaluate((e) => {
+    const s = getComputedStyle(e, '::before');
+    return { top: parseFloat(s.top), height: parseFloat(s.height), bottom: s.borderBottomWidth, topEdge: s.borderTopWidth };
+  });
+  expect(before.top).toBe(b);
+  expect(before.height).toBe(a - b + 2);
+  expect(before.bottom).toBe('2px');
+  expect(before.topEdge).toBe('0px');
+});
+
+// spec: S42-12
+test('the wash plays once: reopening the card does not replay it', async ({ page }) => {
+  const id = seedThread('fresh-wash-once');
+  await openDoc(page, id, { width: 600 });
+  await waitLive(page);
+  const row = page.locator('.cd-thread[data-t="t1"] .cd-row');
+  await row.click();
+  await watchWash(page);
+  const c = page.locator('.cd-thread[data-t="t1"] .cd-c');
+  cli(harness().agent, ['thread', 'reply', id, 't1', '-m', 'Live.']);
+  await expect(c).toHaveCount(2);
+  await expect.poll(() => washes(page)).toHaveLength(1);
+  await expect(page.locator('.cd-c.cd-fresh')).toHaveCount(0, { timeout: 3000 });
+  await row.click();
+  await expect(c.first()).toBeHidden();
+  await row.click();
+  await expect(c.first()).toBeVisible();
+  await page.waitForTimeout(150);
+  expect(await washes(page)).toHaveLength(1);
+});
+
+// spec: S42-12
+test('under reduced motion a live Comment paints at once and leaves no class behind', async ({ browser }) => {
+  const id = seedThread('fresh-wash-still');
+  const ctx = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  await openDoc(page, id);
+  await waitLive(page);
+  await watchWash(page);
+  const c = page.locator('.cd-thread[data-t="t1"] .cd-c');
+  cli(harness().agent, ['thread', 'reply', id, 't1', '-m', 'Live.']);
+  await expect(c).toHaveCount(2);
+  await expect(c.nth(1)).toBeVisible();
+  await expect(page.locator('.cd-c.cd-fresh')).toHaveCount(0, { timeout: 3000 });
+  expect(await washes(page)).toHaveLength(0);
+  await ctx.close();
 });

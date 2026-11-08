@@ -426,7 +426,7 @@ pub fn json_for_script(v: &serde_json::Value) -> String {
 mod tests {
     use super::*;
 
-    // spec: S41-03
+    // spec: S42-03
     #[test]
     fn mention_spans_wrap_resolved_handles_in_text_only() {
         let h = vec!["rowan".to_string(), "mei-t".to_string()];
@@ -489,7 +489,7 @@ mod tests {
         assert_eq!(esc("a<b>&\"'"), "a&lt;b&gt;&amp;&quot;&#39;");
     }
 
-    // spec: S41-06
+    // spec: S42-06
     #[test]
     fn the_palettes_text_pairs_reach_aa() {
         fn block(sel: &str) -> String {

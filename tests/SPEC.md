@@ -6,7 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## Stories` section at the end maps every numbered story of the spec (1–170) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–174) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -572,14 +572,18 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 
 ## The margin-note visual refresh
 
-- S41-01 — in layout A the selected Thread's strip is tied to its highlight: `cd-tied` with `--cd-tie-a` (the highlight's first line) no lower than `--cd-tie-b` (the card); gone on deselect; never in layout C.
-- S41-02 — a Comment someone else posts arrives with `cd-fresh`; your own never does.
-- S41-03 — an `@handle` the store resolved is a `span.cd-mention` in a Comment body; not in code or a link, and not an unknown handle.
-- S41-04 — the row's snippet in layout C has no Markdown emphasis or code markers.
-- S41-05 — under `prefers-reduced-motion: reduce` the tie, the wash and the pill do not animate.
-- S41-06 — the palettes' text pairs reach WCAG AA (4.5:1) in light and dark.
-- S41-07 — with Actions, Compare and a short status line, the Document header stays one row from 1280 px up.
-- S41-08 — at a phone width the Document list never scrolls sideways, however long a Document's name is.
+- S42-01 — in layout A the selected Thread's strip is tied to its highlight: `cd-tied` with `--cd-tie-a` (the highlight's first line) no lower than `--cd-tie-b` (the card); gone on deselect; never in layout C.
+- S42-02 — a Comment someone else posts arrives with `cd-fresh`; your own never does.
+- S42-03 — an `@handle` the store resolved is a `span.cd-mention` in a Comment body; not in code or a link, and not an unknown handle.
+- S42-04 — the row's snippet in layout C has no Markdown emphasis or code markers.
+- S42-05 — under `prefers-reduced-motion: reduce` the tie, the wash and the pill do not animate.
+- S42-06 — the palettes' text pairs reach WCAG AA (4.5:1) in light and dark.
+- S42-07 — with Actions, Compare and a short status line, the Document header stays one row from 1280 px up.
+- S42-08 — at a phone width the Document list never scrolls sideways, however long a Document's name is.
+- S42-09 — the avatar slot sizes a `.cd-av` (a monogram or a `picture`) in `.cd-who` and leaves its background to it.
+- S42-10 — the tie never queries the Document for `.cd-tied`, and clears when the selection ends, the width drops to layout C or the card goes away.
+- S42-11 — a strip holding several Threads aligns with its first visible Thread, and the tie still connects when the highlight is below the card.
+- S42-12 — a live Comment's wash plays once: reopening its card does not replay it, and under reduced motion it never plays and leaves no class behind.
 
 ## Stories
 
@@ -758,7 +762,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
 - 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13
-- 172 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07, S41-08
+- 174 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S42-01, S42-02, S42-03, S42-04, S42-05, S42-06, S42-07, S42-08, S42-09, S42-10, S42-11, S42-12
 
 ## Deferred
 
