@@ -19,6 +19,8 @@ similar = { version = "3", default-features = false, features = ["std"] }
 unicode-segmentation = "1"
 
 [dev-dependencies]
+# Real renderer output for the rendered-diff tests (`tests/rendered_diff.rs`).
+annotary-renderer = { workspace = true }
 proptest = "1"
 serde = { workspace = true }
 serde_json = { workspace = true }

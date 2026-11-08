@@ -2143,6 +2143,44 @@ function main() {
     });
   }
 
+  /* ---------- Compare Versions (`compare.rs`): the change stepper ----------
+     ‹ › and `j` / `k` step through the change points (`[data-cd-dx]`, numbered by the server in
+     document order), scroll each to the middle and say where they are. The server draws the buttons
+     disabled until this has run. The Version selects are not here: `ui/compare.js` runs before them. */
+  if (app.classList.contains('cd-diffpage')) {
+    (function () {
+      var area = $('#cd-dxdoc');
+      var points = area ? $$('[data-cd-dx]', area) : [];
+      var pos = $('#cd-dxpos');
+      var cur = -1;
+      function show(i) {
+        if (!points.length) return;
+        cur = Math.max(0, Math.min(points.length - 1, i));
+        var el = points[cur];
+        for (var d = el.parentElement && el.parentElement.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true;
+        points.forEach(function (p) { p.classList.remove('cd-dx-cur'); });
+        el.classList.add('cd-dx-cur');
+        el.scrollIntoView({ block: 'center' });
+        if (pos) pos.textContent = 'Change ' + (cur + 1) + ' of ' + points.length;
+        var prev = $('#cd-dxprev'), next = $('#cd-dxnext');
+        if (prev) prev.disabled = cur === 0;
+        if (next) next.disabled = cur === points.length - 1;
+      }
+      function step(by) { show(cur < 0 ? (by > 0 ? 0 : points.length - 1) : cur + by); }
+      var nb = $('#cd-dxnext'), pb = $('#cd-dxprev');
+      if (nb) { nb.addEventListener('click', function () { step(1); }); nb.disabled = false; }
+      if (pb) { pb.addEventListener('click', function () { step(-1); }); pb.disabled = false; }
+      document.addEventListener('keydown', function (e) {
+        var t = e.target;
+        if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (t && t.matches && t.matches('input,textarea,select,[contenteditable]')) return;
+        if (app.getAttribute('data-cd-keys') === 'off') return; // CMD-23: Keyboard shortcuts Off
+        if (e.key === 'j') { e.preventDefault(); step(1); }
+        else if (e.key === 'k') { e.preventDefault(); step(-1); }
+      });
+    })();
+  }
+
   window.cd = {
     select: select, layout: layout, loadNews: loadNews,
     // ticket 11

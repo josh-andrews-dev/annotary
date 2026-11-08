@@ -98,3 +98,43 @@ over, three times at most). Parts end on UTF-8 character boundaries, so a backen
   `<iframe sandbox="allow-scripts">`, `page.exposeFunction` as the backend — against a private `serve`). Chromium only;
   the Webapp on a phone is WebKit, which the suite does not run.
 <!-- ---- end M3 (Hermes plan) ---- -->
+
+<!-- ---- compare Versions ---- -->
+## Compare Versions
+
+`GET /d/{id}/diff?from=A&to=B` shows Version B's rendered Document with what changed since A marked inline. Why
+each choice: `docs/decisions.md`, 2026-11-08.
+
+- **Files:** `crates/diff/src/html.rs` (`rendered_diff`, `line_counts`: pure, over the renderer's HTML),
+  `server/compare.rs` (the page, `pair_of`, `compare_href`), the Compare link in `view.rs` (`#cd-compare` in
+  `.cd-tools`, only with more than one Version), the "Compare Versions" blocks at the end of `app.css` and `app.js`.
+- **The pair:** the link opens head−1 → head on the head and vN → head on an older Version; `from` alone is against
+  the head, `to` alone against the Version before it, neither is head−1 → head, a reversed pair is shown oldest
+  first, `v7` and `7` both parse, an unknown or malformed number is the 404 page. One Version, or the same one
+  twice, renders a note (`#cd-dxnote`) instead of a diff.
+- **The diff (`annotary_diff::html`):** both Versions' HTML comes from `render::ensure_html`, so it is what the
+  Document page shows. The fragment is read into a tree of block elements; sibling blocks are diffed by their markup
+  without `data-l` / `id` (a block that only moved lines is equal); in a changed run, blocks of the same element are
+  paired by word similarity (an LCS, so order holds; ≥ 0.4 for a leaf, ≥ 0.2 for a container, cells of a row that
+  kept its width by position) and the rest are marked whole. Lists, tables and containers whose both sides hold
+  blocks recurse; any other pair is a word diff that keeps every tag of the newer block (balanced output), drops the
+  older block's tags, and wraps removed words in `del.cd-del` and added ones in `ins.cd-ins` (entities, media and
+  math whole). A removed block loses its `id`s and `data-l`. Every mark has `span.cd-sr` ("added: ", "removed: ",
+  "changed: ", "formatting changed: "), placed where the content model allows (before a list or table, in the first
+  cell of a row). Change points are `data-cd-dx="N"`: each changed top-level block is one, removed blocks followed by
+  added ones are one, adjacent marks inside a list or table share one. Unchanged top-level runs fold into
+  `details.cd-dx-same` (`summary.cd-dx-sum`), keeping the first block and `CONTEXT` = 2 on each side of a change.
+- **Its cost is bounded by construction, and the gate comes first.** `over_limits` is a linear scan that builds nothing: a side over `MAX_BLOCKS` (20,000, table cells included) or `MAX_HTML_BYTES` (4 MiB) stops the whole comparison, with no parsing and no partial result (`too_large`, the page's note). The line counts are a sort and a merge of line hashes (`line_counts`), so no input slows them; a moved line counts for neither side. Past the gate, pairing compares sorted bags of word hashes after a length check and reads only the nodes a pair has to measure (a lone container pairs unread), streaming tokens so that reading costs no list; large runs (over `BAND_ABOVE` cells) measure each block only within `BAND` positions; a run over `MAX_PAIRING` cells is emitted whole in linear time. Keys and matrices never live across a recursion: `seq` drops its keys and `hunk` reduces its matrices to `Step`s first; a row of unchanged width takes `Cx::row` before any block diff, so a row stays a row even past the budget. Every step that can repeat per level or grow faster than its input charges its measured worst case to `WORK_BUDGET` first (`KEY_COST`, `BAG_COST`, `TOKEN_COST`, `diff_cost`, in units of about a nanosecond); past it, blocks are shown whole and the page says so. Nesting past `MAX_DEPTH` is compared whole. `strip_attrs` touches tags only. `crates/diff/tests/worst_case.rs` (`make diff-worst-case`) asserts 2 s and 64 MiB on every known worst case; add a shape when a new one turns up.
+- **Any reader can ask, repeatedly:** `compare::page` takes one of `CONCURRENT_DIFFS` turns (2) and runs on a blocking thread, so the async workers stay free; no turn within `TURN_WAIT` (2 s, under `DRAIN_MAX`) is the 503 page. Finished diffs are kept in `AppState.diffs` by the two Versions' Markdown and HTML hashes, oldest out first, within `CACHE_BYTES`, each entry counting its HTML plus `ENTRY_BYTES`; embed media and asset links are applied after the lookup, so every viewer shares an entry.
+- **The page:** the header (`.cd-dxhdr`, sticky) has `#cd-dxform` (`#cd-dxfrom`, `#cd-dxto`; a GET form, so it works
+  without the script and an embed render turns it into a navigation) and `#cd-dxsum` (`+N −M lines`, `#cd-dxpos`,
+  `#cd-dxprev` / `#cd-dxnext`); `.cd-dxinfo` under it has the legend and `#cd-dxopen-from` / `#cd-dxopen-to`. The
+  diff is `article.cd-doc.cd-dxdoc#cd-dxdoc` (the Document typography; `.cd-app` is `cd-diffpage`, never
+  `cd-docpage`, so none of the Document page's script runs on it). No Thread cards and no `#cd-data`. An embed
+  render runs `embed::media` over the diff with both manifests' sizes.
+- **Script:** `ui/compare.js` is a classic script inlined ahead of the selects, so a change is never lost, however late `app.js` runs: its listener on `document` navigates (`location.href`, or `AnnotaryEmbed.navigate` in an embed render). The change buttons are drawn `disabled` and the block at the end of `app.js` enables them when it binds them: ‹ › and `j` / `k` (off with Keyboard shortcuts Off) step through `[data-cd-dx]`, open a fold around the target, put `.cd-dx-cur` on it, scroll it to the middle and write "Change i of n" into `#cd-dxpos` (`aria-live`).
+- **Tests:** `crates/diff/tests/rendered_diff.rs` (S40-01…03, S40-10, S40-11: marks, structure, folds, and every pair of the corpus
+  histories reading back as either Version with the other side's marks taken out), `crates/diff/tests/rendered_diff_bounds.rs` and `rendered_diff_budget.rs` (S40-09: peak memory, deep nesting, the budget), `server/compare.rs` unit tests (S40-12), `tests/web_compare.rs` (S40-04,
+  S40-05, S40-09), `tests/web/compare.spec.ts` (S40-04…06, S40-08), `tests/web/embed.spec.ts` (S40-07),
+  `verify/scenarios/version-diff.spec.ts` (live data).
+<!-- ---- end compare Versions ---- -->

@@ -62,6 +62,7 @@ dependencies = [
 name = "annotary-diff"
 version = "0.0.0"
 dependencies = [
+ "annotary-renderer",
  "annotary-sidecar",
  "imara-diff",
  "proptest",

@@ -566,6 +566,11 @@ fn endpoints() -> Vec<Endpoint> {
             let id = fresh_doc(ts, v);
             send(ts, "GET", &format!("/d/{id}/v/1"), tok(c).as_deref(), None)
         }),
+        // Compare Versions (`compare.rs`)
+        ep("GET /d/{id}/diff (page)", Need::Right(Right::Read), move |ts, c, v| {
+            let id = fresh_doc(ts, v);
+            send(ts, "GET", &format!("/d/{id}/diff"), tok(c).as_deref(), None)
+        }),
         ep("GET /d/{id}/t/t1 (fragment)", Need::Right(Right::Read), move |ts, c, v| {
             let id = doc_with_thread(ts, v, &ts.owner_id);
             send(ts, "GET", &format!("/d/{id}/t/t1"), tok(c).as_deref(), None)

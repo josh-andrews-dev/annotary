@@ -15,6 +15,8 @@ pub mod app;
 pub mod assets;
 pub mod auth;
 pub mod blobs;
+// Compare Versions: the inline diff page (`/d/{id}/diff`).
+pub mod compare;
 pub mod docs;
 pub mod error;
 // M3 (Hermes plan): the pages rendered for an embedder's sandboxed frame
