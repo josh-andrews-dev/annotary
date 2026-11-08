@@ -171,6 +171,15 @@ panels, `0 1px 2px rgba(0,0,0,.04)` for cards, `0 2px 10px rgba(0,0,0,.10)` for 
   History, the keyboard help) are `--cd-card`, 10px radius, shadowed, top right.
 - **Owner screens (`admin.css`):** boxes and Member cards on `--cd-card`, the shown-once Token and
   pairing panels in the info colors, forms on `--cd-field`.
+- **Compare Versions (`.cd-diffpage`, the end of `app.css`):** the header holds the two Version
+  selects (`from → to`), `+N −M lines`, the change count and ‹ › to step; a quiet row under it has the
+  legend and Open vA / Open vB. Marks alias the intent tokens (`--cd-dx-*` on `.cd-diffpage`, no new
+  colors): added text `--cd-pos-bg` and underlined, removed text `--cd-neg-bg` and struck through, a whole
+  added or removed block the same ground with a 3px left rule and a +/− glyph in the gutter, a block
+  changed inside a 3px `--cd-amber` rule (dotted when only its markup changed). Never color alone: the
+  underline, the strike and the glyph carry it, and every mark has a text label for screen readers.
+  Unchanged stretches fold into a dashed `details` line ("12 unchanged blocks"); the current change
+  wears a 2px accent outline.
 
 ## Member settings: decisions from the mock rounds
 
@@ -236,7 +245,8 @@ Member who never chose a color.
 `j k r e c [ ] ↩ ⌘↩ esc ?` on the Document page (the help panel lists exactly these). The
 Keyboard shortcuts setting turns the single keys off (the help hides their rows); the Send key
 setting makes `↩` a newline in a reply and `⌘↩` post it. The composer and the edit box post with
-`⌘↩` under both.
+`⌘↩` under both. On the Compare page `j` / `k` step to the next / previous change (the same keys,
+the same meaning: next and previous item), and Keyboard shortcuts Off turns them off too.
 
 ## Times
 

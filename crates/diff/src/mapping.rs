@@ -141,7 +141,11 @@ pub(crate) fn equal_str_runs(os: &[&str], ns: &[&str]) -> Vec<(usize, usize, usi
             })
             .collect();
     }
-    // Oversized hunk: the heuristic (bounded) Myers of imara-diff on the same tokens.
+    heuristic_str_runs(os, ns)
+}
+
+/// The bounded heuristic Myers of `imara-diff` on token texts (not guaranteed minimal).
+pub(crate) fn heuristic_str_runs(os: &[&str], ns: &[&str]) -> Vec<(usize, usize, usize)> {
     let mut interner: Interner<&str> = Interner::new(os.len() + ns.len());
     let before: Vec<_> = os.iter().map(|s| interner.intern(s)).collect();
     let after: Vec<_> = ns.iter().map(|s| interner.intern(s)).collect();

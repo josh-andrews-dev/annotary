@@ -4,7 +4,7 @@
     python3 scripts/standard/lint.py [repo-root]
 
 Checks: the Makefile's pipefail shell line; no Python embedded in committed shell scripts; no
-hand-set app versions; instruction and rule file sizes; documents at the root; the pre-commit
+hand-set app versions; skill file sizes (always_loaded.py holds the rest); documents at the root; the pre-commit
 and pre-push hooks; no GitHub-hosted macOS runner in a workflow; no GitHub cache in a workflow or
 composite action; broken links in active docs, missing paths in README.md, AGENTS.md and the
 rules, and missing make targets in README.md and AGENTS.md (the rest of docs/ is the weekly
@@ -27,8 +27,7 @@ import tempfile
 import time
 
 PIPEFAIL_LINE = "SHELL := /bin/bash -o pipefail"
-FILE_LIMIT = 24000          # bytes per instruction, rule or skill file (Antigravity's cap)
-SESSION_LIMIT = 60000       # bytes loaded at session start, about 15k tokens of the 20k cap
+FILE_LIMIT = 24000          # bytes per skill file (Antigravity's cap)
 ROOT_DOCS = {"AGENTS.md", "CLAUDE.md", "GEMINI.md", "DESIGN.md", "README.md", "CONTRIBUTING.md"}
 # Where GitHub's community profile looks. The template no longer ships CODE_OF_CONDUCT.md, but a
 # public repo may keep its own, so it stays allowed (docs/decisions.md in repo-standard, 2026-11-02).
@@ -135,18 +134,12 @@ def check_versions(root, paths, problems):
 
 
 def check_sizes(root, paths, problems):
-    at_start = [p for p in paths
-                if p in ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
-                or (p.startswith(".agents/rules/") and p.endswith(".md"))]
-    sized = at_start + [p for p in paths if p.startswith(".agents/skills/") and p.endswith(".md")]
-    for p in sized:
-        size = os.path.getsize(os.path.join(root, p))
-        if size >= FILE_LIMIT:
-            problems.append("%s: %d bytes; keep instruction files under %d" % (p, size, FILE_LIMIT))
-    total = sum(os.path.getsize(os.path.join(root, p)) for p in at_start)
-    if total >= SESSION_LIMIT:
-        problems.append("instruction files loaded at session start total %d bytes; keep them under %d"
-                        % (total, SESSION_LIMIT))
+    """Skill files; the files loaded at session start are always_loaded.py's."""
+    for p in paths:
+        if p.startswith(".agents/skills/") and p.endswith(".md"):
+            size = os.path.getsize(os.path.join(root, p))
+            if size >= FILE_LIMIT:
+                problems.append("%s: %d bytes; keep skill files under %d" % (p, size, FILE_LIMIT))
 
 
 def check_root(root, paths, problems):

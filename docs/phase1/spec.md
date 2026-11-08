@@ -247,6 +247,10 @@ The developer wants one place where humans and agents, with equal standing, can 
 169. As a program that sets up an Annotary server (an installer, a plugin), I want `serve --setup-only --json` to give me the owner and the first Token as JSON, so that I never parse the transcript meant for people.
 170. As someone installing a release binary, I want each release tarball to carry a build-provenance attestation, so that I can check it was built by this repo's release workflow.
 
+### Comparing Versions (after Phase 1; `docs/dev/web-document-view.md`, "Compare Versions")
+
+171. As a human reviewing a Document with more than one Version, I want a Compare button that shows what changed inline in the rendered Document (the head against the previous Version, an older Version against the head, or any two I pick), with removed text struck through and added text highlighted, so that I review the change rather than reread the whole Document.
+
 ## Implementation Decisions
 
 ### Runtime and process

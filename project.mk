@@ -152,6 +152,10 @@ e2e: web
 # Playwright, deletes the copy and prints one JSON verdict. Production is never written.
 # ARGS="--no-scenarios" or a scenario name (ARGS="-- cmd-20") narrow it; screenshots for the PR land
 # in target/verify-live/.
+.PHONY: diff-worst-case
+diff-worst-case: ## The rendered diff's worst inputs against its limits (2 s, 64 MiB), one row per shape
+	cargo test --release -p annotary-diff --test worst_case -- --ignored --nocapture --test-threads=1
+
 .PHONY: verify-live
 verify-live: verify-settings build node_modules/.stamp ## Test this build end to end on a throwaway copy of the live data
 	@python3 deploy/with_settings.py VERIFY_SNAPSHOT_GLOB VERIFY_UNIT -- python3 deploy/verify_live.py $(ARGS)
