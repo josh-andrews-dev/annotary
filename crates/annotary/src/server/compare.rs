@@ -62,6 +62,9 @@ pub fn compare_href(doc_id: &str, n: u32, head: u32) -> String {
     format!("/d/{doc_id}/diff?from={from}&to={head}")
 }
 
+/// What makes the Version selects work, inlined ahead of them (see the file).
+const SELECTS_JS: &str = include_str!("ui/compare.js");
+
 /// Diffs running at once: each is bounded (`annotary_diff::WORK_BUDGET`), and any reader can ask.
 pub const CONCURRENT_DIFFS: usize = 2;
 /// How long a request waits for a turn; under `server::DRAIN_MAX`, so shutdown never waits on it.
@@ -298,7 +301,7 @@ fn render_page(
         legend = if summary.is_empty() { "" } else { LEGEND },
     );
     let page = format!(
-        "<div {} id=\"cd-app\" data-doc=\"{}\" data-from=\"{a}\" data-to=\"{b}\" data-head=\"{head}\">{header}\
+        "<script>{SELECTS_JS}</script><div {} id=\"cd-app\" data-doc=\"{}\" data-from=\"{a}\" data-to=\"{b}\" data-head=\"{head}\">{header}\
          <main class=\"cd-dxmain\"><article class=\"cd-doc cd-dxdoc\" id=\"cd-dxdoc\">{body}</article></main></div>",
         prefs.app_attrs("cd-diffpage"),
         esc(&doc.id),
@@ -348,8 +351,8 @@ fn summary_html(s: &annotary_diff::DiffStats) -> String {
         .join(", ");
     let title = if blocks.is_empty() { String::new() } else { format!(" title=\"blocks: {blocks}\"") };
     let nav = if s.changes > 0 {
-        "<span class=\"cd-dxnav\"><button type=\"button\" class=\"cd-btn cd-sm\" id=\"cd-dxprev\" aria-label=\"Previous change\" title=\"Previous change (k)\">\u{2039}</button>\
-         <button type=\"button\" class=\"cd-btn cd-sm\" id=\"cd-dxnext\" aria-label=\"Next change\" title=\"Next change (j)\">\u{203A}</button></span>"
+        "<span class=\"cd-dxnav\"><button type=\"button\" class=\"cd-btn cd-sm\" id=\"cd-dxprev\" disabled aria-label=\"Previous change\" title=\"Previous change (k)\">\u{2039}</button>\
+         <button type=\"button\" class=\"cd-btn cd-sm\" id=\"cd-dxnext\" disabled aria-label=\"Next change\" title=\"Next change (j)\">\u{203A}</button></span>"
     } else {
         ""
     };

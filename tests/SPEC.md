@@ -567,6 +567,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S40-10 — a removed block and the comparison of two blocks drop `id` and `data-l` only inside tags: raw HTML text holding ` id="` or ` data-l="` stays text and the output stays balanced (story 171)
 - S40-11 — a paired container with blocks on only one side (a tight list item becoming a loose one, or the reverse) is diffed by its children: a paragraph and the inline text it replaced are compared word by word, anything unpaired is removed or added whole, and no mark lands outside its block (story 171)
 - S40-12 — repeating a comparison does not repeat the work: the result is cached by the two Versions' content within a byte limit that counts every entry, empty ones included, at most two diffs run at once on blocking threads, and a request that cannot get a turn soon is the HTML 503 page (story 171)
+- S40-13 — a Version select on the diff page works from the moment it exists, before the page's main script has run, in a browser and in an embed render; the change buttons are disabled until they work (story 171)
 <!-- ---- end compare Versions ---- -->
 
 ## Stories
@@ -745,7 +746,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07, S37-10
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
-- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12
+- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13
 
 ## Deferred
 

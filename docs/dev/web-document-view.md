@@ -132,9 +132,7 @@ each choice: `docs/decisions.md`, 2026-11-08.
   diff is `article.cd-doc.cd-dxdoc#cd-dxdoc` (the Document typography; `.cd-app` is `cd-diffpage`, never
   `cd-docpage`, so none of the Document page's script runs on it). No Thread cards and no `#cd-data`. An embed
   render runs `embed::media` over the diff with both manifests' sizes.
-- **Script:** a select's change navigates through `transport.navigate`; ‹ › and `j` / `k` (off with Keyboard
-  shortcuts Off) step through `[data-cd-dx]`, open a fold around the target, put `.cd-dx-cur` on it, scroll it to
-  the middle and write "Change i of n" into `#cd-dxpos` (`aria-live`).
+- **Script:** `ui/compare.js` is a classic script inlined ahead of the selects, so a change is never lost, however late `app.js` runs: its listener on `document` navigates (`location.href`, or `AnnotaryEmbed.navigate` in an embed render). The change buttons are drawn `disabled` and the block at the end of `app.js` enables them when it binds them: ‹ › and `j` / `k` (off with Keyboard shortcuts Off) step through `[data-cd-dx]`, open a fold around the target, put `.cd-dx-cur` on it, scroll it to the middle and write "Change i of n" into `#cd-dxpos` (`aria-live`).
 - **Tests:** `crates/diff/tests/rendered_diff.rs` (S40-01…03, S40-10, S40-11: marks, structure, folds, and every pair of the corpus
   histories reading back as either Version with the other side's marks taken out), `crates/diff/tests/rendered_diff_bounds.rs` and `rendered_diff_budget.rs` (S40-09: peak memory, deep nesting, the budget), `server/compare.rs` unit tests (S40-12), `tests/web_compare.rs` (S40-04,
   S40-05, S40-09), `tests/web/compare.spec.ts` (S40-04…06, S40-08), `tests/web/embed.spec.ts` (S40-07),

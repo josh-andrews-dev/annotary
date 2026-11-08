@@ -2143,20 +2143,12 @@ function main() {
     });
   }
 
-  /* ---------- Compare Versions (`compare.rs`): the two selects and the change stepper ----------
-     A select navigates to the pair it names (through the transport, so an embed render stays in
-     its frame). ‹ › and `j` / `k` step through the change points (`[data-cd-dx]`, numbered by
-     the server in document order), scroll each to the middle and say where they are. */
+  /* ---------- Compare Versions (`compare.rs`): the change stepper ----------
+     ‹ › and `j` / `k` step through the change points (`[data-cd-dx]`, numbered by the server in
+     document order), scroll each to the middle and say where they are. The server draws the buttons
+     disabled until this has run. The Version selects are not here: `ui/compare.js` runs before them. */
   if (app.classList.contains('cd-diffpage')) {
     (function () {
-      var doc = app.getAttribute('data-doc');
-      function go() {
-        var f = $('#cd-dxfrom'), t = $('#cd-dxto');
-        if (f && t) transport.navigate('/d/' + encodeURIComponent(doc) + '/diff?from=' + encodeURIComponent(f.value) + '&to=' + encodeURIComponent(t.value));
-      }
-      ['#cd-dxfrom', '#cd-dxto'].forEach(function (s) { var el = $(s); if (el) el.addEventListener('change', go); });
-      var form = $('#cd-dxform');
-      if (form && !transport.embedded) form.addEventListener('submit', function (e) { e.preventDefault(); go(); });
       var area = $('#cd-dxdoc');
       var points = area ? $$('[data-cd-dx]', area) : [];
       var pos = $('#cd-dxpos');
@@ -2176,8 +2168,8 @@ function main() {
       }
       function step(by) { show(cur < 0 ? (by > 0 ? 0 : points.length - 1) : cur + by); }
       var nb = $('#cd-dxnext'), pb = $('#cd-dxprev');
-      if (nb) nb.addEventListener('click', function () { step(1); });
-      if (pb) pb.addEventListener('click', function () { step(-1); });
+      if (nb) { nb.addEventListener('click', function () { step(1); }); nb.disabled = false; }
+      if (pb) { pb.addEventListener('click', function () { step(-1); }); pb.disabled = false; }
       document.addEventListener('keydown', function (e) {
         var t = e.target;
         if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;

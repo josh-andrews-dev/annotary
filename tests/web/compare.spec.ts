@@ -197,3 +197,24 @@ test('a change far right in a wide table or a long code line does not widen the 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+// spec: S40-13
+test('a Version select works before the main script has run, and the change buttons wait for it', async ({ page }) => {
+  const id = seedHistory('cmp-early');
+  // The slowest device there is: `app.js` waits for a frame that never comes.
+  await page.addInitScript(() => { window.requestAnimationFrame = () => 0; });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(diffUrl(id, 1, 4));
+  await expect(page.locator('#cd-dxdoc')).toBeVisible();
+  await expect(page.locator('.cd-app')).not.toHaveClass(/cd-ready/);
+  await page.locator('#cd-dxfrom').selectOption('2');
+  await page.waitForURL(/from=2&to=4$/);
+  await page.locator('#cd-dxto').selectOption('3');
+  await page.waitForURL(/from=2&to=3$/);
+  await expect(page.locator('#cd-dxfrom')).toHaveValue('2');
+  await expect(page.locator('#cd-dxto')).toHaveValue('3');
+  // Nothing has bound the change buttons yet, so they say so.
+  await expect(page.locator('#cd-dxnext')).toBeDisabled();
+  await expect(page.locator('#cd-dxprev')).toBeDisabled();
+});
+

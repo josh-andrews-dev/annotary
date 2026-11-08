@@ -53,7 +53,7 @@ interface Msg { type: string; path: string | null; url: string | null; method: s
 
 let srv: Spawned;
 test.beforeEach(async () => { srv = await spawnServer(); });
-test.afterEach(async () => { await srv.stop(); });
+test.afterEach(async () => { rewritePage = null; await srv.stop(); });
 
 function cliAs(args: string[], cwd?: string): string {
   return execFileSync(binary(), args, {
@@ -85,6 +85,9 @@ async function api(p: string): Promise<any> {
 // Paths the fake backend answers as unreachable (status 0), as a plugin whose server is down would.
 const unreachable = new Set<string>();
 
+// Rewrites a page on its way to the frame, as a test needs (null: every answer as the server sent it).
+let rewritePage: ((path: string, body: string) => string) | null = null;
+
 async function backend(m: { method: string; path: string; headers?: Record<string, string>; body?: string | null; binary?: boolean }) {
   if (typeof m.path !== 'string' || !m.path.startsWith('/') || m.path.startsWith('//')) return { status: 400, headers: {}, body: '' };
   if (unreachable.has(m.path)) return { status: 0, headers: {}, body: '' };
@@ -94,7 +97,8 @@ async function backend(m: { method: string; path: string; headers?: Record<strin
     const hs: Record<string, string> = {};
     res.headers.forEach((v, k) => { hs[k] = v; });
     if (m.binary) return { status: res.status, headers: hs, body: Buffer.from(await res.arrayBuffer()).toString('base64'), encoding: 'base64' };
-    return { status: res.status, headers: hs, body: await res.text() };
+    const text = await res.text();
+    return { status: res.status, headers: hs, body: rewritePage ? rewritePage(m.path, text) : text };
   } catch {
     return { status: 0, headers: {}, body: '' };
   }
@@ -387,3 +391,28 @@ test('Compare and both Version selects of the diff page navigate in place; the m
   await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
   expect((await e.msgs()).some((m) => m.type === 'annotary-nav' && m.path === `/d/${a.id}/v/2`)).toBe(true);
 });
+
+// spec: S40-13
+test('a Version select changed right after an in-place navigation still navigates', async ({ page }) => {
+  const a = seed('emb-early', PLAN);
+  fs.writeFileSync(path.join(a.dir, 'emb-early.md'), PLAN.replace('early', 'right away'));
+  cliAs(['push', 'emb-early.md'], a.dir);
+  fs.writeFileSync(path.join(a.dir, 'emb-early.md'), PLAN.replace('early', 'right away') + '\nA closing line.\n');
+  cliAs(['push', 'emb-early.md'], a.dir);
+  // The page's main script never runs: it waits for a frame that never comes, as on the slowest
+  // phone, so the first thing the page can do is what a person does with the select.
+  rewritePage = (p, body) => (p.includes('/diff') ? body.replace('<head>', '<head><script>window.requestAnimationFrame = function () { return 0; };</script>') : body);
+  const e = await embed(page, `/d/${a.id}/diff?from=2&to=3`);
+  const fl = e.fl;
+  await expect(fl.locator('#cd-dxdoc p.cd-dx-add')).toContainText('A closing line.');
+  await expect(fl.locator('.cd-app')).not.toHaveClass(/cd-ready/);
+  await fl.locator('#cd-dxfrom').selectOption('1');
+  await expect(fl.locator('#cd-dxdoc ins.cd-ins', { hasText: 'right away' })).toBeVisible();
+  expect((await e.msgs()).some((m) => m.type === 'annotary-nav' && m.path === `/d/${a.id}/diff?from=1&to=3`)).toBe(true);
+  // And again at once on the page that navigation wrote: the step CI lost.
+  await fl.locator('#cd-dxto').selectOption('2');
+  await expect(fl.locator('#cd-dxdoc p.cd-dx-add')).toHaveCount(0);
+  await expect(fl.locator('#cd-dxto')).toHaveValue('2');
+  expect((await e.msgs()).some((m) => m.type === 'annotary-nav' && m.path === `/d/${a.id}/diff?from=1&to=2`)).toBe(true);
+});
+
