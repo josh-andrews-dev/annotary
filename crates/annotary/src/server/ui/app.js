@@ -555,6 +555,7 @@ function main() {
     if (!isWide()) {
       strips.forEach(function (s) { s.style.top = ''; });
       docEl.style.minHeight = '';
+      tie();
       markReady();
       return;
     }
@@ -587,7 +588,31 @@ function main() {
       y = t + it.h;
     });
     docEl.style.minHeight = (y + 120) + 'px';
+    tie();
     markReady();
+  }
+  /* The tie (app.css): in layout A the selected card's strip is joined to the Thread's first
+     highlight. The strip gets `cd-tied` and two offsets from its top: --cd-tie-a, the middle of
+     the highlight's first line, and --cd-tie-b, the card's first line. A class already set is
+     left alone, so its draw-in animation runs once per selection. */
+  function tie() {
+    var target = null, a = 0, b = 0;
+    if (selected && docEl && isWide()) {
+      var card = cardOf(selected), m = marksOf(selected)[0];
+      var strip = card && card.closest('.cd-strip');
+      var line = m && m.getClientRects()[0];
+      if (strip && line && !strip.classList.contains('cd-strip-orphaned') && card.offsetParent) {
+        var top = strip.getBoundingClientRect().top;
+        a = Math.round(line.top + Math.min(line.height, 28) / 2 - top - 1);
+        b = Math.round(card.getBoundingClientRect().top - top + 16);
+        target = strip;
+      }
+    }
+    $$('.cd-strip.cd-tied', docEl || app).forEach(function (s) { if (s !== target) s.classList.remove('cd-tied'); });
+    if (!target) return;
+    target.style.setProperty('--cd-tie-a', a + 'px');
+    target.style.setProperty('--cd-tie-b', b + 'px');
+    target.classList.add('cd-tied');
   }
   function scheduleLayout() {
     if (layoutPending) return;
@@ -628,6 +653,7 @@ function main() {
   function deselect() {
     selected = null;
     $$('.cd-selected').forEach(function (e) { e.classList.remove('cd-selected'); });
+    tie();
   }
   app.addEventListener('click', function (e) {
     var hl = e.target.closest('mark.cd-hl,.cd-asset-hl');
@@ -991,11 +1017,17 @@ function main() {
     var wasOpen = old && old.classList.contains('cd-open');
     var prev = D.threads[itemIndex(tid)];
     var placementChanged = !prev || prev.status !== item.status || prev.line !== item.line || prev.end !== item.end || prev.quote !== item.quote || prev.now !== item.now || prev.occ !== item.occ;
+    var had = old ? $$('.cd-c', old).map(function (c) { return c.getAttribute('data-c'); }) : [];
     if (old) {
       // An open editor survives, empty or not (CMD-13): the card is re-drawn once it closes.
       if ($('.cd-editor', old)) { old.setAttribute('data-stale', '1'); return; }
       old.replaceWith(fresh);
     }
+    // A Comment someone else just posted washes in from the accent tint (app.css, motion).
+    $$('.cd-c', fresh).forEach(function (c) {
+      var who = $('.cd-member', c);
+      if (had.indexOf(c.getAttribute('data-c')) < 0 && who && who.getAttribute('title') !== '@' + D.me) c.classList.add('cd-fresh');
+    });
     placeCard(fresh, item);
     setItem(item);
     if (placementChanged || !prev || !marksOf(tid).length) { unhighlight(tid); indexBlocks(); highlightThread(item); }

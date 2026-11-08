@@ -573,8 +573,11 @@ fn label_html(it: &Item, version: u32) -> String {
 fn comment_html(c: &CommentView, viewer: &Viewer) -> String {
     let who = viewer.member(&c.author_handle).html();
     let edited = if c.edited_at.is_some() { "<span>· edited</span>" } else { "" };
-    let body =
-        if c.is_deleted() { "<span class=\"cd-tomb\">(deleted)</span>".to_string() } else { ui::comment_html(&c.body) };
+    let body = if c.is_deleted() {
+        "<span class=\"cd-tomb\">(deleted)</span>".to_string()
+    } else {
+        ui::mention_spans(&ui::comment_html(&c.body), &c.mention_handles)
+    };
     // ---- ticket 11: edit / delete for the author or an owner ----
     let tools = if viewer.may_edit(c) {
         "<span class=\"cd-ctools\"><button type=\"button\" class=\"cd-link\" data-act=\"edit\">edit</button><button type=\"button\" class=\"cd-link\" data-act=\"delete\">delete</button></span>"
@@ -593,6 +596,8 @@ fn comment_html(c: &CommentView, viewer: &Viewer) -> String {
 /// A short plain-text snippet of a body for the narrow row.
 fn snippet(body: &str) -> String {
     let flat: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
+    // The row shows plain text: Markdown's emphasis and code markers are not what the author wrote to be read.
+    let flat = flat.replace("**", "").replace("__", "").replace("~~", "").replace('`', "");
     let mut out: String = flat.chars().take(120).collect();
     if flat.chars().count() > 120 {
         out.push('\u{2026}');
@@ -745,6 +750,15 @@ mod tests {
 
     fn occ(md: &str, range: &str, exact: &str) -> Option<u32> {
         occ_before(md, &line_starts(md), &Range::parse(range).unwrap(), exact)
+    }
+
+    #[test]
+    fn the_row_snippet_drops_markdown_markers() {
+        assert_eq!(
+            snippet("Keys make **rollback** a `swap`, ~~not~~ __hard__."),
+            "Keys make rollback a swap, not hard."
+        );
+        assert_eq!(snippet("2 * 3 and snake_case stay"), "2 * 3 and snake_case stay");
     }
 
     // CMD-7: the script picks the occurrence on the Thread's line by this count.

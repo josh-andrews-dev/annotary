@@ -55,6 +55,18 @@ pub const HEAD_LINKS: &str = "<link rel=\"icon\" href=\"/favicon.ico\" sizes=\"3
 
 /// The title bar's 18 px icon, linking to the Document list. The small master inlined, not an
 /// `<img>`: an image would arrive after the first paint, and the first paint is final.
+/// The mark above the sign-in form (40 px, no link: nobody is signed in to follow it).
+pub fn logo_mark() -> &'static str {
+    static HTML: LazyLock<String> = LazyLock::new(|| {
+        ICON_SVG.trim().replacen(
+            "<svg ",
+            "<svg class=\"cd-logomark\" width=\"40\" height=\"40\" aria-hidden=\"true\" ",
+            1,
+        )
+    });
+    &HTML
+}
+
 pub fn header_icon() -> &'static str {
     static HTML: LazyLock<String> = LazyLock::new(|| {
         let svg = ICON_SVG.trim().replacen(

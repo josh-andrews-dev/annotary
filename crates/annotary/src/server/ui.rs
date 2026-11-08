@@ -357,6 +357,66 @@ pub fn comment_html(body: &str) -> String {
     asset_links_blank(&strip_data_l(&r.html))
 }
 
+/// Wraps each `@handle` the store resolved for this Comment in `span.cd-mention`: in text only,
+/// never inside a tag, `code`, `pre` or a link. Word boundaries as in `mention_candidates`.
+pub fn mention_spans(html: &str, handles: &[String]) -> String {
+    if handles.is_empty() || !html.contains('@') {
+        return html.to_string();
+    }
+    let mut out = String::with_capacity(html.len() + 64);
+    let mut skip = 0usize;
+    let mut rest = html;
+    while let Some(lt) = rest.find('<') {
+        let (text, after) = rest.split_at(lt);
+        push_mentions(&mut out, text, handles, skip > 0);
+        let Some(gt) = after.find('>') else {
+            out.push_str(after);
+            return out;
+        };
+        let tag = &after[..=gt];
+        let name = tag[1..tag.len() - 1].trim_start_matches('/').split([' ', '\t', '\n', '/']).next().unwrap_or("");
+        if matches!(name, "code" | "pre" | "a") {
+            if tag.starts_with("</") {
+                skip = skip.saturating_sub(1);
+            } else {
+                skip += 1;
+            }
+        }
+        out.push_str(tag);
+        rest = &after[gt + 1..];
+    }
+    push_mentions(&mut out, rest, handles, skip > 0);
+    out
+}
+
+fn push_mentions(out: &mut String, text: &str, handles: &[String], verbatim: bool) {
+    if verbatim || !text.contains('@') {
+        out.push_str(text);
+        return;
+    }
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let mut copied = 0;
+    for (at, _) in text.match_indices('@') {
+        if at < copied || text[..at].chars().next_back().is_some_and(is_word) {
+            continue;
+        }
+        let tail = &text[at + 1..];
+        let len =
+            tail.find(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')).unwrap_or(tail.len());
+        let handle = tail[..len].trim_end_matches('-');
+        let end = at + 1 + handle.len();
+        let bounded = !text[end..].chars().next().is_some_and(is_word);
+        if bounded && handles.iter().any(|h| h == handle) {
+            out.push_str(&text[copied..at]);
+            out.push_str("<span class=\"cd-mention\">@");
+            out.push_str(handle);
+            out.push_str("</span>");
+            copied = end;
+        }
+    }
+    out.push_str(&text[copied..]);
+}
+
 /// Serialize a JSON value for an inline `<script type="application/json">` (no `</script>` escape).
 pub fn json_for_script(v: &serde_json::Value) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".into()).replace("</", "<\\/")
@@ -365,6 +425,28 @@ pub fn json_for_script(v: &serde_json::Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mention_spans_wrap_resolved_handles_in_text_only() {
+        let h = vec!["rowan".to_string(), "mei-t".to_string()];
+        assert_eq!(mention_spans("<p>hi @rowan.</p>", &h), "<p>hi <span class=\"cd-mention\">@rowan</span>.</p>");
+        assert_eq!(
+            mention_spans("<p>@mei-t and @rowan</p>", &h),
+            "<p><span class=\"cd-mention\">@mei-t</span> and <span class=\"cd-mention\">@rowan</span></p>"
+        );
+        for same in [
+            "<p>@nobody</p>",                   // not resolved by the store
+            "<p>a@rowan</p>",                   // an address, not a mention
+            "<p>@rowans</p>",                   // a longer word
+            "<p><code>@rowan</code></p>",       // code
+            "<pre><code>@rowan\n</code></pre>", // a code block
+            "<p><a href=\"/x\">@rowan</a></p>", // already a link
+            "<p title=\"@rowan\">x</p>",        // an attribute
+        ] {
+            assert_eq!(mention_spans(same, &h), same);
+        }
+        assert_eq!(mention_spans("<p>@rowan</p>", &[]), "<p>@rowan</p>");
+    }
 
     #[test]
     fn strips_data_l_and_blanks_asset_links() {
