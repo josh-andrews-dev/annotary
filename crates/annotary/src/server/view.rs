@@ -417,7 +417,7 @@ fn render_page(
              <span class=\"cd-vsw\">{older}{select}{newer}</span>{same_chip}\
              <span class=\"cd-grow\"></span>{status_html}\
              <label class=\"cd-chip\"><input type=\"checkbox\" id=\"cd-resolved\"{resolved_checked}><span>resolved (<span class=\"cd-res-n\">{resolved}</span>)</span></label>\
-             <span class=\"cd-tools\"><button type=\"button\" class=\"cd-btn\" id=\"cd-whatsnew\">History</button>\
+             <span class=\"cd-tools\">{compare}<button type=\"button\" class=\"cd-btn\" id=\"cd-whatsnew\">History</button>\
              <button type=\"button\" class=\"cd-btn cd-helpbtn\" id=\"cd-helpbtn\" title=\"keyboard shortcuts (?)\">?</button></span>\
              <span class=\"cd-actions\" id=\"cd-actions\">{action_area}{action_buttons}</span>\
            </div>\
@@ -433,6 +433,16 @@ fn render_page(
             String::new()
         } else {
             open_app_link(&st.store.public_url()?.unwrap_or_else(|| origin.to_string()), &doc.id)
+        },
+        // Compare Versions: only with something to compare (`compare.rs` picks the pair)
+        compare = if versions.len() > 1 {
+            let from = if number == head { head - 1 } else { number };
+            format!(
+                "<a class=\"cd-btn\" id=\"cd-compare\" href=\"{}\" title=\"Show what changed from v{from} to v{head}\">Compare</a>",
+                esc(&super::compare::compare_href(&doc.id, number, head))
+            )
+        } else {
+            String::new()
         },
         toast = "<div class=\"cd-toast\" id=\"cd-toast\" hidden></div>",
         pill = if number == head && can_comment {

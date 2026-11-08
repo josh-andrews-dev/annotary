@@ -357,3 +357,33 @@ test('a page written over another before its script ran binds once; a failed ann
   expect(await pathNow()).toBe(`/d/${a.id}`);
   await e.frame().evaluate(() => { const w = window as any; w.requestAnimationFrame = w.__realRaf; w.__held.splice(0).forEach((f: FrameRequestCallback) => f(performance.now())); });
 });
+
+// spec: S39-07
+test('Compare and both Version selects of the diff page navigate in place; the marks render in the frame', async ({ page }) => {
+  const a = seed('emb-cmp', PLAN);
+  fs.writeFileSync(path.join(a.dir, 'emb-cmp.md'), PLAN.replace('early', 'right away'));
+  cliAs(['push', 'emb-cmp.md'], a.dir);
+  fs.writeFileSync(path.join(a.dir, 'emb-cmp.md'), PLAN.replace('early', 'right away') + '\nA closing line.\n');
+  cliAs(['push', 'emb-cmp.md'], a.dir);
+  const e = await embed(page, `/d/${a.id}`);
+  const fl = e.fl;
+  await expect(fl.locator('.cd-app.cd-embed.cd-docpage.cd-ready')).toBeVisible();
+  await fl.locator('#cd-compare').click();
+  await expect(fl.locator('.cd-app.cd-embed.cd-diffpage.cd-ready')).toBeVisible();
+  expect((await e.msgs()).some((m) => m.type === 'annotary-nav' && m.path === `/d/${a.id}/diff?from=2&to=3`)).toBe(true);
+  await expect(fl.locator('#cd-dxdoc p.cd-dx-add')).toContainText('A closing line.');
+  // the selects: v1 against the head, then v1 against v2
+  await fl.locator('#cd-dxfrom').selectOption('1');
+  await expect(fl.locator('#cd-dxdoc ins.cd-ins', { hasText: 'right away' })).toBeVisible();
+  expect((await e.msgs()).some((m) => m.type === 'annotary-nav' && m.path === `/d/${a.id}/diff?from=1&to=3`)).toBe(true);
+  await fl.locator('#cd-dxto').selectOption('2');
+  await expect(fl.locator('#cd-dxto')).toHaveValue('2');
+  await expect(fl.locator('#cd-dxdoc p.cd-dx-add')).toHaveCount(0);
+  expect((await e.msgs()).some((m) => m.type === 'annotary-nav' && m.path === `/d/${a.id}/diff?from=1&to=2`)).toBe(true);
+  // the stepper works in the frame; Open v2 goes back to a Document page in place
+  await fl.locator('#cd-dxnext').click();
+  await expect(fl.locator('#cd-dxpos')).toHaveText('Change 1 of 1');
+  await fl.locator('#cd-dxopen-to').click();
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
+  expect((await e.msgs()).some((m) => m.type === 'annotary-nav' && m.path === `/d/${a.id}/v/2`)).toBe(true);
+});

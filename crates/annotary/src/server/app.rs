@@ -85,8 +85,8 @@ impl AppState {
 /// (CMD-23, `settings_page.rs`) with the owner pages under `/settings/server/…` (`admin.rs`).
 pub fn router(state: AppState) -> Router {
     use super::{
-        access, actions, admin, assets, blobs, docs, events, housekeeping, listing, me_settings, members, pairing,
-        render, settings_page, threads, vaults, view, web,
+        access, actions, admin, assets, blobs, compare, docs, events, housekeeping, listing, me_settings, members,
+        pairing, render, settings_page, threads, vaults, view, web,
     };
     // ---- ticket 06: web pages sit behind the loopback-trust / login-redirect middleware ----
     let web_pages = Router::new()
@@ -95,6 +95,8 @@ pub fn router(state: AppState) -> Router {
         .route("/d/{id}", get(view::document))
         .route("/d/{id}/v/{n}", get(view::document_version))
         // ---- end ticket 10 ----
+        // Compare Versions: one Version against another, inline (`compare.rs`)
+        .route("/d/{id}/diff", get(compare::page))
         // ---- ticket 11: one Thread's card as JSON (`view::fragment`) for live updates / confirmations ----
         .route("/d/{id}/t/{tid}", get(view::fragment))
         // ---- end ticket 11 ----

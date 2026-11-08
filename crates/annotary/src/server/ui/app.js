@@ -2143,6 +2143,52 @@ function main() {
     });
   }
 
+  /* ---------- Compare Versions (`compare.rs`): the two selects and the change stepper ----------
+     A select navigates to the pair it names (through the transport, so an embed render stays in
+     its frame). ‹ › and `j` / `k` step through the change points (`[data-cd-dx]`, numbered by
+     the server in document order), scroll each to the middle and say where they are. */
+  if (app.classList.contains('cd-diffpage')) {
+    (function () {
+      var doc = app.getAttribute('data-doc');
+      function go() {
+        var f = $('#cd-dxfrom'), t = $('#cd-dxto');
+        if (f && t) transport.navigate('/d/' + encodeURIComponent(doc) + '/diff?from=' + encodeURIComponent(f.value) + '&to=' + encodeURIComponent(t.value));
+      }
+      ['#cd-dxfrom', '#cd-dxto'].forEach(function (s) { var el = $(s); if (el) el.addEventListener('change', go); });
+      var form = $('#cd-dxform');
+      if (form && !transport.embedded) form.addEventListener('submit', function (e) { e.preventDefault(); go(); });
+      var area = $('#cd-dxdoc');
+      var points = area ? $$('[data-cd-dx]', area) : [];
+      var pos = $('#cd-dxpos');
+      var cur = -1;
+      function show(i) {
+        if (!points.length) return;
+        cur = Math.max(0, Math.min(points.length - 1, i));
+        var el = points[cur];
+        for (var d = el.parentElement && el.parentElement.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true;
+        points.forEach(function (p) { p.classList.remove('cd-dx-cur'); });
+        el.classList.add('cd-dx-cur');
+        el.scrollIntoView({ block: 'center' });
+        if (pos) pos.textContent = 'Change ' + (cur + 1) + ' of ' + points.length;
+        var prev = $('#cd-dxprev'), next = $('#cd-dxnext');
+        if (prev) prev.disabled = cur === 0;
+        if (next) next.disabled = cur === points.length - 1;
+      }
+      function step(by) { show(cur < 0 ? (by > 0 ? 0 : points.length - 1) : cur + by); }
+      var nb = $('#cd-dxnext'), pb = $('#cd-dxprev');
+      if (nb) nb.addEventListener('click', function () { step(1); });
+      if (pb) pb.addEventListener('click', function () { step(-1); });
+      document.addEventListener('keydown', function (e) {
+        var t = e.target;
+        if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (t && t.matches && t.matches('input,textarea,select,[contenteditable]')) return;
+        if (app.getAttribute('data-cd-keys') === 'off') return; // CMD-23: Keyboard shortcuts Off
+        if (e.key === 'j') { e.preventDefault(); step(1); }
+        else if (e.key === 'k') { e.preventDefault(); step(-1); }
+      });
+    })();
+  }
+
   window.cd = {
     select: select, layout: layout, loadNews: loadNews,
     // ticket 11
