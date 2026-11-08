@@ -546,6 +546,12 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S38-03 — the owner Members screen: a disabled Member's card has **Enable** (an active one has none); confirming it re-draws the card active with Mint Token, Pair a device and Advanced back, the old Tokens shown as revoked, and the active count up by one (stories 17, 34)
 <!-- ---- end member enable ---- -->
 
+<!-- ---- skill: answer the Threads ---- -->
+## The skill answers review Threads the way a colleague would
+
+- S39-01 — SKILL.md tells an agent, after it pushes, to reply on each Thread it acted on: briefly, what changed and in which Version (`"Done in v5: …"`) or why it did not change it, an answer (no edit) to a question, a question back when a comment is unclear; it resolves only what it fully addressed; the agent golden flow answers a question without an edit (story 147)
+<!-- ---- end skill: answer the Threads ---- -->
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–170)
@@ -698,7 +704,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 144 — CLI submits `placements[]`, server spot-verifies → S07-06, S07-07, S07-16, S09-08
 - 145 — renderer/diff/sidecar crates build to WASM → S07-15, S09-12
 - 146 — one Markdown superset, no flavor detection → S09-01, S09-05, S32-03, S32-04, S32-06
-- 147 — SKILL.md ≤ 60 lines / ≈ 900 tokens → S14-01, S14-04, S14-07, S14-08
+- 147 — SKILL.md ≤ 60 lines / ≈ 900 tokens → S14-01, S14-04, S14-07, S14-08, S39-01
 - 148 — `skill install [--dir]` + keep-current hook → S14-02
 - 149 — `--help` is the reference → S14-01, S14-03
 - 150 — TTY / non-TTY parity → S01-12, S02-30, S04-16, S05-14, S07-17, S08-06, S13-02, S14-04, S14-05, S14-06, S16-04

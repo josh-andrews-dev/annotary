@@ -1,4 +1,4 @@
-spec: S14-04, S14-05, S14-06
+spec: S14-04, S14-05, S14-06, S39-01
 
 The agent golden flow: the CLI prototype's `session-agent.txt` run for real. The store is
 seeded with the prototype's scenario first — `plan` (the sidecar prototype's text, v1 → v2 → v3
@@ -8,7 +8,8 @@ numbered t4/t5 are t6/t8 here), @mentions in both directions, a tombstoned reply
 tombstoned root, Actions on v1 and v3, so that head v4 carries no Action. Then @scribe
 (profile `agent` — its `ANNOTARY_TOKEN` in the prototype) does exactly what the skill file
 says: `mentions` → `show` → `thread show` → `pull` → edit outside → `push` → `thread reply
---resolve` → `status` → `wait` (woken by @rowan's `act` from a second profile, `wake.sh`) → the
+--resolve` naming the new Version → an answer to @linter's question, with no edit and left
+open for the asker → `status` → `wait` (woken by @rowan's `act` from a second profile, `wake.sh`) → the
 `--json` reads → `thread new --version N` (success, then the exit-5 guard) → the typical
 failures an agent must recognize. `mentions` is cross-Document (earlier groups' Threads mention
 @scribe too), so only its first row is pinned. Merged stdout+stderr; ids and ages are random.
@@ -133,6 +134,9 @@ plan	[..]	v5
 
 $ annotary -p agent thread reply plan t2 --resolve -m "Done in v5 — item 3 now reads 'CLI … and its skill file'. @rowan"
 t2.2	resolved
+
+$ annotary -p agent thread reply plan t8 -m "Interviews: with five developers a survey says little, so the plan needs no edit."
+t8.1
 
 $ annotary -p agent status plan
 plan	[..]	v5	action:-	open:4	mentions-me:0	seq:[..]
