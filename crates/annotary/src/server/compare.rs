@@ -68,6 +68,9 @@ pub const CONCURRENT_DIFFS: usize = 2;
 const TURN_WAIT: Duration = Duration::from_secs(2);
 /// Bytes of finished diffs kept: a repeated comparison costs a lookup.
 const CACHE_BYTES: usize = 32 << 20;
+/// What an entry costs beyond its HTML (its key and bookkeeping), so that even empty diffs fill
+/// the cache and evict.
+const ENTRY_BYTES: usize = 512;
 
 /// Finished diffs by the two Versions' content (Markdown and rendered HTML hashes), oldest out
 /// first. A viewer's own settings are applied after it, so every viewer shares an entry.
@@ -95,14 +98,14 @@ impl DiffCache {
             return Ok(d.clone());
         }
         let d = Arc::new(compute()?);
-        let size = d.html.len();
+        let size = entry_bytes(&d);
         if size <= CACHE_BYTES {
             let mut c = self.lock();
             if !c.entries.contains_key(key) {
                 while c.bytes + size > CACHE_BYTES {
                     let Some(old) = c.order.pop_front() else { break };
                     if let Some(e) = c.entries.remove(&old) {
-                        c.bytes -= e.html.len();
+                        c.bytes -= entry_bytes(&e);
                     }
                 }
                 c.bytes += size;
@@ -116,6 +119,10 @@ impl DiffCache {
     fn lock(&self) -> std::sync::MutexGuard<'_, CacheInner> {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
+}
+
+fn entry_bytes(d: &RenderedDiff) -> usize {
+    d.html.len() + ENTRY_BYTES
 }
 
 /// A turn to run a diff, or the 503 a request gets when none comes within `wait`.
@@ -222,19 +229,8 @@ fn render_page(
             out = super::embed::media(&out, &sizes);
         }
         let same = va.md_hash == vb.md_hash || vb.same_as == Some(a) || va.same_as == Some(b);
-        let note = if d.stats.changes > 0 {
-            String::new()
-        } else if same {
-            format!("<p class=\"cd-dx-note\" id=\"cd-dxnote\">v{b} has the same content as v{a}.</p>")
-        } else {
-            "<p class=\"cd-dx-note\" id=\"cd-dxnote\">Nothing visible changed (whitespace, front matter or Assets the text does not show).</p>".to_string()
-        };
-        let whole = if d.stats.shown_whole {
-            "<p class=\"cd-dx-note\" id=\"cd-dxwhole\">These Versions differ too much to compare everything word by word, so some blocks are shown whole.</p>"
-        } else {
-            ""
-        };
-        (format!("{note}{whole}{out}"), summary_html(&d.stats))
+        let note = notes(&d.stats, same, a, b);
+        (format!("{note}{out}"), summary_html(&d.stats))
     };
 
     // ---- the header ----
@@ -311,6 +307,29 @@ fn render_page(
     Ok(ui::page_for(&prefs, &title, &page))
 }
 
+/// What the page says above the diff, when it has something to say.
+fn notes(s: &annotary_diff::DiffStats, same: bool, a: u32, b: u32) -> String {
+    let note = |id: &str, text: &str| format!("<p class=\"cd-dx-note\" id=\"{id}\">{text}</p>");
+    if s.too_large {
+        return note("cd-dxnote", "These Versions are too large to compare. Open either one to read it.");
+    }
+    let mut out = String::new();
+    if s.changes == 0 {
+        out = if same {
+            note("cd-dxnote", &format!("v{b} has the same content as v{a}."))
+        } else {
+            note("cd-dxnote", "Nothing visible changed (whitespace, front matter or Assets the text does not show).")
+        };
+    }
+    if s.shown_whole {
+        out.push_str(&note(
+            "cd-dxwhole",
+            "These Versions differ too much to compare everything word by word, so some blocks are shown whole.",
+        ));
+    }
+    out
+}
+
 /// The key to the marks (the marks themselves carry text labels for screen readers).
 const LEGEND: &str = "<span class=\"cd-dxkey\" aria-hidden=\"true\"><span class=\"cd-dxkey-del\">removed</span><span class=\"cd-dxkey-add\">added</span><span class=\"cd-dxkey-mod\">changed block</span></span>";
 
@@ -367,6 +386,23 @@ mod tests {
         assert_eq!(version_arg("x"), None);
     }
 
+    // spec: S40-09
+    #[test]
+    fn what_the_page_says_above_the_diff() {
+        use annotary_diff::DiffStats;
+        let d = DiffStats { too_large: true, lines_added: 3, ..DiffStats::default() };
+        let n = notes(&d, false, 1, 2);
+        assert!(n.contains("too large to compare") && !n.contains("Nothing visible"), "{n}");
+        let n = notes(&DiffStats::default(), true, 1, 2);
+        assert!(n.contains("v2 has the same content as v1.") && !n.contains("cd-dxwhole"), "{n}");
+        let n = notes(&DiffStats::default(), false, 1, 2);
+        assert!(n.contains("Nothing visible changed"), "{n}");
+        let d = DiffStats { changes: 4, shown_whole: true, ..DiffStats::default() };
+        let n = notes(&d, false, 1, 2);
+        assert!(n.contains("id=\"cd-dxwhole\"") && !n.contains("cd-dxnote"), "{n}");
+        assert_eq!(notes(&DiffStats { changes: 1, ..DiffStats::default() }, false, 1, 2), "");
+    }
+
     fn diff_of(html: String) -> RenderedDiff {
         RenderedDiff { html, stats: annotary_diff::DiffStats::default(), work: 0 }
     }
@@ -395,6 +431,28 @@ mod tests {
         let c = cache.lock();
         assert!(c.bytes <= CACHE_BYTES, "{}", c.bytes);
         assert!(!c.entries.contains_key("k1") && !c.entries.contains_key("h1") && c.entries.contains_key("h2"));
+    }
+
+    // spec: S40-12
+    #[test]
+    fn empty_diffs_fill_the_cache_too() {
+        let cache = DiffCache::default();
+        let limit = CACHE_BYTES / ENTRY_BYTES;
+        for i in 0..limit + 10 {
+            cache.get_or(&format!("k{i}"), || Ok(diff_of(String::new()))).unwrap();
+        }
+        let c = cache.lock();
+        assert_eq!(c.entries.len(), limit);
+        assert_eq!(c.order.len(), limit);
+        assert_eq!(c.bytes, limit * ENTRY_BYTES);
+        assert!(!c.entries.contains_key("k0") && c.entries.contains_key(&format!("k{}", limit + 9)));
+        drop(c);
+        // The floor counts against the limit: an entry that fills it exactly is kept, one more byte is not.
+        let cache = DiffCache::default();
+        cache.get_or("fits", || Ok(diff_of("x".repeat(CACHE_BYTES - ENTRY_BYTES)))).unwrap();
+        cache.get_or("over", || Ok(diff_of("x".repeat(CACHE_BYTES - ENTRY_BYTES + 1)))).unwrap();
+        let c = cache.lock();
+        assert!(c.entries.contains_key("fits") && !c.entries.contains_key("over"));
     }
 
     // spec: S40-12

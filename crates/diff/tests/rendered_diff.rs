@@ -322,6 +322,23 @@ fn a_container_with_blocks_on_one_side_is_diffed_by_its_children() {
     assert_reads_back(a, b);
 }
 
+// spec: S40-01
+#[test]
+fn a_formatting_change_is_labeled_when_a_paragraph_becomes_inline_text() {
+    // Loose to tight: the text is the same, only its paragraph went away.
+    let (a, b) = ("- a\n\n- b\n", "- a\n- b\n");
+    let d = diff(a, b);
+    assert_balanced(&d.html);
+    assert_eq!(d.html.matches("<span class=\"cd-dx-mod cd-dx-fmt\"").count(), 2, "{}", d.html);
+    assert_eq!(d.html.matches("<span class=\"cd-sr\">formatting changed: </span>").count(), 2, "{}", d.html);
+    assert_reads_back(a, b);
+    // A changed word keeps the marks' own labels, and gets no extra one.
+    let d = diff("- a word\n\n- b word\n", "- a term\n- b word\n");
+    assert!(d.html.contains("<span class=\"cd-dx-mod\""), "{}", d.html);
+    assert!(d.html.contains("<ins class=\"cd-ins\">term</ins>"), "{}", d.html);
+    assert_eq!(d.html.matches("formatting changed").count(), 1, "only the unchanged item: {}", d.html);
+}
+
 // spec: S40-02
 #[test]
 fn a_ticked_task_box_is_marked_tight_and_loose_both_ways() {

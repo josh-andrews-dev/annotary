@@ -27,11 +27,12 @@
 //!
 //! Everything here is a pure function of the four texts (no clock, no randomness).
 
-use std::collections::HashMap;
+use std::borrow::Cow;
 
+use imara_diff::Interner;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::mapping::{equal_str_runs, heuristic_str_runs};
+use crate::mapping::heuristic_str_runs;
 
 /// Unchanged top-level blocks kept visible on each side of a change.
 pub const CONTEXT: usize = 2;
@@ -39,17 +40,36 @@ pub const CONTEXT: usize = 2;
 pub const MIN_FOLD: usize = 3;
 /// Above this many old × new blocks in one changed run nothing is paired: each side is shown
 /// whole, in linear time and with no matrix.
-const MAX_PAIRING: usize = 40_000;
+const MAX_PAIRING: usize = 1_000_000;
 /// A word diff above this many tokens (old + new) shows both sides whole.
 const MAX_WORD_TOKENS: usize = 20_000;
 /// Up to this many tokens a diff is minimal Myers; above it, the bounded heuristic Myers.
 const MAX_MINIMAL_TOKENS: usize = 2_000;
+/// Block elements read per side: past it, the rest of each element is one opaque run, because the
+/// tree costs a few hundred bytes per block and a list item can take four bytes of Markdown.
+const MAX_BLOCKS: usize = 100_000;
+/// Rendered HTML per side past which nothing is compared at all: memory follows the HTML, and a
+/// few bytes of Markdown can render 20 times their size. An ordinary Document at the Markdown cap
+/// renders well under it.
+pub const MAX_HTML_BYTES: usize = 12 << 20;
+/// In a run of more than this many old × new blocks, a block is only measured against those near
+/// its own position, because comparing every pair of similar blocks would outweigh the rest.
+const BAND_ABOVE: usize = 400;
+const BAND: usize = 32;
 /// Blocks nest at most this deep in the tree: anything deeper is compared whole, so a pathological
 /// Document can neither overflow the stack nor repeat the work per level.
 const MAX_DEPTH: usize = 32;
-/// The work one diff may do, in token comparisons. Every step charges its worst case first; past
-/// the budget, blocks are shown whole (`DiffStats::shown_whole`).
+/// The work one diff may do, in units of about a nanosecond of a release build. Every step that
+/// can repeat per nesting level or grow faster than its input charges its worst case first; past
+/// the budget, blocks are shown whole (`DiffStats::shown_whole`). What is left uncharged is one
+/// linear pass: parsing, the marks and the fold.
 pub const WORK_BUDGET: u64 = 400_000_000;
+/// Per byte of a subtree: stripping its attributes, normalizing its text and hashing the key.
+const KEY_COST: u64 = 2;
+/// Per byte of a node: splitting it into words and hashing them for pairing.
+const BAG_COST: u64 = 20;
+/// Per byte of a leaf: splitting it into tokens for a word diff.
+const TOKEN_COST: u64 = 15;
 
 /// What a diff found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -65,6 +85,8 @@ pub struct DiffStats {
     pub changes: usize,
     /// The work budget ran out, so some blocks are shown whole rather than word by word.
     pub shown_whole: bool,
+    /// A Version renders to more than [`MAX_HTML_BYTES`]: nothing was compared.
+    pub too_large: bool,
 }
 
 /// A rendered diff: the HTML fragment and its numbers.
@@ -79,11 +101,16 @@ pub struct RenderedDiff {
 /// Diff Version A (`old_md`, rendered as `old_html`) against Version B (`new_md`, `new_html`).
 pub fn rendered_diff(old_md: &str, new_md: &str, old_html: &str, new_html: &str) -> RenderedDiff {
     let (lines_added, lines_removed) = line_counts(old_md, new_md);
-    let old = parse(old_html);
-    let new = parse(new_html);
-    let mut cx = Cx { stats: DiffStats { lines_added, lines_removed, ..DiffStats::default() }, open: false, work: 0 };
+    if old_html.len().max(new_html.len()) > MAX_HTML_BYTES {
+        let stats = DiffStats { lines_added, lines_removed, too_large: true, ..DiffStats::default() };
+        return RenderedDiff { html: String::new(), stats, work: 0 };
+    }
+    let (old, old_cut) = parse(old_html);
+    let (new, new_cut) = parse(new_html);
+    let stats = DiffStats { lines_added, lines_removed, shown_whole: old_cut || new_cut, ..DiffStats::default() };
+    let mut cx = Cx { stats, open: false, work: 0 };
     let pieces = cx.seq(&old, &new, None);
-    RenderedDiff { html: fold(&pieces), stats: cx.stats, work: cx.work }
+    RenderedDiff { html: fold(pieces), stats: cx.stats, work: cx.work }
 }
 
 /// Lines added and removed between two Markdown texts (histogram line diff, CRLF tolerated).
@@ -143,7 +170,8 @@ const ATOM: &[&str] = &["math", "video", "audio", "object", "svg", "picture", "i
 
 #[derive(Debug)]
 enum Node<'a> {
-    El(El<'a>),
+    // Boxed so that a list of children stays small: there can be one element per few bytes of input.
+    El(Box<El<'a>>),
     /// An inline run between blocks (text and inline markup), verbatim.
     Text(&'a str),
 }
@@ -234,12 +262,15 @@ struct Parser<'a> {
     i: usize,
     /// The open block elements around the cursor (at most [`MAX_DEPTH`]).
     stack: Vec<String>,
+    /// Block elements read so far (at most [`MAX_BLOCKS`]).
+    blocks: usize,
 }
 
 /// Parse a rendered fragment into its top-level nodes.
-fn parse(html: &str) -> Vec<Node<'_>> {
-    let mut p = Parser { s: html, i: 0, stack: Vec::new() };
-    p.children().0
+fn parse(html: &str) -> (Vec<Node<'_>>, bool) {
+    let mut p = Parser { s: html, i: 0, stack: Vec::new(), blocks: 0 };
+    let nodes = p.children().0;
+    (nodes, p.blocks >= MAX_BLOCKS)
 }
 
 impl<'a> Parser<'a> {
@@ -290,6 +321,16 @@ impl<'a> Parser<'a> {
                 self.i = end;
                 continue;
             }
+            if self.blocks >= MAX_BLOCKS {
+                // One opaque run up to this element's own close (balanced: whole children only).
+                let close = match self.stack.last() {
+                    Some(open) => matching_close(s, k, open),
+                    None => (s.len(), s.len()),
+                };
+                self.i = close.1;
+                break close;
+            }
+            self.blocks += 1;
             flush(&mut out, text_start, k);
             let el = if VOID.contains(&name.as_str()) || tag.ends_with("/>") {
                 self.i = end;
@@ -338,13 +379,14 @@ impl<'a> Parser<'a> {
                 // Whitespace between blocks is layout, not content.
                 el.kids.retain(|n| !matches!(n, Node::Text(t) if t.trim().is_empty()));
             }
-            out.push(Node::El(el));
+            out.push(Node::El(Box::new(el)));
             text_start = self.i;
         };
         flush(&mut out, text_start, close.0);
         if out.iter().any(|n| matches!(n, Node::El(_))) {
             out.retain(|n| !matches!(n, Node::Text(t) if t.trim().is_empty()));
         }
+        out.shrink_to_fit();
         (out, close)
     }
 }
@@ -448,11 +490,11 @@ struct Tok<'a> {
     kind: Kind,
 }
 
-impl Tok<'_> {
-    fn key(&self) -> std::borrow::Cow<'_, str> {
+impl<'a> Tok<'a> {
+    fn key(&self) -> Cow<'a, str> {
         match self.kind {
-            Kind::Text => std::borrow::Cow::Borrowed(self.s),
-            _ => std::borrow::Cow::Owned(strip_attrs(self.s)),
+            Kind::Text => Cow::Borrowed(self.s),
+            _ => Cow::Owned(strip_attrs(self.s)),
         }
     }
     /// A word or a medium: what pairing compares.
@@ -467,6 +509,16 @@ impl Tok<'_> {
 
 /// An inline fragment as tokens: tags, whole media / math, entities, words, spaces, punctuation.
 fn tokens(s: &str) -> Vec<Tok<'_>> {
+    scan_tokens(s, true)
+}
+
+/// The same with the text between tags left in one piece: enough to show a side whole, and cheap
+/// enough to do once the budget is out.
+fn coarse_tokens(s: &str) -> Vec<Tok<'_>> {
+    scan_tokens(s, false)
+}
+
+fn scan_tokens(s: &str, words: bool) -> Vec<Tok<'_>> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < s.len() {
@@ -493,7 +545,11 @@ fn tokens(s: &str) -> Vec<Tok<'_>> {
             continue;
         }
         let e = s[i..].find('<').map(|p| i + p).unwrap_or(s.len());
-        text_tokens(&s[i..e], &mut out);
+        if words {
+            text_tokens(&s[i..e], &mut out);
+        } else {
+            out.push(Tok { s: &s[i..e], kind: Kind::Text });
+        }
         i = e;
     }
     out
@@ -524,18 +580,21 @@ fn text_tokens<'a>(t: &'a str, out: &mut Vec<Tok<'a>>) {
     }
 }
 
-/// Words (and media) of a node, for pairing.
-fn words(n: &Node) -> Vec<String> {
-    let src = match n {
-        Node::El(e) => e.outer,
-        Node::Text(t) => t,
-    };
-    tokens(src).iter().filter(|t| t.is_word()).map(|t| t.key().into_owned()).collect()
+/// The sorted bag of a node's words (and media), as 64-bit hashes: a pure function of the text,
+/// and a collision only nudges whether two blocks are shown as one changed block.
+fn bag(n: &Node) -> Vec<u64> {
+    let mut v: Vec<u64> = tokens(outer(n)).iter().filter(|t| t.is_word()).map(|t| fnv1a(t.key().as_bytes())).collect();
+    v.sort_unstable();
+    v
 }
 
-/// `2 · common / (a + b)` over two sorted bags of word ids (1 when both are empty): an upper bound
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0000_0100_0000_01b3))
+}
+
+/// `2 · common / (a + b)` over two sorted bags of word hashes (1 when both are empty): an upper bound
 /// of the ordered similarity, in linear time, so pairing never runs a diff per pair.
-fn similarity(a: &[u32], b: &[u32]) -> f64 {
+fn similarity(a: &[u64], b: &[u64]) -> f64 {
     if a.is_empty() && b.is_empty() {
         return 1.0;
     }
@@ -559,15 +618,36 @@ fn may_reach(a: usize, b: usize, threshold: f64) -> bool {
     a + b == 0 || 2.0 * a.min(b) as f64 >= threshold * (a + b) as f64
 }
 
-/// The worst case of a diff of `n` tokens, in comparisons.
+/// The worst case of a diff of `n` tokens, as measured: minimal Myers reaches about 3 · n²/2 and the
+/// heuristic about 20 · n^1.5 (on few distinct tokens in a different order).
 fn diff_cost(n: usize) -> u64 {
     let n = n as u64;
-    if n as usize <= MAX_MINIMAL_TOKENS { n * n / 2 + n } else { n * (n.isqrt().max(256)) }
+    if n as usize <= MAX_MINIMAL_TOKENS { 3 * n * n / 2 + n } else { 20 * n * n.isqrt() }
 }
 
-/// Equal runs of two token lists, by the cheapest diff that bounds [`diff_cost`].
+/// Items a diff never has to look at: the common start and end of two sequences.
+fn common_ends<T>(a: &[T], b: &[T], same: impl Fn(&T, &T) -> bool) -> usize {
+    let start = a.iter().zip(b).take_while(|(x, y)| same(x, y)).count();
+    let end = a[start..].iter().rev().zip(b[start..].iter().rev()).take_while(|(x, y)| same(x, y)).count();
+    start + end
+}
+
+/// Equal runs of two token lists, by the cheapest diff that bounds [`diff_cost`]. The minimal diff
+/// compares ids, so a long shared prefix between two keys costs nothing per comparison.
 fn runs(os: &[&str], ns: &[&str]) -> Vec<(usize, usize, usize)> {
-    if os.len() + ns.len() <= MAX_MINIMAL_TOKENS { equal_str_runs(os, ns) } else { heuristic_str_runs(os, ns) }
+    if os.len() + ns.len() > MAX_MINIMAL_TOKENS {
+        return heuristic_str_runs(os, ns);
+    }
+    let mut ids: Interner<&str> = Interner::new(os.len() + ns.len());
+    let a: Vec<u32> = os.iter().map(|s| ids.intern(s).0).collect();
+    let b: Vec<u32> = ns.iter().map(|s| ids.intern(s).0).collect();
+    similar::capture_diff_slices(similar::Algorithm::Myers, &a, &b)
+        .into_iter()
+        .filter_map(|op| match op {
+            similar::DiffOp::Equal { old_index, new_index, len } => Some((old_index, new_index, len)),
+            _ => None,
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -624,16 +704,24 @@ impl Cx {
     fn seq(&mut self, old: &[Node], new: &[Node], parent: Option<&str>) -> Vec<Piece> {
         let bytes: usize = old.iter().chain(new).map(|n| outer(n).len()).sum();
         let mut out = Vec::new();
-        if !self.charge(bytes as u64 / 8 + diff_cost(old.len() + new.len())) {
-            let mut e = Emit { top: parent.is_none(), last: None };
+        let mut e = Emit { top: parent.is_none(), last: None };
+        if !self.charge(bytes as u64 * KEY_COST) {
             self.whole(old, new, &mut e, &mut out);
             return out;
         }
-        let ok: Vec<String> = old.iter().map(key).collect();
-        let nk: Vec<String> = new.iter().map(key).collect();
-        let or: Vec<&str> = ok.iter().map(String::as_str).collect();
-        let nr: Vec<&str> = nk.iter().map(String::as_str).collect();
-        let mut equal = runs(&or, &nr);
+        // The keys hold a copy of the whole subtree: they are gone before any recursion.
+        let equal = {
+            let ok: Vec<String> = old.iter().map(key).collect();
+            let nk: Vec<String> = new.iter().map(key).collect();
+            let or: Vec<&str> = ok.iter().map(String::as_str).collect();
+            let nr: Vec<&str> = nk.iter().map(String::as_str).collect();
+            let ends = common_ends(&or, &nr, |x, y| x == y);
+            self.charge(diff_cost(or.len() + nr.len() - 2 * ends)).then(|| runs(&or, &nr))
+        };
+        let Some(mut equal) = equal else {
+            self.whole(old, new, &mut e, &mut out);
+            return out;
+        };
         equal.push((old.len(), new.len(), 0));
         let (mut oi, mut ni) = (0, 0);
         for (ro, rn, len) in equal {
@@ -662,6 +750,9 @@ impl Cx {
                 self.emit_pair(o, nw, &mut e, out);
             }
             return;
+        }
+        if m * n > MAX_PAIRING {
+            self.stats.shown_whole = true;
         }
         let pair = if m * n <= MAX_PAIRING && m * n > 0 { self.pairs(old, new) } else { None };
         let Some(pair) = pair else {
@@ -693,30 +784,46 @@ impl Cx {
         }
     }
 
-    /// Which old and new nodes may pair (row-major, `m × n`); `None` when the budget is out.
+    /// Which old and new nodes may pair (row-major, `m × n`); `None` when the budget is out. Only
+    /// nodes some pair has to measure are read, and only after their reading is charged: a lone
+    /// container pairs without measuring, so a chain of them costs nothing per level here.
     fn pairs(&mut self, old: &[Node], new: &[Node]) -> Option<Vec<bool>> {
         let (m, n) = (old.len(), new.len());
-        if !self.charge((m * n) as u64) {
+        // Filling and walking the pairing and LCS matrices: about 3 ns per cell.
+        if !self.charge((m * n) as u64 * 3) {
             return None;
         }
-        let mut ids: HashMap<String, u32> = HashMap::new();
-        let mut bag = |node: &Node| -> Vec<u32> {
-            let mut v: Vec<u32> = words(node)
-                .into_iter()
-                .map(|w| {
-                    let next = ids.len() as u32;
-                    *ids.entry(w).or_insert(next)
-                })
-                .collect();
-            v.sort_unstable();
-            v
-        };
-        let ob: Vec<Vec<u32>> = old.iter().map(&mut bag).collect();
-        let nb: Vec<Vec<u32>> = new.iter().map(&mut bag).collect();
+        let only = m == 1 && n == 1;
+        let (mut read_old, mut read_new) = (vec![false; m], vec![false; n]);
         let mut pair = vec![false; m * n];
+        let band = if m * n > BAND_ABOVE { BAND } else { usize::MAX };
+        let near = |i: usize| i.saturating_sub(band)..i.saturating_add(band).saturating_add(1).min(n);
         for i in 0..m {
-            for j in 0..n {
-                let Some(threshold) = threshold(&old[i], &new[j], m == 1 && n == 1) else { continue };
+            for j in near(i) {
+                match threshold(&old[i], &new[j], only) {
+                    Some(t) if t <= 0.0 => pair[i * n + j] = true,
+                    Some(_) => (read_old[i], read_new[j]) = (true, true),
+                    None => {}
+                }
+            }
+        }
+        let to_read = |nodes: &[Node], read: &[bool]| -> u64 {
+            nodes.iter().zip(read).filter(|(_, r)| **r).map(|(n, _)| outer(n).len() as u64).sum()
+        };
+        if !self.charge((to_read(old, &read_old) + to_read(new, &read_new)).saturating_mul(BAG_COST)) {
+            return None;
+        }
+        let bags = |nodes: &[Node], read: &[bool]| -> Vec<Vec<u64>> {
+            nodes.iter().zip(read).map(|(n, r)| if *r { bag(n) } else { Vec::new() }).collect()
+        };
+        let ob = bags(old, &read_old);
+        let nb = bags(new, &read_new);
+        for i in 0..m {
+            for j in near(i) {
+                if !(read_old[i] && read_new[j]) {
+                    continue;
+                }
+                let Some(threshold) = threshold(&old[i], &new[j], only).filter(|t| *t > 0.0) else { continue };
                 if !may_reach(ob[i].len(), nb[j].len(), threshold) {
                     continue;
                 }
@@ -835,32 +942,41 @@ impl Cx {
         let (body, words_changed) = self.words_diff(old, new);
         self.stats.blocks_changed += 1;
         let point = self.point();
-        let class = if words_changed { "cd-dx-mod" } else { "cd-dx-mod cd-dx-fmt" };
-        format!("<span class=\"{class}\"{point}>{body}</span>")
+        if words_changed {
+            format!("<span class=\"cd-dx-mod\"{point}>{body}</span>")
+        } else {
+            format!(
+                "<span class=\"cd-dx-mod cd-dx-fmt\"{point}><span class=\"cd-sr\">formatting changed: </span>{body}</span>"
+            )
+        }
     }
 
     /// Word diff of two inline fragments: the newer fragment with `del` / `ins` marks, and whether
     /// any word (not just markup) changed. Too long, or past the budget: both sides whole.
     fn words_diff(&mut self, old: &str, new: &str) -> (String, bool) {
+        if !self.charge((old.len() + new.len()) as u64 * TOKEN_COST) {
+            return whole_words(old, new);
+        }
         let ot = tokens(old);
         let nt = tokens(new);
         let n = ot.len() + nt.len();
         if n > MAX_WORD_TOKENS {
             self.stats.shown_whole = true;
-            return whole_words(old, new, &ot, &nt);
+            return whole_words(old, new);
         }
-        if !self.charge(diff_cost(n)) {
-            return whole_words(old, new, &ot, &nt);
+        if !self.charge(diff_cost(n - 2 * common_ends(&ot, &nt, |x, y| x.s == y.s))) {
+            return whole_words(old, new);
         }
         words_merge(new, &ot, &nt)
     }
 }
 
 /// Both inline fragments whole: the older side's words struck, the newer side as it is.
-fn whole_words(old: &str, new: &str, ot: &[Tok], nt: &[Tok]) -> (String, bool) {
+fn whole_words(old: &str, new: &str) -> (String, bool) {
+    let (ot, nt) = (coarse_tokens(old), coarse_tokens(new));
     let mut out = String::new();
     if ot.iter().any(Tok::visible) {
-        out.push_str(&format!("<del class=\"cd-del\">{}</del>", text_only(ot)));
+        out.push_str(&format!("<del class=\"cd-del\">{}</del>", text_only(&ot)));
     }
     if nt.iter().any(Tok::visible) {
         out.push_str(&format!("<ins class=\"cd-ins\">{new}</ins>"));
@@ -885,7 +1001,7 @@ fn threshold(o: &Node, n: &Node, only: bool) -> Option<f64> {
     }
 }
 
-fn outer<'a>(n: &'a Node) -> &'a str {
+fn outer<'a>(n: &Node<'a>) -> &'a str {
     match n {
         Node::El(e) => e.outer,
         Node::Text(t) => t,
@@ -934,8 +1050,8 @@ enum Seg {
 /// The word diff itself, on tokens already within the limits: the newer fragment with marks, and
 /// whether any word (not just markup) changed.
 fn words_merge(new: &str, ot: &[Tok], nt: &[Tok]) -> (String, bool) {
-    let ok: Vec<std::borrow::Cow<str>> = ot.iter().map(Tok::key).collect();
-    let nk: Vec<std::borrow::Cow<str>> = nt.iter().map(Tok::key).collect();
+    let ok: Vec<Cow<str>> = ot.iter().map(Tok::key).collect();
+    let nk: Vec<Cow<str>> = nt.iter().map(Tok::key).collect();
     let or: Vec<&str> = ok.iter().map(|c| c.as_ref()).collect();
     let nr: Vec<&str> = nk.iter().map(|c| c.as_ref()).collect();
     let mut equal = runs(&or, &nr);
@@ -1020,8 +1136,8 @@ fn text_only(t: &[Tok]) -> String {
 }
 
 /// Fold long runs of unchanged top-level pieces.
-fn fold(pieces: &[Piece]) -> String {
-    let mut out = String::new();
+fn fold(pieces: Vec<Piece>) -> String {
+    let mut out = String::with_capacity(pieces.iter().map(|p| p.html.len() + 1).sum::<usize>() + pieces.len() / 8);
     let mut i = 0;
     let n = pieces.len();
     while i < n {
