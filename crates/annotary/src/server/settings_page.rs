@@ -203,7 +203,7 @@ fn search_index(auth: &Auth) -> Value {
     for d in settings::CATALOG {
         out.push(json!({ "group": d.group, "key": d.key, "text": format!("{} {}", d.label, d.help) }));
     }
-    out.push(json!({ "group": "profile", "text": "Handle Role" }));
+    out.push(json!({ "group": "profile", "text": "Handle Role Avatar picture photo image" }));
     out.push(json!({ "group": "devices", "text": "Device names last seen Rename Forget" }));
     if auth.0.is_owner() {
         for (slug, label, words) in SERVER_PAGES {
@@ -510,8 +510,22 @@ fn profile_body(st: &AppState, auth: &Auth, yours: &str) -> Result<String, ApiEr
         )
     };
     let role = if auth.0.is_owner() { "Owner" } else { "Member" };
+    // Member avatars: the preview is the one avatar renderer's; the script swaps in what the
+    // server answers with (`avatar_html`).
+    let avatar = format!(
+        "<div class=\"cd-set-row\" id=\"cd-set-avatar\" data-search=\"Avatar picture photo image\">\
+           <div class=\"cd-set-label\"><span class=\"cd-set-name\">Avatar</span></div>\
+           <div class=\"cd-set-ctl\"><div class=\"cd-set-avrow\"><span id=\"cd-set-avpreview\">{preview}</span>\
+             <button type=\"button\" class=\"cd-btn cd-sm\" id=\"cd-set-avpick\">Upload…</button>\
+             <button type=\"button\" class=\"cd-btn cd-sm\" id=\"cd-set-avclear\"{clear_hidden}>Clear</button>\
+             <input type=\"file\" id=\"cd-set-avfile\" multiple hidden aria-label=\"Choose your avatar\" accept=\"image/png,image/jpeg,image/gif,image/webp,image/svg+xml,.svg\"></div>\
+             <p class=\"cd-set-avhelp\">PNG, JPEG, GIF, WebP or SVG, up to 256 KB (SVG 64 KB). To add a still image for people who turn off motion, choose both files together.</p>\
+             <div class=\"cd-set-state\" aria-live=\"polite\"></div></div></div>",
+        preview = ui::MemberBrief::from_view(&m).avatar_html(false),
+        clear_hidden = if m.avatar.is_some() { "" } else { " hidden" },
+    );
     Ok(format!(
-        "{yours}<div class=\"cd-set-row\" id=\"cd-set-display_name\" data-key=\"display_name\" data-kind=\"user\" data-type=\"name\" data-search=\"{search}\">\
+        "{yours}{avatar}<div class=\"cd-set-row\" id=\"cd-set-display_name\" data-key=\"display_name\" data-kind=\"user\" data-type=\"name\" data-search=\"{search}\">\
            <div class=\"cd-set-label\"><label class=\"cd-set-name\" id=\"cd-set-lbl-display_name\" for=\"cd-set-name-in\">{label}</label></div>\
            <div class=\"cd-set-ctl\"><input type=\"text\" class=\"cd-set-text\" id=\"cd-set-name-in\" value=\"{value}\" autocomplete=\"name\" spellcheck=\"false\"><div class=\"cd-set-state\" aria-live=\"polite\"></div></div></div>\
          {handle}{role}",

@@ -79,6 +79,8 @@ fn decode(what: &str, text: &str) -> Result<Vec<u8>, ApiError> {
 fn answer(m: &annotary_store::MemberView, changed: bool) -> Json<Value> {
     let mut v = member_json(m);
     v["changed"] = json!(changed);
+    // The markup has one renderer: Settings swaps this in for its preview.
+    v["avatar_html"] = json!(super::ui::MemberBrief::from_view(m).avatar_html(false));
     Json(v)
 }
 

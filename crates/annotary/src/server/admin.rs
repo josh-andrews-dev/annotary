@@ -277,10 +277,20 @@ pub fn member_card(m: &MemberView, tokens: &[TokenRow], vaults: &[Vault], me: &s
         if disabled { "<span class=\"cd-chip cd-warn cd-disabled\">disabled</span>" } else { "" },
         role = m.role.as_str()
     );
-    let tools = if disabled {
-        "<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"rename\">Rename</button> <button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"enable\">Enable</button>".to_string()
+    // Member avatars: an owner takes down anyone's, disabled Members' too.
+    let clear_avatar = if m.avatar.is_some() {
+        "<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"clear-avatar\">Clear avatar</button> "
     } else {
-        "<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"rename\">Rename</button> <button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"disable\">Disable</button>".to_string()
+        ""
+    };
+    let tools = if disabled {
+        format!(
+            "{clear_avatar}<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"rename\">Rename</button> <button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"enable\">Enable</button>"
+        )
+    } else {
+        format!(
+            "{clear_avatar}<button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"rename\">Rename</button> <button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"disable\">Disable</button>"
+        )
     };
     let live: Vec<&TokenRow> = tokens.iter().filter(|t| t.info.revoked_at.is_none()).collect();
     let revoked = tokens.len() - live.len();
@@ -351,7 +361,7 @@ pub fn member_card(m: &MemberView, tokens: &[TokenRow], vaults: &[Vault], me: &s
     };
     format!(
         "<article class=\"cd-mem{}{}\" id=\"cd-mem-{h}\" data-handle=\"{h}\" data-id=\"{id}\" data-role=\"{role}\">\
-           <div class=\"cd-memhead\"><span class=\"cd-memwho\">{who}<span class=\"cd-handle cd-mono\">@{h}</span>{chips}</span><span class=\"cd-grow\"></span><span class=\"cd-memtools\">{tools}</span></div>\
+           <div class=\"cd-memhead\"><span class=\"cd-memwho\">{avatar}{who}<span class=\"cd-handle cd-mono\">@{h}</span>{chips}</span><span class=\"cd-grow\"></span><span class=\"cd-memtools\">{tools}</span></div>\
            <div class=\"cd-memmeta cd-muted cd-small\"><span class=\"cd-authhint\">{auth_hint}</span> · Member since {since}</div>\
            <div class=\"cd-inline\" data-slot=\"rename\" hidden></div>\
            {disabled_note}\
@@ -367,6 +377,7 @@ pub fn member_card(m: &MemberView, tokens: &[TokenRow], vaults: &[Vault], me: &s
         id = esc(&m.id),
         role = m.role.as_str(),
         who = brief.html(),
+        avatar = brief.avatar_html(false),
         since = time_tag(&m.created_at, false),
         grants = grants_summary(m),
     )

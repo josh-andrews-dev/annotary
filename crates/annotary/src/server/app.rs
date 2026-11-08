@@ -82,7 +82,8 @@ impl AppState {
 /// behind `wait` and the live feed — long-poll + SSE, `events.rs`), `housekeeping` +
 /// `settings/auto-purge` (the ticker, `housekeeping.rs`), `vaults/{name}/rename` + `DELETE
 /// vaults/{name}` (ticket 12, `vaults.rs`); the Settings screen `/settings`, `/settings/{group}`
-/// (CMD-23, `settings_page.rs`) with the owner pages under `/settings/server/…` (`admin.rs`).
+/// (CMD-23, `settings_page.rs`) with the owner pages under `/settings/server/…` (`admin.rs`);
+/// `me/avatar`, `members/{handle}/avatar` and `/avatars/{hash}` (`avatars.rs`).
 pub fn router(state: AppState) -> Router {
     use super::{
         access, actions, admin, assets, avatars, blobs, docs, events, housekeeping, listing, me_settings, members,

@@ -357,3 +357,47 @@ test('a page written over another before its script ran binds once; a failed ann
   expect(await pathNow()).toBe(`/d/${a.id}`);
   await e.frame().evaluate(() => { const w = window as any; w.requestAnimationFrame = w.__realRaf; w.__held.splice(0).forEach((f: FrameRequestCallback) => f(performance.now())); });
 });
+
+// spec: S39-09
+test('avatars arrive through the bridge, each URL once, the still under reduced motion; the frame loads nothing itself', async ({ page }) => {
+  const fix = path.join(REPO_ROOT, 'fixtures', 'avatars');
+  const svg = fs.readFileSync(path.join(fix, 'scribe.svg')).toString('base64');
+  const png = fs.readFileSync(path.join(fix, 'scribe.png')).toString('base64');
+  const put = await fetch(srv.url + '/api/v1/me/avatar', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${srv.ownerToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: svg, static: png }),
+  });
+  const avatar = (await put.json()).avatar;
+  const doc = seed('emb-av', PLAN);
+  cliAs(['thread', 'new', doc.id, '--document', '-m', 'First.']);
+  cliAs(['thread', 'reply', doc.id, 't1', '-m', 'Second, same author.']);
+  cliAs(['thread', 'new', doc.id, '--document', '-m', 'Third.']);
+
+  const e = await embed(page, `/d/${doc.id}`);
+  const imgs = e.fl.locator('.cd-av-pic img[data-cd-av]');
+  await expect(imgs).toHaveCount(3);
+  await expect.poll(() => imgs.evaluateAll((els) => els.every((x) => (x as HTMLImageElement).naturalWidth > 0))).toBe(true);
+  expect(await imgs.first().getAttribute('src')).toMatch(/^blob:/);
+  const asked = (await e.msgs()).filter((m) => m.type === 'annotary-req' && (m.path || '').startsWith('/avatars/'));
+  expect(asked.map((m) => m.path)).toEqual([avatar.url]);
+  expect(e.requests.filter((u) => u.startsWith(srv.url))).toEqual([]);
+
+  // A card the live feed or a reply redraws gets its avatar too.
+  const t1 = e.fl.locator('.cd-thread[data-t="t1"]');
+  await t1.click();
+  await t1.locator('[data-act="reply"]').click();
+  await t1.locator('.cd-editor-reply textarea').fill('Third in this Thread.');
+  await page.keyboard.press('Enter');
+  await expect(t1.locator('.cd-c')).toHaveCount(3);
+  await expect(t1.locator('.cd-c.cd-pending')).toHaveCount(0);
+  await expect.poll(() => t1.locator('.cd-av-pic img').evaluateAll((els) => els.every((x) => (x as HTMLImageElement).naturalWidth > 0))).toBe(true);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await toFrame(page, { type: 'annotary-init', path: '/' });
+  await expect(e.fl.locator('.cd-app.cd-listpage')).toBeVisible();
+  await toFrame(page, { type: 'annotary-init', path: `/d/${doc.id}` });
+  await expect(e.fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
+  await expect.poll(async () => (await e.msgs()).some((m) => m.type === 'annotary-req' && m.path === avatar.static_url)).toBe(true);
+  await expect.poll(() => e.fl.locator('.cd-av-pic img').first().evaluate((x) => (x as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+});

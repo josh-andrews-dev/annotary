@@ -62,3 +62,39 @@ settings [web-document-view.md](web-document-view.md), the CLI verbs
   and refined keeps its dotted underline.
 - **Tests:** `tests/settings_store.rs`, `tests/settings_api.rs`, the CMD-23 rows in
   `tests/access_api.rs`; spec ids S29-01…S29-15.
+
+## Avatars
+
+A Member's picture beside their name. The page side is in [web-document-view.md](web-document-view.md) and
+[web-settings.md](web-settings.md), the CLI in [cli-conventions.md](cli-conventions.md). Why it is built this way:
+`docs/decisions.md`, 2026-11-08.
+
+- **Files:** `crates/store/src/avatar.rs` (pure: `check_image`, `check_static`, `check_svg`, the caps and allowlists;
+  and `Store::set_avatar` / `clear_avatar` / `avatar_type`), migration v6, `server/avatars.rs` (the routes; its module
+  docs have the table), `ui.rs::MemberBrief::avatar_html` (the one renderer), `cli/avatar.rs`.
+- **Schema v6:** `member_avatars (member_id PK, hash, type, size, static_hash, static_type, static_size, set_at, set_by)`;
+  clearing deletes the row and the events log keeps the history. `MEMBER_SELECT` left-joins it; `row_avatar` reads the
+  `av_*` columns by name, so a query that selects none of them gives `avatar: None`.
+- **What may be stored:** the type is always read from the bytes. An image is a PNG, JPEG, GIF or WebP up to 256 KiB with
+  dimensions its header gives (at most 4096 a side), or an SVG up to 64 KiB. A static fallback is a PNG, JPEG or WebP up
+  to 256 KiB. Refusals: `invalid_avatar` (400, the reason) and `too_large` (413).
+- **The SVG check refuses and never rewrites**, so what is served is what was sent. It reads XML events (quick-xml: no
+  DTD, no entity expansion). Allowed: the elements `SVG_ELEMENTS`; the attributes `SVG_ATTRIBUTES` on any of them; `href` /
+  `xlink:href` only to `#id`; `url()` only to `#id`; CSS at-rules `@keyframes` / `@media`; the functions `CSS_FUNCTIONS`.
+  CSS comments are removed before the checks and backslash escapes are refused, so neither can hide a word; character
+  references in a `<style>` are resolved before the CSS is read. Also refused: a DOCTYPE, an unknown entity, a processing
+  instruction, CDATA outside `<style>`, text outside `<style>` / `<title>`, a nested `<svg>`, a root without
+  `xmlns="http://www.w3.org/2000/svg"`, XML other than 1.0 in UTF-8, more than 32 levels or 4000 elements. To allow
+  something new, add it to a list in `avatar.rs` with a malicious-sample test beside it.
+- **Writes:** `set_avatar` checks both images, then writes the blobs and the row in one `Store::tx` (the GC takes the
+  same connection, so it cannot sweep a blob a cleared avatar left behind in between; that is why it calls `blobs.put`,
+  not `put_blob`, which would deadlock). The same images again ⇒ `changed: false`, no event. Events are
+  `member.avatar_set {member, handle, hash, type, static_hash, static_type}` and `member.avatar_cleared {member, handle}`,
+  Tenant-level, so the feed shows them to owners only.
+- **Blobs:** `docs::referenced_hashes` includes every current avatar, so the GC and `export` keep them. `export` reads
+  stores older than v6 without migrating them: `avatar_blob_refs` treats a missing table as no avatars.
+- **Serving:** `GET /avatars/{hash}` is in the `web_pages` router, so a browser's cookie and loopback trust apply. It
+  serves only a hash in `member_avatars`, so it cannot be used to read any other blob.
+- **Tests:** `avatar.rs` unit tests (S39-01, S39-02), `tests/avatars_api.rs` (S39-03…05, S39-07), the avatar rows in
+  `tests/access_api.rs`, `tests/e2e/88-avatars/` (S39-06), `tests/web/avatars.spec.ts` (S39-08, S39-10), the avatar test in
+  `tests/web/embed.spec.ts` (S39-09). Fixtures: `fixtures/avatars/` (`make.py` draws the PNGs).

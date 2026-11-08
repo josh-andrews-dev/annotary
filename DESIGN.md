@@ -163,6 +163,9 @@ panels, `0 1px 2px rgba(0,0,0,.04)` for cards, `0 2px 10px rgba(0,0,0,.10)` for 
   open / resolved / orphaned), the frozen quote (refined adds "now:" in `--cd-refined-ink`), id in
   mono. Comments separate with a `--cd-soft` rule; the editor's textarea is `--cd-field` with a
   2px accent focus ring.
+- **Avatars (`.cd-av`):** 28 px round, before the author's name on every Comment (64 px in Settings); an `<img>` in a
+  `<picture>` with a still for reduced motion, or a monogram: the name's first letter, 13px 600 white, on one of eight
+  fixed colors (`.cd-av-h0` to `-h7`) the handle picks, the same in both themes. Decorative: the name is beside it.
 - **Banners (`.cd-banner`):** full width under the header, 13px: the older-Version banner in the
   note colors, the new-Version banner (`.cd-newver`) in the info colors, each with one button.
 - **Errors:** inline `.cd-err` (err colors, 6px radius) inside the card or form that failed; the

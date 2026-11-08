@@ -228,6 +228,28 @@ function main() {
     });
   }
 
+  /* ---------- Member avatars in an embed render ----------
+     The server keeps an avatar's URLs as `data-cd-av` / `data-cd-av-static` there (`ui.rs`,
+     `avatar_html`): the frame loads nothing by URL, so each comes through the transport as a blob
+     URL — the static one under reduced motion — fetched once per URL however many cards show it.
+     Until it arrives (or if it fails) the empty disc stays. A browser render has real `src`s. */
+  var avatarBlobs = {};
+  function loadAvatars(root) {
+    if (!transport.embedded || !root) return;
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $$('img[data-cd-av]:not([src])', root).forEach(function (img) {
+      var path = (still && img.getAttribute('data-cd-av-static')) || img.getAttribute('data-cd-av');
+      if (!/^\/avatars\/[0-9a-f]+$/.test(path)) return;
+      if (!avatarBlobs[path]) {
+        avatarBlobs[path] = transport.request('GET', path, { binary: true, headers: { Accept: 'image/*' } })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+          .then(function (b) { return URL.createObjectURL(b); });
+      }
+      avatarBlobs[path].then(function (u) { img.src = u; }, function () { img.classList.add('cd-embed-failed'); });
+    });
+  }
+  loadAvatars(document);
+
   /* ---------- ticket 18 (X5): "Open in Annotary" — iPhone / iPad only ----------
      The server renders the chip `hidden` (no layout, no shift for anyone else); Safari on an
      iPhone, or an iPad (which may present itself as a Mac with touch), gets it shown, with the
@@ -1001,6 +1023,7 @@ function main() {
     if (placementChanged || !prev || !marksOf(tid).length) { unhighlight(tid); indexBlocks(); highlightThread(item); }
     marksOf(tid).forEach(function (m) { m.classList.toggle('cd-res', !!item.resolved); });
     localizeTimes(fresh);
+    loadAvatars(fresh);
     if (wasSelected) { fresh.classList.add('cd-selected'); marksOf(tid).forEach(function (m) { m.classList.add('cd-selected'); }); }
     if (wasOpen) fresh.classList.add('cd-open');
     recount();
@@ -1158,7 +1181,7 @@ function main() {
     if (item) item.resolved = on;
   }
   function commentHtml(cid, text, pending) {
-    return '<div class="cd-c' + (pending ? ' cd-pending' : '') + '" data-c="' + esc(cid) + '"><div class="cd-who"><b class="cd-member" title="@' + esc(D.me) + '">' + esc(D.me_name || D.me) + '</b><span>' + timeTag(new Date().toISOString(), false) + '</span><span class="cd-mono">v' + D.head + '</span></div><div class="cd-cbody">' + plainBody(text) + '</div></div>';
+    return '<div class="cd-c' + (pending ? ' cd-pending' : '') + '" data-c="' + esc(cid) + '"><div class="cd-who">' + (D.me_av || '') + '<b class="cd-member" title="@' + esc(D.me) + '">' + esc(D.me_name || D.me) + '</b><span>' + timeTag(new Date().toISOString(), false) + '</span><span class="cd-mono">v' + D.head + '</span></div><div class="cd-cbody">' + plainBody(text) + '</div></div>';
   }
   function plainBody(text) {
     return String(text).split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join('');
@@ -1178,6 +1201,7 @@ function main() {
     var n = $$('.cd-c', card).length;
     var acts = $('.cd-acts', card);
     var c = htmlToEl(commentHtml(tid + '.' + n, text, true));
+    loadAvatars(c);
     var res = $('.cd-resline', card);
     if (res) res.before(c); else if (acts) acts.before(c); else $('.cd-body', card).appendChild(c);
     localizeTimes(c);
@@ -1807,6 +1831,7 @@ function main() {
     ed.remove();
     var body = $('.cd-body', card);
     body.innerHTML = commentHtml(tid, text, true) + '<div class="cd-acts"><button type="button" class="cd-btn cd-sm" data-act="reply" disabled>Reply</button><button type="button" class="cd-btn cd-sm" data-act="resolve" disabled>Resolve</button></div>';
+    loadAvatars(body);
     var main = $('.cd-main', card);
     main.insertAdjacentHTML('beforeend', '<div class="cd-snip"><b>' + esc(D.me_name || D.me) + '</b> ' + esc(text.slice(0, 120)) + '</div><div class="cd-meta">posting…</div>');
     localizeTimes(card);

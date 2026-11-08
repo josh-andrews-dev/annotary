@@ -330,3 +330,32 @@ is kept: it is the person's own secret, not a credential left lying around.
 
 Chose the same idempotence as disable: enabling an enabled Member exits 0 with a note (`changed: false`) and appends
 no event. Enable needs no last-owner guard, since it only adds an active Member.
+
+## 2026-11-08: Member avatars
+
+Each Hermes agent's animated face should sit beside its Comments, and people benefit too.
+
+Chose to accept SVG behind an allowlist check; rejected raster-only, because the plugin's faces are 2 to 13 KB of CSS
+keyframes and a GIF or animated WebP of them is larger and worse at 28 px. Chose to refuse a file that fails the check;
+rejected sanitizing it by rewriting, because a rewriter that keeps a file working must understand everything it passes
+on, and refusing tells the author what to change. Wrote the check over quick-xml's events; rejected a DOM parser, which
+would have to be trusted to leave DTDs and entities alone, where events make refusing them one match arm. The check is
+the second wall: pages show an avatar only through `<img>`, where no script runs, and `/avatars/{hash}` sends a CSP that
+blocks scripts and outside loads for someone who opens the URL on its own. CSS functions are an allowlist too, beyond
+`url()`; rejected only blocking `url()` and `@import`, because new functions that load things keep arriving
+(`image-set()`, `src()`).
+
+Chose one `PUT /api/v1/me/avatar {image, static?}` with base64 in JSON; rejected two raw PUTs, because the avatar and its
+still would land in two events with a moment where the animated one has no fallback, and multipart, which needs a new
+axum feature and a multipart client in the CLI. The server reads each type from the bytes; rejected a client-supplied
+`type`, because `/avatars/{hash}` must never serve a type someone chose. A still must be a PNG, JPEG or WebP; rejected
+allowing SVG and GIF there, because what shows under reduced motion must not move.
+
+Chose a route of its own for serving, `/avatars/{hash}`, limited to hashes in `member_avatars`; rejected reusing `/a/{hash}`,
+whose types come from a Version's manifest and which needs `read` on a Vault, because an avatar belongs to no Version and
+every signed-in Member sees every Member's anyway. Chose an immutable private cache keyed by the hash, so one fetch serves
+every card. Nobody sets another Member's avatar; an owner may only clear one, because taking a picture down is moderation
+and putting one up in someone's name is not.
+
+A Member without an avatar gets a monogram on one of eight colors picked by a hash of the handle; rejected a color derived
+freely from the hash (a hue), because eight fixed colors can each be checked for contrast with white in both themes.

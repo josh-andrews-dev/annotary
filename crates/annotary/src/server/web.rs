@@ -278,7 +278,9 @@ pub async fn login_post(
 
 /// `POST /logout` (web): end the cookie session and send the browser to the login page (or `/`
 /// when no password is set — where loopback trust signs it in again).
-pub async fn logout(State(st): State<AppState>, auth: Auth) -> Result<Response, ApiError> {
+/// The body (a form's, or a client's JSON) is read before answering: a redirect sent with the
+/// body still unread can close the connection under a client that follows it on the same one.
+pub async fn logout(State(st): State<AppState>, auth: Auth, _body: axum::body::Bytes) -> Result<Response, ApiError> {
     if let annotary_store::AuthVia::Session { id } = &auth.0.via {
         st.store.end_session(id)?;
     }

@@ -265,3 +265,68 @@ fn avatars_are_served_with_the_servers_type_and_a_locked_down_policy() {
     ts.store.clear_avatar(&id, &id).unwrap();
     assert_eq!(get_raw(&ts, &format!("/avatars/{}", a.hash), Some(&scribe)).0, 404);
 }
+
+fn get_page(ts: &TestServer, path: &str, token: &str, embed: bool) -> String {
+    let mut req = ureq::get(format!("{}{}", ts.url, path)).header("Authorization", format!("Bearer {token}"));
+    if embed {
+        req = req.header("X-Annotary-Embed", "1");
+    }
+    req.call().unwrap().body_mut().read_to_string().unwrap()
+}
+
+// spec: S39-07
+#[test]
+fn pages_draw_the_one_avatar_renderer() {
+    let ts = TestServer::start();
+    let (scribe, _) = ts.add_member("scribe");
+    let (m, _) = ts.store.set_avatar(&scribe, &scribe, SCRIBE_SVG, Some(SCRIBE_PNG)).unwrap();
+    let a = m.avatar.unwrap();
+    let still = a.static_hash.clone().unwrap();
+    let (md, _) = ts.store.put_blob(b"# Plan\n\nship it\n").unwrap();
+    let v = ts.store.vault_by_name("notes").unwrap().unwrap();
+    let doc = ts.store.create_document(&ts.owner_id, &v.id, PushInput::new("plan", md)).unwrap().id;
+    ts.store.new_thread(&scribe, &doc, annotary_store::NewThread::document("root by scribe")).unwrap();
+    ts.store.reply(&ts.owner_id, &doc, 1, "reply by rowan", false).unwrap();
+
+    let source = format!(
+        "<source media=\"(prefers-reduced-motion: reduce)\" srcset=\"/avatars/{still}\"><img src=\"/avatars/{}\"",
+        a.hash
+    );
+    let page = get_page(&ts, &format!("/d/{doc}"), &ts.owner_token, false);
+    let who =
+        page.find("<div class=\"cd-who\"><span class=\"cd-av cd-av-img\"").expect("the root's avatar leads its row");
+    assert!(page[who..].contains(&source), "the picture has the still source and an <img>");
+    assert!(
+        page.contains("<div class=\"cd-who\"><span class=\"cd-av cd-av-mono cd-av-h"),
+        "the reply by @rowan is a monogram"
+    );
+    assert!(
+        !page.contains("<object") && !page.contains("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"")
+    );
+
+    // The card fragment is the same markup.
+    let frag = get_page(&ts, &format!("/d/{doc}/t/t1"), &ts.owner_token, false);
+    let frag: Value = serde_json::from_str(&frag).unwrap();
+    assert!(frag["html"].as_str().unwrap().contains(&source));
+
+    // An embed render keeps the URLs for the transport: no src, no <source>.
+    for page in [get_page(&ts, &format!("/d/{doc}"), &ts.owner_token, true), {
+        let f: Value = serde_json::from_str(&get_page(&ts, &format!("/d/{doc}/t/t1"), &ts.owner_token, true)).unwrap();
+        f["html"].as_str().unwrap().to_string()
+    }] {
+        assert!(
+            page.contains(&format!("<img data-cd-av=\"/avatars/{}\" data-cd-av-static=\"/avatars/{still}\"", a.hash)),
+            "{page}"
+        );
+        assert!(!page.contains(&format!("src=\"/avatars/{}\"", a.hash)) && !page.contains("srcset=\"/avatars/"));
+    }
+
+    // The Members screen and Settings → Profile use it too.
+    let members = get_page(&ts, "/settings/server/members", &ts.owner_token, false);
+    assert!(members.contains(&source));
+    assert!(members.contains("data-act=\"clear-avatar\""));
+    let (_, tok) = ts.add_member("kim");
+    let profile = get_page(&ts, "/settings/profile", &tok, false);
+    assert!(profile.contains("id=\"cd-set-avpreview\"><span class=\"cd-av cd-av-mono"), "{profile}");
+    assert!(profile.contains("id=\"cd-set-avclear\" hidden"));
+}

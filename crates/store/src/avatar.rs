@@ -174,6 +174,27 @@ pub const CSS_FUNCTIONS: &[&str] = &[
     "cubic-bezier",
     "steps",
     "linear",
+    "color",
+    "light-dark",
+    "drop-shadow",
+    "blur",
+    "brightness",
+    "contrast",
+    "grayscale",
+    "hue-rotate",
+    "invert",
+    "opacity",
+    "saturate",
+    "sepia",
+    // Selectors and media conditions, which load nothing.
+    "not",
+    "is",
+    "where",
+    "has",
+    "nth-child",
+    "nth-last-child",
+    "nth-of-type",
+    "nth-last-of-type",
 ];
 
 /// What the bytes of an avatar are.
@@ -480,6 +501,8 @@ fn check_attributes(e: &quick_xml::events::BytesStart<'_>, root: bool) -> std::r
                 return Err(Refusal::invalid("<style type> must be text/css"));
             }
             "media" => check_css(value, CssPlace::Declarations)?,
+            // Words for a screen reader, never parsed as a reference or CSS.
+            "aria-label" => {}
             _ => check_value(key, value)?,
         }
     }
@@ -630,14 +653,16 @@ impl Store {
             Some(b) => Some(check_static(b).map_err(|r| r.into_store_error("the static avatar"))?),
             None => None,
         };
-        let (hash, _) = self.put_blob(image)?;
-        let static_hash = match static_image {
-            Some(b) => Some(self.put_blob(b)?.0),
-            None => None,
-        };
         let content_type = kind.content_type();
         let static_type = static_kind.map(Kind::content_type);
         self.tx(|tx| {
+            // Written inside the transaction: the GC holds the same connection, so it cannot
+            // sweep a blob a cleared avatar left behind between this write and the commit.
+            let (hash, _) = self.blobs.put(image)?;
+            let static_hash = match static_image {
+                Some(b) => Some(self.blobs.put(b)?.0),
+                None => None,
+            };
             let m = load_member(tx, member_id)?.ok_or(StoreError::MemberNotFound)?;
             if let Some(a) = &m.avatar
                 && a.hash == hash
@@ -785,6 +810,11 @@ mod tests {
     #[test]
     fn the_plugin_shape_passes_and_is_an_svg() {
         assert_eq!(check_svg(ANIMATED.as_bytes()), Ok(()));
+        // Selectors, filters and a label with parentheses load nothing.
+        let more = wrap(
+            "<style>.a:not(.b):nth-child(2) { filter: drop-shadow(0 0 1px #000) }</style><g aria-label=\"Scribe (agent): call(me)\"/>",
+        );
+        assert_eq!(check_svg(more.as_bytes()), Ok(()));
         assert_eq!(check_image(ANIMATED.as_bytes()), Ok(Kind::Svg));
         // A BOM, CDATA in the style, entities and char refs in the style, a self-closed root.
         let cdata = "\u{FEFF}<svg xmlns=\"http://www.w3.org/2000/svg\"><style><![CDATA[ .a > .b { fill: #000 } ]]>.c{opacity:&#48;.5}</style><g class=\"a\"><rect class=\"b\" width=\"1\" height=\"1\"/></g></svg>";

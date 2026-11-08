@@ -18,3 +18,5 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- M3 (Hermes plan) ---- -->
 - **Embedded requests** (`X-Annotary-Embed: 1`, `server/embed.rs`): the outermost layer, `embed::parts`, cuts an embedded GET answer over `PART_MAX` into `206` parts (`X-Annotary-Part` / `-Parts` / `-Etag` / `-Status`; `412` for a stale etag); embed pages and `GET /embed/shell` carry `Content-Security-Policy: sandbox allow-scripts`. An embedded request is an ordinary Bearer request in every other way (`refuse_cross_site` exempts Bearer).
 <!-- ---- end M3 (Hermes plan) ---- -->
+
+- **Avatars** (`server/avatars.rs`): `PUT|DELETE /api/v1/me/avatar`, `DELETE /api/v1/members/{handle}/avatar`, `GET /avatars/{hash}` (web pages router). 400 `invalid_avatar` → 1, 413 `too_large` → 5. Every member JSON has `avatar` (object or null). An answer also carries `avatar_html`, the renderer's markup for Settings.

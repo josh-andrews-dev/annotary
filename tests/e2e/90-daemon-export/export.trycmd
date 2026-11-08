@@ -7,7 +7,7 @@ refused without `--force`; the name must end in `.tar`; `--json`.
 ```console
 $ annotary export backup.tar
 export: server running (pid [..]) — the database goes in as a consistent snapshot (SQLite online backup)
-backup.tar	[..] blobs	[..]	schema v5
+backup.tar	[..] blobs	[..]	schema v6
 
 $ annotary export backup.tar
 ? 5
@@ -15,14 +15,14 @@ error: backup.tar exists — --force overwrites it
 
 $ annotary export backup.tar --force --json
 export: server running (pid [..]) — the database goes in as a consistent snapshot (SQLite online backup)
-{"file":"backup.tar","blobs":[..],"bytes":[..],"schema_version":5}
+{"file":"backup.tar","blobs":[..],"bytes":[..],"schema_version":6}
 
 $ ANNOTARY_TTY=1 annotary export backup.tar --force --json size,live
 export: server running (pid [..]) — the database goes in as a consistent snapshot (SQLite online backup)
 {"size":"[..]","live":true}
 
 $ annotary export -q backup.tar --force
-backup.tar	[..] blobs	[..]	schema v5
+backup.tar	[..] blobs	[..]	schema v6
 
 $ annotary export backup.tgz
 ? 1

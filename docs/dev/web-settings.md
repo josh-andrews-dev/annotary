@@ -92,6 +92,8 @@ Implementation notes for the Settings screen every Member has (its design decisi
   `X-Annotary-Device` / `X-Annotary-Device-Info` — copy, keyboard, search, wide / narrow, the
   Server group, Profile and Devices).
 
+- **Avatar (Profile):** `#cd-set-avatar` holds `#cd-set-avpreview` (the one renderer's markup, 64 px by CSS), `#cd-set-avpick` (opens the hidden `#cd-set-avfile`, `multiple`), `#cd-set-avclear` (hidden with no avatar), `.cd-set-state`. One file is the avatar; of two, the SVG or GIF is the avatar and the other its still (two of the same family: in the order chosen). `settings.js` sends `PUT /api/v1/me/avatar` with data URLs and swaps in the answer's `avatar_html`, so the script builds no avatar markup; a refusal shows the server's reason and leaves the avatar alone. The Members screen's card (`admin.rs::member_card`) draws the same avatar and, when there is one, `[data-act=clear-avatar]` (inline confirm, `DELETE /api/v1/members/{handle}/avatar`).
+
 <!-- ---- M3 (Hermes plan) ---- -->
 - **Not in embed mode:** an embed render's top bar has no Settings link (`ui::top_nav(…, embed)`), so an embedder never shows these pages (plan D1); `settings.js` keeps calling `fetch` / `EventSource` directly. The settings themselves still apply to embed renders (`WebPrefs::load`).
 <!-- ---- end M3 (Hermes plan) ---- -->
