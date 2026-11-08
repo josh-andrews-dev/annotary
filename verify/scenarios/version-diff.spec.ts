@@ -141,7 +141,7 @@ test('every real Document with more than one Version reads back as its newer Ver
       throw new Error(`${d.id}: the diff scrolls sideways by ${overflow}px at 390 (widest: ${JSON.stringify(widest)}); its Document page by ${docOverflow}px`);
     }
   }
-  test.info().annotations.push({ type: 'data', description: `${multi.length} Documents, ${pairs} pairs, largest ${largest} blocks` });
+  console.log(`version-diff data: ${multi.length} Documents with more than one Version, ${pairs} pairs, largest ${largest} blocks`);
   expect(pairs).toBeGreaterThan(0);
   expect(errors, 'no script error').toEqual([]);
 });
