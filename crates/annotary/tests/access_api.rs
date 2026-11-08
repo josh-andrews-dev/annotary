@@ -242,6 +242,27 @@ fn endpoints() -> Vec<Endpoint> {
             )
         }),
         // ---- end CMD-23 ----
+        // ---- Member avatars: your own for everyone, another's (clear) for owners ----
+        ep("PUT me/avatar", Need::Any, move |ts, c, _| {
+            let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><title>{}</title></svg>", c.handle);
+            let body = json!({ "image": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, svg) });
+            send(ts, "PUT", "/api/v1/me/avatar", tok(c).as_deref(), Some(&body))
+        }),
+        ep("DELETE me/avatar", Need::Any, move |ts, c, _| {
+            send(ts, "DELETE", "/api/v1/me/avatar", tok(c).as_deref(), None)
+        }),
+        ep("DELETE members/{h}/avatar (other)", Need::Owner, move |ts, c, _| {
+            let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+            let (id, _) = ts.add_member(&format!("face{n}"));
+            ts.store.set_avatar(&id, &id, b"<svg xmlns=\"http://www.w3.org/2000/svg\"/>", None).unwrap();
+            send(ts, "DELETE", &format!("/api/v1/members/face{n}/avatar"), tok(c).as_deref(), None)
+        }),
+        ep("GET /avatars/{hash}", Need::Any, move |ts, c, _| {
+            let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\"><title>served {}</title></svg>", c.handle);
+            let (m, _) = ts.store.set_avatar(&ts.owner_id, &ts.owner_id, svg.as_bytes(), None).unwrap();
+            send(ts, "GET", &format!("/avatars/{}", m.avatar.unwrap().hash), tok(c).as_deref(), None)
+        }),
+        // ---- end Member avatars ----
         ep("GET vaults", Need::Any, move |ts, c, _| send(ts, "GET", "/api/v1/vaults", tok(c).as_deref(), None)),
         ep("GET members/{h}", Need::Any, move |ts, c, _| {
             send(ts, "GET", "/api/v1/members/rowan", tok(c).as_deref(), None)
@@ -671,7 +692,7 @@ fn expected(need: Need, c: &Caller, vault: &str) -> Expect {
     if ok { Expect::Ok } else { Expect::Forbidden }
 }
 
-// spec: S06-01, S06-02, S06-03, S06-11, S06-14, S06-15, S16-01, S18-08, S29-15
+// spec: S06-01, S06-02, S06-03, S06-11, S06-14, S06-15, S16-01, S18-08, S29-15, S41-04, S41-05
 #[test]
 fn rights_matrix_every_endpoint_times_every_caller() {
     let ts = TestServer::start();
@@ -1373,4 +1394,32 @@ fn browser_sessions_loopback_trust_iff_no_password_login_page_and_logout() {
     let (status, _, _) =
         raw_get(&format!("{}/a/{hash}", ts.url), &[("Accept", "image/avif,image/webp,*/*"), ("Cookie", &s3)]);
     assert_eq!(status, 200);
+}
+
+// spec: S06-16
+#[test]
+fn web_logout_waits_for_its_body_before_redirecting() {
+    use std::io::{Read, Write};
+    let ts = TestServer::start();
+    let addr = ts.url.trim_start_matches("http://").to_string();
+    let mut sock = std::net::TcpStream::connect(&addr).unwrap();
+    write!(
+        sock,
+        "POST /logout HTTP/1.1\r\nHost: {addr}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n",
+        ts.owner_token
+    )
+    .unwrap();
+    sock.flush().unwrap();
+    sock.set_read_timeout(Some(std::time::Duration::from_millis(400))).unwrap();
+    let mut buf = [0u8; 2048];
+    let early = sock.read(&mut buf);
+    assert!(
+        early.is_err(),
+        "answered before the body arrived: {:?}",
+        early.map(|n| String::from_utf8_lossy(&buf[..n]).into_owned())
+    );
+    sock.write_all(b"{}").unwrap();
+    sock.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+    let n = sock.read(&mut buf).unwrap();
+    assert!(String::from_utf8_lossy(&buf[..n]).starts_with("HTTP/1.1 303"), "{}", String::from_utf8_lossy(&buf[..n]));
 }

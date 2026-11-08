@@ -180,6 +180,9 @@ panels; cards use `--cd-shadow`, a selected card `--cd-shadow-pop` under its rin
 - **Mentions (`.cd-mention`):** a resolved `@handle` in a Comment body (server markup,
   `ui::mention_spans`, never in code or links) is a tag in `--cd-sel-bg` / `--cd-sel-ink`; "@you" in
   the status and the list is the same tag, fully rounded.
+- **Avatars (`.cd-av`):** 28 px round, before the author's name on every Comment (64 px in Settings); an `<img>` in a
+  `<picture>` with a still for reduced motion, or a monogram: the name's first letter, 13px 600 white, on one of eight
+  fixed colors (`.cd-av-h0` to `-h7`) the handle picks, the same in both themes. Decorative: the name is beside it.
 - **Banners (`.cd-banner`):** full width under the header, 13px: the older-Version banner in the
   note colors, the new-Version banner (`.cd-newver`) in the info colors, each with one button.
 - **Errors:** inline `.cd-err` (err colors, 8px radius) inside the card or form that failed; the

@@ -1,0 +1,91 @@
+spec: S41-06
+
+`avatar set | clear | show` for @scribe (profile `agent`), left without an avatar at the end. Text
+is `@handle TYPE SIZE STATIC`, `@handle none` without one, `@handle cleared` after a clear. An
+unchanged set or a clear of nothing is a note and exit 0. Every exit path: 1 (a file that cannot be
+read, a refused image), 2 (unknown Member), 3 (no credential), 4 (another Member's, not an owner), 5
+(over the cap), 6 (unreachable). Merged stdout+stderr.
+
+```console
+$ annotary -p agent avatar show
+@scribe	none
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p agent avatar
+@scribe  none
+
+$ annotary -p agent avatar set scribe.svg --static scribe.png
+@scribe	image/svg+xml	2 KB	image/png
+
+$ annotary -p agent avatar set scribe.svg --static scribe.png
+@scribe's avatar is unchanged
+@scribe	image/svg+xml	2 KB	image/png
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p agent avatar show
+@scribe  image/svg+xml  2 KB  image/png
+
+$ annotary -p rowan avatar show @scribe --json handle,type,static_type
+{"handle":"scribe","type":"image/svg+xml","static_type":"image/png"}
+
+$ annotary -p agent avatar set linter.svg --json handle,type,changed
+{"handle":"scribe","type":"image/svg+xml","changed":true}
+
+$ annotary -p agent avatar show
+@scribe	image/svg+xml	2 KB	-
+
+$ annotary -p agent avatar set missing.png
+? 1
+error: cannot read missing.png: No such file or directory (os error 2)
+
+$ annotary -p agent avatar set evil.svg
+? 1
+error: the avatar: the <script> element is not allowed — an avatar is a PNG, JPEG, GIF, WebP or a plain SVG (shapes, gradients, CSS animation; no scripts, links or outside files)
+
+$ annotary -p agent avatar set scribe.svg --static scribe.svg
+? 1
+error: the static avatar: the static fallback must be a PNG, JPEG or WebP (an SVG or GIF may move) — an avatar is a PNG, JPEG, GIF, WebP or a plain SVG (shapes, gradients, CSS animation; no scripts, links or outside files)
+
+$ sh big.sh
+
+$ annotary -p agent avatar set big.png
+? 5
+error: big.png is 293 KB — the cap is 256 KB — avatars: an image up to 256 KB (an SVG up to 64 KB), a static fallback up to 256 KB
+
+$ annotary -p limited avatar clear --member scribe
+? 4
+error: clearing another Member's avatar is owner-only — ask an owner (`annotary member list` shows who)
+
+$ annotary -p rowan avatar clear --member nobody
+? 2
+error: no Member @nobody — `annotary member list` shows who
+
+$ annotary -p rowan avatar show nobody
+? 2
+error: no Member @nobody — `annotary member list` shows who
+
+$ annotary avatar show
+? 3
+error: no credential — say who you are: pass -p NAME (`annotary profile list` shows whose each one is), or set ANNOTARY_TOKEN
+profiles in ~/.annotary/config.toml: agent, down, limited, pw, rowan
+
+$ annotary -p down avatar show
+? 6
+error: server at http://127.0.0.1:1 not reachable — run `annotary serve` or `annotary daemon install`
+
+$ annotary -p rowan avatar clear --member @scribe --json
+{"handle":"scribe","changed":true}
+
+$ annotary -p agent avatar clear
+@scribe had no avatar
+@scribe	none
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p agent avatar set scribe.svg
+@scribe  image/svg+xml  2 KB  -
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p agent avatar clear
+@scribe  cleared
+
+$ annotary -p agent avatar clear --json
+@scribe had no avatar
+{"handle":"scribe"}
+
+```

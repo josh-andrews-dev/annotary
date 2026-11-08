@@ -83,6 +83,11 @@ button.cd-seg-one:hover{background:var(--cd-soft,#f6f7f9)}
 .cd-set-select:focus,.cd-set-text:focus{outline:0;border-color:var(--cd-accent,#2563eb)}
 .cd-set-reset{display:inline-block;margin-top:6px;border:0;background:none;padding:0;font-size:12px;color:var(--cd-accent,#2563eb)}
 /* saving / failed / changed elsewhere (round 2, frame 10) */
+/* Member avatars: Profile's preview and buttons. */
+.cd-set-avrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#cd-set-avpreview{display:inline-flex}
+#cd-set-avpreview .cd-av{width:64px;height:64px;font-size:28px}
+.cd-set-avhelp{font-size:12px;color:var(--cd-muted,#6b6f76);margin:8px 0 0}
 .cd-set-state{font-size:12px;color:var(--cd-muted,#6b6f76);margin-top:6px}
 .cd-set-state:empty{display:none}
 .cd-set-state.cd-set-err{display:inline-block;color:var(--cd-err,#9f1239);background:var(--cd-err-bg,#fff1f2);border:1px solid var(--cd-err-line,#fecdd3);border-radius:8px;padding:4px 8px;margin-top:8px}

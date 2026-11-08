@@ -32,7 +32,8 @@ export async function openDoc(page: Page, id: string, width = 1280) {
   await page.waitForSelector('.cd-app.cd-ready');
 }
 
-/** Save a screenshot for the pull request (VERIFY_OUT/<name>.png). */
+/** Save a screenshot to look at (VERIFY_OUT/<name>.png). It shows real Document text and the
+ * server's name, and this repo is public: a pull request's image comes from a private test server. */
 export async function shot(page: Page, name: string) {
   await page.screenshot({ path: path.join(OUT, `${name}.png`) });
 }

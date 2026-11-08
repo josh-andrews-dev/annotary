@@ -647,6 +647,50 @@
     });
   }
 
+  /* ---------- Profile: your avatar. One file is the avatar; of two, the SVG or GIF is the avatar
+     and the other its still image (two of the same family: in the order chosen). The server
+     checks every byte and answers with the preview's markup (`avatar_html`). ---------- */
+  var avRow = document.getElementById('cd-set-avatar');
+  if (avRow) {
+    var avFile = document.getElementById('cd-set-avfile');
+    var avClear = document.getElementById('cd-set-avclear');
+    var avShow = function (j) {
+      document.getElementById('cd-set-avpreview').innerHTML = j.avatar_html;
+      avClear.hidden = !j.avatar;
+    };
+    var moves = function (f) { return /\.(svg|gif)$/i.test(f.name) || /svg|gif/.test(f.type); };
+    var dataUrl = function (f) {
+      return new Promise(function (ok, no) {
+        var r = new FileReader();
+        r.onload = function () { ok(r.result); };
+        r.onerror = function () { no(new Error('read')); };
+        r.readAsDataURL(f);
+      });
+    };
+    document.getElementById('cd-set-avpick').addEventListener('click', function () { avFile.value = ''; avFile.click(); });
+    avFile.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(avFile.files);
+      if (!files.length) return;
+      if (files.length > 2) { setState(avRow, 'Choose one image, or an image and its still.', true); return; }
+      if (files.some(function (f) { return f.size > 256 * 1024; })) { setState(avRow, 'That file is over 256 KB.', true); return; }
+      if (files.length === 2 && moves(files[1]) && !moves(files[0])) files.reverse();
+      setState(avRow, 'Saving…');
+      Promise.all(files.map(dataUrl)).then(function (urls) {
+        return api('PUT', '/api/v1/me/avatar', urls[1] ? { image: urls[0], static: urls[1] } : { image: urls[0] });
+      }).then(function (r) {
+        if (r.ok && r.json) { avShow(r.json); setState(avRow, ''); }
+        else setState(avRow, r.status === 0 ? failText(r) : r.error, true);
+      }, function () { setState(avRow, 'That file couldn’t be read.', true); });
+    });
+    avClear.addEventListener('click', function () {
+      setState(avRow, 'Saving…');
+      api('DELETE', '/api/v1/me/avatar').then(function (r) {
+        if (r.ok && r.json) { avShow(r.json); setState(avRow, ''); }
+        else setState(avRow, failText(r), true);
+      });
+    });
+  }
+
   /* ---------- Devices: Rename (inline) and Forget (inline yes / no), iOS Devices only ---------- */
   var devlist = document.getElementById('cd-devlist');
   if (devlist) {

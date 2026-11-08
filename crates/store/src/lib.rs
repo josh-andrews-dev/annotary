@@ -24,6 +24,8 @@ pub mod actions;
 pub mod anchors;
 // ---- end ticket 07 ----
 pub mod assets;
+// Member avatars: the image check (SVG allowlist, raster sniffing) and set / clear.
+pub mod avatar;
 // ---- ticket 13 ----
 pub mod backup;
 // ---- end ticket 13 ----

@@ -118,10 +118,9 @@ test('a long Document name does not make the list scroll sideways on a phone', a
 });
 
 // spec: S42-09
-test('the avatar slot sizes a monogram or a picture and leaves its color alone', async ({ page }) => {
+test('an avatar in a card is 28 px round and keeps its own color', async ({ page }) => {
   const id = seedThread('fresh-avatar');
   await openDoc(page, id);
-  await page.addStyleTag({ content: '.cd-av-h0{background:rgb(179,64,42);color:#fff}' });
   const got = await page.evaluate(() => {
     const who = document.querySelector('.cd-thread[data-t="t1"] .cd-who')!;
     const read = (el: HTMLElement) => {

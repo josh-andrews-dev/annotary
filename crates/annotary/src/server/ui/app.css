@@ -385,10 +385,6 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
   .cd-docname,.cd-title{overflow-wrap:anywhere}
 }
 
-/* ---------- the avatar slot: a round avatar before the author's name. Size and shape only, at the
-   specificity of one class: an avatar's own class decides its background. ---------- */
-:where(.cd-who)>.cd-av{width:28px;height:28px;border-radius:50%;flex:none;overflow:hidden}
-
 /* ---------- motion: only what says where a thing came from (DESIGN.md, Motion). Nothing moves
    position, so CLS stays 0; under prefers-reduced-motion everything here is off. ---------- */
 @keyframes cd-tie{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
@@ -423,6 +419,13 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
 .cd-simple{max-width:36rem;margin:4rem auto;padding:0 1rem}
 .cd-simple h1{font-size:1.4em}
 .cd-simple .cd-err{color:var(--cd-err-strong)}
+
+/* ---------- Member avatars (`ui.rs`, `avatar_html`): 28 px round, an image or a monogram ---------- */
+.cd-av{display:inline-flex;flex:none;align-self:center;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;overflow:hidden;font-size:13px;font-weight:600;line-height:1;color:#fff;background:var(--cd-soft);user-select:none}
+.cd-av-pic,.cd-av-pic img{display:block;width:100%;height:100%}
+.cd-av-pic img{object-fit:cover}
+.cd-av-h0{background:#b3402a}.cd-av-h1{background:#8f5600}.cd-av-h2{background:#587000}.cd-av-h3{background:#1f7a4d}
+.cd-av-h4{background:#0f7480}.cd-av-h5{background:#2f6bc0}.cd-av-h6{background:#6a4fc4}.cd-av-h7{background:#b0357f}
 
 /* ---------- M3: embed mode (`.cd-embed`, embed.rs) ---------- */
 /* Media come through the embedder: an image waits on a soft ground until its blob arrives, and
