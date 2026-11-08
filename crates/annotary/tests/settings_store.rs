@@ -48,7 +48,6 @@ fn events_of(store: &Store, kind: &str) -> Vec<Value> {
 // spec: S29-01
 #[test]
 fn a_v4_store_migrates_with_its_data_and_web_devices() {
-    use annotary_store::migrations::MIGRATIONS;
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("store");
     // A v4 store as the previous binary left it: a Member with a session, a Document, a Thread.
