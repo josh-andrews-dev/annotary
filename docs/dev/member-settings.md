@@ -81,8 +81,12 @@ A Member's picture beside their name. The page side is in [web-document-view.md]
 - **The SVG check refuses and never rewrites**, so what is served is what was sent. It reads XML events (quick-xml: no
   DTD, no entity expansion). Allowed: the elements `SVG_ELEMENTS`; the attributes `SVG_ATTRIBUTES` on any of them; `href` /
   `xlink:href` only to `#id`; `url()` only to `#id`; CSS at-rules `@keyframes` / `@media`; the functions `CSS_FUNCTIONS`.
-  CSS comments are removed before the checks and backslash escapes are refused, so neither can hide a word; character
-  references in a `<style>` are resolved before the CSS is read. Also refused: a DOCTYPE, an unknown entity, a processing
+  **Avatar CSS has no comments, quotes or backslashes at all** (`check_no_delimiters`, first, on every `<style>`, style
+  attribute and presentation value; nothing is stripped): without them a browser and this check cannot split the CSS
+  into different tokens. Do not add a stripper or a tokenizer to accept them. `url()` is exactly `url(#id)` (ASCII, no
+  spaces), and every `(` must directly follow an allowed function's name; only a media query has bare ones, and
+  `check_media` keeps it to words, numbers, `:` `,` `-` `.`. Character references in a `<style>` are resolved before the
+  CSS is read. `aria-label` is text, not CSS. Also refused: a DOCTYPE, an unknown entity, a processing
   instruction, CDATA outside `<style>`, text outside `<style>` / `<title>`, a nested `<svg>`, a root without
   `xmlns="http://www.w3.org/2000/svg"`, XML other than 1.0 in UTF-8, more than 32 levels or 4000 elements. To allow
   something new, add it to a list in `avatar.rs` with a malicious-sample test beside it.
@@ -97,4 +101,4 @@ A Member's picture beside their name. The page side is in [web-document-view.md]
   serves only a hash in `member_avatars`, so it cannot be used to read any other blob.
 - **Tests:** `avatar.rs` unit tests (S41-01, S41-02), `tests/avatars_api.rs` (S41-03…05, S41-07), the avatar rows in
   `tests/access_api.rs`, `tests/e2e/88-avatars/` (S41-06), `tests/web/avatars.spec.ts` (S41-08, S41-10), the avatar test in
-  `tests/web/embed.spec.ts` (S41-09). Fixtures: `fixtures/avatars/` (`make.py` draws the PNGs).
+  `tests/web/embed.spec.ts` (S41-09). Fixtures: `fixtures/avatars/` (`make.py` draws the PNGs; `hermes-*.svg` are the plugin's real output, which the check must keep accepting).

@@ -9,7 +9,9 @@
 //! DTD, no entity expansion) and refused with a reason at the first thing off the allowlist —
 //! elements [`SVG_ELEMENTS`], attributes [`SVG_ATTRIBUTES`], `href` only to `#fragment`, CSS in
 //! `<style>` and `style=""` with at-rules [`CSS_AT_RULES`] and functions [`CSS_FUNCTIONS`] only and
-//! `url()` only to `#fragment`. What is stored is exactly what was sent. Pages show avatars only
+//! `url()` exactly `url(#id)`. Avatar CSS has no comments, strings or escapes at all: without them
+//! a browser and this check cannot split it into different tokens (a stripper or a tokenizer here
+//! would have to match the browser's exactly). What is stored is exactly what was sent. Pages show avatars only
 //! through `<img>` (no script runs there) and `/avatars/{hash}` serves them with a CSP that blocks
 //! scripts and outside loads, so the check is the second wall, not the only one.
 
@@ -83,6 +85,7 @@ pub const SVG_ATTRIBUTES: &[&str] = &[
     "clip-rule",
     "display",
     "visibility",
+    "overflow",
     "color",
     "vector-effect",
     "shape-rendering",
@@ -412,7 +415,7 @@ pub fn check_svg(bytes: &[u8]) -> std::result::Result<(), Refusal> {
             }
             Event::End(_) => {
                 if stack.last().map(String::as_str) == Some("style") {
-                    check_css(&style_text, CssPlace::Sheet)?;
+                    check_css(&style_text, CssPlace::Sheet, "<style>")?;
                     style_text.clear();
                 }
                 stack.pop();
@@ -496,11 +499,11 @@ fn check_attributes(e: &quick_xml::events::BytesStart<'_>, root: bool) -> std::r
             "href" | "xlink:href" if !is_fragment(value.trim()) => {
                 return Err(Refusal::invalid(format!("{key} may point only inside the SVG (#id), not {value:?}")));
             }
-            "style" => check_css(value, CssPlace::Declarations)?,
+            "style" => check_css(value, CssPlace::Declarations, "the style attribute")?,
             "type" if !value.trim().eq_ignore_ascii_case("text/css") => {
                 return Err(Refusal::invalid("<style type> must be text/css"));
             }
-            "media" => check_css(value, CssPlace::Declarations)?,
+            "media" => check_css(value, CssPlace::Media, "the media attribute")?,
             // Words for a screen reader, never parsed as a reference or CSS.
             "aria-label" => {}
             _ => check_value(key, value)?,
@@ -520,100 +523,152 @@ fn is_fragment(v: &str) -> bool {
         && chars.all(|c| c.is_alphanumeric() || matches!(c, '_' | '-' | '.' | ':'))
 }
 
-/// A presentation value: no scheme that could run or load, and `url()` only to `#fragment`.
-fn check_value(key: &str, value: &str) -> std::result::Result<(), Refusal> {
-    let compact: String = value.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_ascii_lowercase();
+/// Refuse what could make a CSS reader see tokens this check does not: comments, strings and
+/// escapes. Nothing is stripped or modeled, so the CSS left has no construct a browser and this
+/// check could split differently. Runs first on every style and presentation value.
+fn check_no_delimiters(css: &str, found: &str) -> std::result::Result<(), Refusal> {
+    if css.contains('\\') {
+        return Err(Refusal::invalid(format!(
+            "CSS escapes (backslashes) aren't allowed in avatars (found in {found})"
+        )));
+    }
+    if css.contains("/*") {
+        return Err(Refusal::invalid(format!(
+            "CSS comments aren't allowed in avatars (found in {found}); remove the /* … */"
+        )));
+    }
+    if css.contains(['"', '\'']) {
+        return Err(Refusal::invalid(format!(
+            "quotes aren't allowed in avatar CSS (found in {found}); url() takes url(#id), with no quotes"
+        )));
+    }
+    Ok(())
+}
+
+fn check_schemes(what: &str, lower: &str) -> std::result::Result<(), Refusal> {
+    let compact: String = lower.chars().filter(|c| !c.is_whitespace()).collect();
     for scheme in ["javascript:", "vbscript:", "data:"] {
         if compact.contains(scheme) {
-            return Err(Refusal::invalid(format!("the {key} value names {scheme}")));
+            return Err(Refusal::invalid(format!("{what} names {scheme}")));
         }
     }
-    if value.contains('\\') {
-        return Err(Refusal::invalid(format!("the {key} value has a backslash escape")));
-    }
-    check_functions(value)
+    Ok(())
+}
+
+/// A presentation value: no comment, string or escape, no scheme that could run or load, and
+/// every `(` an allowed function's.
+fn check_value(key: &str, value: &str) -> std::result::Result<(), Refusal> {
+    check_no_delimiters(value, &format!("the {key} attribute"))?;
+    let lower = value.to_ascii_lowercase();
+    check_schemes(&format!("the {key} value"), &lower)?;
+    check_functions(&lower)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CssPlace {
     /// A `<style>` sheet: rules, `@keyframes`, `@media`.
     Sheet,
-    /// A `style=""` attribute or a `media=""` query: no at-rules at all.
+    /// A `style=""` attribute: declarations, no at-rules at all.
     Declarations,
+    /// A `media=""` attribute: one media query.
+    Media,
 }
 
-/// The CSS of a `<style>` or a `style=""`: comments removed first (so a comment cannot split a
-/// word the checks look for), then no backslash escape, no at-rule but [`CSS_AT_RULES`] (none in
-/// an attribute), and only [`CSS_FUNCTIONS`] with `url()` to `#fragment`.
-fn check_css(css: &str, place: CssPlace) -> std::result::Result<(), Refusal> {
-    let mut text = String::with_capacity(css.len());
-    let mut rest = css;
-    while let Some(at) = rest.find("/*") {
-        text.push_str(&rest[..at]);
-        match rest[at + 2..].find("*/") {
-            Some(end) => rest = &rest[at + 2 + end + 2..],
-            None => return Err(Refusal::invalid("a CSS comment is not closed")),
+/// The CSS of a `<style>`, a `style=""` or a `media=""`: no comment, string or escape, no at-rule
+/// but [`CSS_AT_RULES`] (none in an attribute), and only [`CSS_FUNCTIONS`], with `url()` exactly
+/// `url(#id)`. An `@media` query is checked as its own small language ([`check_media`]).
+fn check_css(css: &str, place: CssPlace, found: &str) -> std::result::Result<(), Refusal> {
+    check_no_delimiters(css, found)?;
+    let lower = css.to_ascii_lowercase();
+    check_schemes("the CSS", &lower)?;
+    if place == CssPlace::Media {
+        return check_media(&lower);
+    }
+    // What the function check reads: everything but the media queries, which have bare parentheses.
+    let mut outside = String::with_capacity(lower.len());
+    let (mut scan, mut copied) = (0, 0);
+    while let Some(off) = lower[scan..].find('@') {
+        let at = scan + off;
+        let name: String =
+            lower[at + 1..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').collect();
+        if place == CssPlace::Declarations || !CSS_AT_RULES.contains(&name.as_str()) {
+            return Err(Refusal::invalid(format!("the CSS rule @{name} is not allowed")));
+        }
+        let after = at + 1 + name.len();
+        scan = after;
+        if name == "media" {
+            let end = lower[after..]
+                .find('{')
+                .map(|e| after + e)
+                .ok_or_else(|| Refusal::invalid("a media query has no { after it"))?;
+            check_media(&lower[after..end])?;
+            outside.push_str(&lower[copied..after]);
+            copied = end;
+            scan = end;
         }
     }
-    text.push_str(rest);
-    if text.contains('\\') {
-        return Err(Refusal::invalid("CSS escapes (backslashes) are not allowed"));
-    }
-    let lower = text.to_ascii_lowercase();
-    for scheme in ["javascript:", "vbscript:", "data:"] {
-        if lower.chars().filter(|c| !c.is_whitespace()).collect::<String>().contains(scheme) {
-            return Err(Refusal::invalid(format!("the CSS names {scheme}")));
-        }
-    }
-    let bytes = lower.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'@' {
-            let name: String =
-                lower[i + 1..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').collect();
-            if place == CssPlace::Declarations || !CSS_AT_RULES.contains(&name.as_str()) {
-                return Err(Refusal::invalid(format!("the CSS rule @{name} is not allowed")));
-            }
-            i += 1 + name.len();
-        } else {
-            i += 1;
-        }
-    }
-    check_functions(&text)
+    outside.push_str(&lower[copied..]);
+    check_functions(&outside)
 }
 
-/// Every `name(` in `text` must be in [`CSS_FUNCTIONS`], and every `url(…)` a `#fragment`.
-fn check_functions(text: &str) -> std::result::Result<(), Refusal> {
-    let lower = text.to_ascii_lowercase();
-    let mut search = 0;
-    while let Some(off) = lower[search..].find('(') {
-        let open = search + off;
-        let name: String = lower[..open]
-            .chars()
-            .rev()
-            .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
-        if !name.is_empty() && !CSS_FUNCTIONS.contains(&name.as_str()) {
+/// A media query: words, numbers, `:` `,` `-` `.` and parentheses that follow nothing but space
+/// or another `(`, so no function can ride in one and it cannot run on into another rule.
+fn check_media(lower: &str) -> std::result::Result<(), Refusal> {
+    for (open, _) in lower.match_indices('(') {
+        let name = name_before(&lower[..open]);
+        if !name.is_empty() {
+            return Err(Refusal::invalid(format!("the CSS function {name}() is not allowed in a media query")));
+        }
+    }
+    if let Some(c) = lower.chars().find(|c| !(c.is_ascii_alphanumeric() || c.is_whitespace() || ":(),-.".contains(*c)))
+    {
+        return Err(Refusal::invalid(format!("a media query may not contain {c:?}")));
+    }
+    Ok(())
+}
+
+/// The identifier that ends `before` (any non-ASCII character counts as part of it, as in CSS).
+fn name_before(before: &str) -> String {
+    let mut name: Vec<char> = before
+        .chars()
+        .rev()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_' || !c.is_ascii())
+        .collect();
+    name.reverse();
+    name.into_iter().collect()
+}
+
+/// `#id` as `url()` may name it: ASCII, lowercased by the caller.
+fn is_css_fragment(v: &str) -> bool {
+    let Some(id) = v.strip_prefix('#') else { return false };
+    let mut chars = id.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_lowercase() || c == '_')
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '_' | '-'))
+}
+
+/// Every `(` in `lower` must directly follow a name in [`CSS_FUNCTIONS`] (a bare one is refused,
+/// whatever precedes it), and every `url(…)` must be exactly `url(#id)`.
+fn check_functions(lower: &str) -> std::result::Result<(), Refusal> {
+    for (open, _) in lower.match_indices('(') {
+        let name = name_before(&lower[..open]);
+        if name.is_empty() {
+            return Err(Refusal::invalid(
+                "a bare ( is allowed only in a media query; it must directly follow an allowed CSS function's name",
+            ));
+        }
+        if !CSS_FUNCTIONS.contains(&name.as_str()) {
             return Err(Refusal::invalid(format!("the CSS function {name}() is not allowed")));
         }
         if name == "url" {
             let close =
-                lower[open..].find(')').map(|c| open + c).ok_or_else(|| Refusal::invalid("a url( is not closed"))?;
-            let inner = text[open + 1..close].trim();
-            let inner = inner
-                .strip_prefix('"')
-                .and_then(|s| s.strip_suffix('"'))
-                .or_else(|| inner.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
-                .unwrap_or(inner)
-                .trim();
-            if !is_fragment(inner) {
-                return Err(Refusal::invalid(format!("url() may point only inside the SVG (#id), not {inner:?}")));
+                lower[open..].find(')').map(|c| open + c).ok_or_else(|| Refusal::invalid("url() is not closed"))?;
+            let inner = &lower[open + 1..close];
+            if !is_css_fragment(inner) {
+                return Err(Refusal::invalid(format!(
+                    "url() may point only inside the SVG, written url(#id) with no spaces, not {inner:?}"
+                )));
             }
         }
-        search = open + 1;
     }
     Ok(())
 }
@@ -864,7 +919,8 @@ mod tests {
         assert!(refused(&grad("xmlns:evil=\"https://example.com/ns\"")).contains("xmlns:evil"));
         assert!(refused(&wrap("<rect fill=\"url(https://example.com/x.svg#a)\"/>")).contains("url()"));
         assert!(refused(&wrap("<rect fill=\"javascript:alert(1)\"/>")).contains("javascript:"));
-        assert!(refused(&wrap("<rect style=\"fill:url('http://example.com/a.svg#x')\"/>")).contains("url()"));
+        assert!(refused(&wrap("<rect style=\"fill:url('http://example.com/a.svg#x')\"/>")).contains("quotes"));
+        assert!(refused(&wrap("<rect style=\"fill:url(http://example.com/a.svg#x)\"/>")).contains("url()"));
         assert!(refused("<svg viewBox=\"0 0 1 1\"/>").contains("needs xmlns"));
         assert!(refused("<svg xmlns=\"http://www.w3.org/1999/xhtml\"/>").contains("xmlns must be"));
         assert!(refused("<g xmlns=\"http://www.w3.org/2000/svg\"/>").contains("root element must be <svg>"));
@@ -875,21 +931,25 @@ mod tests {
     fn css_that_loads_or_escapes_is_refused() {
         let style = |css: &str| wrap(&format!("<style>{css}</style>"));
         assert!(refused(&style("@import url(https://example.com/x.css);")).contains("@import"));
-        assert!(refused(&style("@import 'x.css';")).contains("@import"));
+        assert!(refused(&style("@import 'x.css';")).contains("quotes"));
+        assert!(refused(&style("@import x.css;")).contains("@import"));
         assert!(refused(&style("@font-face { font-family: x; src: url(#f) }")).contains("@font-face"));
         assert!(refused(&style("@namespace svg url(#x);")).contains("@namespace"));
         assert!(refused(&style(".a { fill: url(http://example.com/a.svg#x) }")).contains("url()"));
-        assert!(refused(&style(".a { fill: url( \"//example.com/a\" ) }")).contains("url()"));
-        assert!(refused(&style(".a { background: image-set('x.png' 1x) }")).contains("image-set()"));
+        assert!(refused(&style(".a { fill: url( \"//example.com/a\" ) }")).contains("quotes"));
+        assert!(refused(&style(".a { background: image-set('x.png' 1x) }")).contains("quotes"));
+        assert!(refused(&style(".a { background: image-set(x.png 1x) }")).contains("image-set()"));
         assert!(refused(&style(".a { width: expression(alert(1)) }")).contains("expression()"));
         assert!(refused(&style(".a { fill: u\\72l(http://example.com) }")).contains("escape"));
         assert!(refused(&style("@\\69mport 'x';")).contains("escape"));
-        assert!(refused(&style("@im/**/port 'x';")).contains("@import"));
-        assert!(refused(&style(".a { fill: ur/**/l(http://example.com/x) }")).contains("url()"));
-        assert!(refused(&style("/* never closed")).contains("not closed"));
+        assert!(refused(&style("@im/**/port 'x';")).contains("comments"));
+        assert!(refused(&style(".a { fill: ur/**/l(http://example.com/x) }")).contains("comments"));
+        assert!(refused(&style("/* never closed")).contains("comments"));
         // An entity or char ref cannot hide an at-rule from the check: they are resolved first.
-        assert!(refused(&style("&#64;import 'x.css';")).contains("@import"));
-        assert!(refused(&wrap("<rect style=\"@import 'x'\"/>")).contains("@import"));
+        assert!(refused(&style("&#64;import 'x.css';")).contains("quotes"));
+        assert!(refused(&style("&#64;import x.css;")).contains("@import"));
+        assert!(refused(&wrap("<rect style=\"@import 'x'\"/>")).contains("quotes"));
+        assert!(refused(&wrap("<rect style=\"@import x\"/>")).contains("@import"));
         assert!(refused(&wrap("<style media=\"screen and (min-width: url(http://x))\"/>")).contains("url()"));
         assert!(refused(&wrap("<style type=\"text/javascript\">x</style>")).contains("text/css"));
         // The reduced-motion rule and keyframes stay allowed.
@@ -945,6 +1005,105 @@ mod tests {
         let big = wrap(&format!("<title>{}</title>", "x".repeat(SVG_MAX as usize)));
         assert_eq!(check_svg(big.as_bytes()), Err(Refusal::TooLarge { size: big.len() as u64, max: SVG_MAX }));
         assert_eq!(check_image(big.as_bytes()), Err(Refusal::TooLarge { size: big.len() as u64, max: SVG_MAX }));
+    }
+
+    // spec: S41-01
+    #[test]
+    fn the_real_hermes_faces_pass() {
+        for (name, svg) in [
+            ("idle", include_str!("../../../fixtures/avatars/hermes-scribe.svg")),
+            ("think", include_str!("../../../fixtures/avatars/hermes-scribe.think.svg")),
+            ("work", include_str!("../../../fixtures/avatars/hermes-scribe.work.svg")),
+            ("squircle, hex color", include_str!("../../../fixtures/avatars/hermes-default.svg")),
+            ("cloud", include_str!("../../../fixtures/avatars/hermes-cirrus.think.svg")),
+        ] {
+            assert_eq!(check_svg(svg.as_bytes()), Ok(()), "{name}");
+            assert_eq!(check_image(svg.as_bytes()), Ok(Kind::Svg), "{name}");
+        }
+    }
+
+    // spec: S41-01
+    #[test]
+    fn a_browser_and_the_check_cannot_read_the_css_differently() {
+        let style = |css: &str| wrap(&format!("<style>{css}</style>"));
+        let attr = |v: &str| wrap(&format!("<rect fill=\"{v}\"/>"));
+        // A quoted delimiter would hide what sits between two strings from a comment stripper.
+        let quoted = r#".a{--a:"/*"} @import "https://example.com/x.css"; .b{background:url("https://example.com/x.png");--b:"*/"}"#;
+        assert!(refused(&style(quoted)).contains("comments"));
+        // Inside an unquoted url( a /* is URL text, and the token closes at the first ).
+        let unquoted = r#".a{fill:url(#a/*)} .b{background:image-set("https://example.com/x.png" 1x);fill:url(*/)}"#;
+        assert!(refused(&style(unquoted)).contains("comments"));
+        for v in ["java/**/script:alert(1)", "data/**/:image/png;base64,a", "url/**/(https://example.com/x)"] {
+            assert!(refused(&attr(v)).contains("comments"), "{v}");
+        }
+        // Each delimiter is refused alone, however it is spelled, and the reason says what to do.
+        assert_eq!(
+            refused(&style(".a{fill:red}/* brand */")),
+            "CSS comments aren't allowed in avatars (found in <style>); remove the /* … */"
+        );
+        assert_eq!(
+            refused(&attr("/*x*/red")),
+            "CSS comments aren't allowed in avatars (found in the fill attribute); remove the /* … */"
+        );
+        assert_eq!(
+            refused(&style(".a{--x:'y'}")),
+            "quotes aren't allowed in avatar CSS (found in <style>); url() takes url(#id), with no quotes"
+        );
+        assert!(refused(&style(".a{--x:\"y\"}")).contains("quotes"));
+        assert!(refused(&attr("&quot;x&quot;")).contains("quotes"));
+        assert!(refused(&attr("a&#39;b")).contains("quotes"));
+        assert!(refused(&style(".a{--x:&#34;y&#34;}")).contains("quotes"));
+        assert!(refused(&style("&#47;* x *&#47;")).contains("comments"));
+        assert!(refused(&style("/<!-- an XML comment is not CSS -->* x */")).contains("comments"));
+        assert!(refused(&style("<![CDATA[/* x */]]>")).contains("comments"));
+        assert!(refused(&style(".a{fill:u&#92;72l(#a)}")).contains("escape"));
+        assert!(refused(&attr("u\\72l(#a)")).contains("escape"));
+        assert!(refused(&wrap("<rect style=\"fill:red/*x*/\"/>")).contains("comments"));
+        assert!(refused(&wrap("<style media=\"/*x*/screen\"/>")).contains("comments"));
+
+        // A ( must follow an allowed function's name; only a media query has bare ones.
+        for v in ["/(x)", "*(x)", "(x)", "red (x)"] {
+            assert!(refused(&attr(v)).contains("bare ("), "{v}");
+        }
+        assert!(refused(&style(".a{width:calc((1px + 2px) * 2)}")).contains("bare ("));
+        assert!(refused(&style(".a{fill:url (#a)}")).contains("bare ("));
+        assert!(refused(&style(".a{fill:\u{e9}(#a)}")).contains("function"));
+
+        // url() is exactly url(#id).
+        for ok in ["url(#a)", "URL(#A-b_1)", "url(#_x)"] {
+            assert_eq!(check_svg(attr(ok).as_bytes()), Ok(()), "{ok}");
+            assert_eq!(check_svg(style(&format!(".a{{fill:{ok}}}")).as_bytes()), Ok(()), "{ok}");
+        }
+        for bad in ["url( #a )", "url(#)", "url(#1a)", "url(#a b)", "url(#a/b)", "url(#a.b)", "url(a)", "url()"] {
+            assert!(refused(&attr(bad)).contains("url()"), "{bad}");
+        }
+        assert!(refused(&attr("url(#a")).contains("url()"));
+
+        // Media queries: a small language of their own, and nothing else may ride in one.
+        for ok in [
+            "@media (prefers-reduced-motion:reduce){*{animation:none!important}}",
+            "@media(prefers-reduced-motion:reduce){*{animation:none}}",
+            "@media not screen and (min-width: 1.5px), print {.a{opacity:0}}",
+            "@MEDIA (MIN-WIDTH:1PX) {.a{fill:url(#a)}}",
+        ] {
+            assert_eq!(check_svg(style(ok).as_bytes()), Ok(()), "{ok}");
+        }
+        assert!(refused(&style("@media (x:url(#a)){.a{opacity:0}}")).contains("url()"));
+        assert!(refused(&style("@media foo(x){.a{opacity:0}}")).contains("foo()"));
+        assert!(refused(&style("@media x;@import y{.a{opacity:0}}")).contains("media query"));
+        assert!(refused(&style("@media (x:y)")).contains("media query"));
+        assert_eq!(check_svg(wrap("<style media=\"(prefers-reduced-motion:reduce)\"/>").as_bytes()), Ok(()));
+        assert!(refused(&wrap("<style media=\"@import x\"/>")).contains("media query"));
+
+        // Words for a screen reader are not CSS.
+        assert_eq!(check_svg(wrap("<g aria-label=\"it's /* 'Scribe' \\ (agent): call(me)\"/>").as_bytes()), Ok(()));
+    }
+
+    // spec: S41-01
+    #[test]
+    fn the_root_may_say_overflow_visible() {
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" overflow=\"visible\" viewBox=\"0 0 1 1\"/>";
+        assert_eq!(check_svg(svg.as_bytes()), Ok(()));
     }
 
     fn png(w: u32, h: u32) -> Vec<u8> {

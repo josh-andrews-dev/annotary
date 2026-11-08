@@ -330,3 +330,32 @@ fn pages_draw_the_one_avatar_renderer() {
     assert!(profile.contains("id=\"cd-set-avpreview\"><span class=\"cd-av cd-av-mono"), "{profile}");
     assert!(profile.contains("id=\"cd-set-avclear\" hidden"));
 }
+
+// spec: S41-01, S41-04
+#[test]
+fn real_hermes_faces_upload_and_css_a_browser_could_read_differently_does_not() {
+    let ts = TestServer::start();
+    let (_, bot) = ts.add_member("scribe");
+    for face in [
+        include_bytes!("../../../fixtures/avatars/hermes-scribe.svg").as_slice(),
+        include_bytes!("../../../fixtures/avatars/hermes-scribe.think.svg").as_slice(),
+        include_bytes!("../../../fixtures/avatars/hermes-scribe.work.svg").as_slice(),
+    ] {
+        let (s, v) =
+            call(&ts, "PUT", "/api/v1/me/avatar", &bot, Some(json!({ "image": b64(face), "static": b64(SCRIBE_PNG) })));
+        assert_eq!(
+            (s, v["changed"].clone(), v["avatar"]["type"].clone()),
+            (200, json!(true), json!("image/svg+xml")),
+            "{v}"
+        );
+    }
+    let before = ts.store.member_by_handle("scribe").unwrap().unwrap().avatar;
+    let css = r#"<svg xmlns="http://www.w3.org/2000/svg"><style>.a{--a:"/*"} @import "https://example.com/x.css"; .b{--b:"*/"}</style></svg>"#;
+    let (s, v) = call(&ts, "PUT", "/api/v1/me/avatar", &bot, Some(json!({ "image": b64(css.as_bytes()) })));
+    assert_eq!((s, v["error"].as_str()), (400, Some("invalid_avatar")), "{v}");
+    assert_eq!(
+        v["message"],
+        "the avatar: CSS comments aren't allowed in avatars (found in <style>); remove the /* … */"
+    );
+    assert_eq!(ts.store.member_by_handle("scribe").unwrap().unwrap().avatar, before);
+}

@@ -389,6 +389,13 @@ blocks scripts and outside loads for someone who opens the URL on its own. CSS f
 `url()`; rejected only blocking `url()` and `@import`, because new functions that load things keep arriving
 (`image-set()`, `src()`).
 
+Chose to make avatar CSS a language with no comments, strings or escapes; rejected stripping comments and rejected a CSS
+tokenizer. The stored bytes are what a browser reads, so a check that reads anything else is bypassable: a stripper that
+ignores strings and unquoted `url(` tokens lets `"/*"` hide a live `@import` and `url()` from it (found in review). A
+tokenizer would have to match every browser's exactly. Refusing the delimiters leaves nothing to tokenize differently, and
+the plugin's faces use none of them. The cost is that an SVG exported from a design tool with a CSS comment or a quoted
+font name is refused, with a reason that says what to remove.
+
 Chose one `PUT /api/v1/me/avatar {image, static?}` with base64 in JSON; rejected two raw PUTs, because the avatar and its
 still would land in two events with a moment where the animated one has no fallback, and multipart, which needs a new
 axum feature and a multipart client in the CLI. The server reads each type from the bytes; rejected a client-supplied

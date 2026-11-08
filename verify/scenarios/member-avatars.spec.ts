@@ -25,7 +25,7 @@ test('a fresh Member gets an animated avatar on a real Document, served locked d
   expect(added.status).toBe(201);
   const token = added.json.token as string;
 
-  const put = await call('PUT', '/api/v1/me/avatar', token, { image: b64('scribe.svg'), static: b64('scribe.png') });
+  const put = await call('PUT', '/api/v1/me/avatar', token, { image: b64('hermes-scribe.think.svg'), static: b64('scribe.png') });
   expect(put.status).toBe(200);
   const avatar = put.json.avatar;
   expect(avatar.type).toBe('image/svg+xml');

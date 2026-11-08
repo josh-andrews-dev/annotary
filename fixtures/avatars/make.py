@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Regenerates the static avatar fixtures (Member avatars): one 64x64 PNG face per animated SVG
 in this directory, the shape the Hermes plugin uploads as the reduced-motion fallback. Pure
-Python (zlib), no image library. Run from this directory: python3 make.py"""
+Python (zlib), no image library. Run from this directory: python3 make.py
+
+`hermes-*.svg` are not made here: they are unedited output of the Hermes plugin's face generator
+(idle, `.think` and `.work`; the other shapes and color forms), pinned as what the SVG check must accept."""
 import struct, zlib
 
 def png(w, h, pixel):
