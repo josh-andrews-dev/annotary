@@ -161,6 +161,7 @@ markers in implementation code — only in tests.
 - S06-13 — `logout` revokes the profile's Token on the server and removes it from the profile; `profile list|add|remove` manage `config.toml` without ever printing a Token; `list` shows each profile's `@member`, so an agent can find its own (stories 26, 27)
 - S06-14 — the exit-4 message names the missing Right and suggests `annotary member grant HANDLE VAULT RIGHT` (story 29)
 - S06-15 — table-driven rights matrix: {read, comment, action, write} × every endpoint × {owner, member with `*`, member with a Vault Grant, member with none, disabled} → 200/401/403 (Testing seam 2)
+- S06-16 — `POST /logout` reads its request body before it answers, so the redirect never leaves unread bytes on a connection the client reuses to follow it
 <!-- ---- end ticket 06 ---- -->
 
 <!-- ---- ticket 09 ---- -->

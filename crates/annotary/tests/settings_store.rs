@@ -63,14 +63,14 @@ fn a_v4_store_migrates_with_its_data_and_web_devices() {
         (out.owner.id, d.id)
     };
     {
-        // Roll the file back to v4: drop what v5 added and reset user_version.
+        // Roll the file back to v4: drop what v5 and later added and reset user_version.
         let conn = rusqlite::Connection::open(path.join(annotary_store::DB_FILE)).unwrap();
         conn.execute_batch(
-            "DROP TABLE device_settings; DROP TABLE all_device_settings; DROP TABLE member_settings; DROP TABLE devices;
+            "DROP TABLE member_avatars; DROP TABLE device_settings; DROP TABLE all_device_settings; DROP TABLE member_settings; DROP TABLE devices;
              ALTER TABLE tokens DROP COLUMN device_id; ALTER TABLE sessions DROP COLUMN device_id;",
         )
         .unwrap();
-        conn.pragma_update(None, "user_version", MIGRATIONS.len() as u32 - 1).unwrap();
+        conn.pragma_update(None, "user_version", 4).unwrap();
     }
     let s = Store::open(&path).unwrap();
     assert_eq!(s.schema_version().unwrap(), annotary_store::SCHEMA_VERSION);

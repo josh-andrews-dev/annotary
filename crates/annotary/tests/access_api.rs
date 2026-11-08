@@ -1390,3 +1390,31 @@ fn browser_sessions_loopback_trust_iff_no_password_login_page_and_logout() {
         raw_get(&format!("{}/a/{hash}", ts.url), &[("Accept", "image/avif,image/webp,*/*"), ("Cookie", &s3)]);
     assert_eq!(status, 200);
 }
+
+// spec: S06-16
+#[test]
+fn web_logout_waits_for_its_body_before_redirecting() {
+    use std::io::{Read, Write};
+    let ts = TestServer::start();
+    let addr = ts.url.trim_start_matches("http://").to_string();
+    let mut sock = std::net::TcpStream::connect(&addr).unwrap();
+    write!(
+        sock,
+        "POST /logout HTTP/1.1\r\nHost: {addr}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n",
+        ts.owner_token
+    )
+    .unwrap();
+    sock.flush().unwrap();
+    sock.set_read_timeout(Some(std::time::Duration::from_millis(400))).unwrap();
+    let mut buf = [0u8; 2048];
+    let early = sock.read(&mut buf);
+    assert!(
+        early.is_err(),
+        "answered before the body arrived: {:?}",
+        early.map(|n| String::from_utf8_lossy(&buf[..n]).into_owned())
+    );
+    sock.write_all(b"{}").unwrap();
+    sock.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+    let n = sock.read(&mut buf).unwrap();
+    assert!(String::from_utf8_lossy(&buf[..n]).starts_with("HTTP/1.1 303"), "{}", String::from_utf8_lossy(&buf[..n]));
+}
