@@ -36,6 +36,10 @@ The hand edits, each because dist has no setting for it, and which `tests/phase1
    digest GitHub reports for the asset (`gh api repos/axodotdev/cargo-dist/releases/tags/v0.33.1`; the release is
    immutable), and the installer carries the checksum of the tarball it downloads. A new `cargo-dist-version`
    needs both the URL and the digest changed.
+7. **Build provenance for the tarballs** (M3 of the Hermes plan, S37-09): `host` runs
+   `actions/attest-build-provenance` on `artifacts/*.tar.gz` before `gh release create`, and is the one job with
+   `id-token: write` and `attestations: write`. Check a download with
+   `gh attestation verify annotary-x86_64-unknown-linux-gnu.tar.gz --repo josh-andrews-dev/annotary`.
 
 ## The tap
 
