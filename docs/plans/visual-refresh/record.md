@@ -1,8 +1,8 @@
 # Visual refresh of the web UI: record
 
 The design record for the web UI's visual refresh. Boards: [round 1](round-1.html) (directions),
-round 2 (the chosen direction across every screen) and round 3 (states and the final pass), in
-this folder. The decisions that last go to [`DESIGN.md`](../../../DESIGN.md); this file keeps how
+[round 2](round-2.html) (the chosen direction across every screen) and [round 3](round-3.html)
+(states and the final pass), in this folder. The decisions that last go to [`DESIGN.md`](../../../DESIGN.md); this file keeps how
 they were reached.
 
 ## What it is
@@ -49,6 +49,33 @@ but is not "lively". C is striking and breaks two decided rules.
 
 **Decided (agent, 2026-11-08):** 1 B, 2 T2 A, 3 yes. Round 2 applies B to every screen and
 settles the ring color and the dark pill ground.
+
+## Round 2 (2026-11-08): B on every screen
+
+Applied B to the Document page (both layouts, both appearances), the list and Settings; added
+`--cd-raise` (`#f1f2f5` / `#2c2c2e`) for pills and rules inside a card.
+
+1. Selected ring: **R1 A (ink)**, R1 B (highlight, fails WCAG 1.4.11 at 1.4:1 with Yellow), or
+   R1 C (accent, reads as focus). Recommended A.
+2. Hollow green ring for resolved Threads: **yes**. Recommended yes.
+
+Self-critique: the board placed strips by hand and t6 overlapped t1; the real script pushes
+strips apart, which leaves a selected card below its highlight, so the straight tie can miss it.
+The Document-level card repeats "whole document" under the strip head (left as is: the card is
+the same element in both layouts).
+
+**Decided (agent, 2026-11-08):** 1 A, 2 yes.
+
+## Round 3 (2026-11-08): states
+
+Drew the tie as an elbow for a pushed card, every card state, the header's states, embed on a
+phone and sign-in. The audit caught the posting Comment: today's 72% opacity puts its meta at
+2.9:1, so a pending Comment is now full opacity with muted text.
+
+1. The tie bends when the card was pushed down: **bend**, or hide. Recommended bend.
+2. Drop the 14 px nudge on selection: **yes**. Recommended yes.
+
+**Decided (agent, 2026-11-08):** 1 bend, 2 yes. Build.
 
 ## Cut from the boards
 

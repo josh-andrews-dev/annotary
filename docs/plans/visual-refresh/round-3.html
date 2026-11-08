@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annotary web UI, visual refresh: mocks, round 3</title>
+<meta name="board" content="project=Annotary; feature=visual-refresh; round=3; record=docs/plans/visual-refresh/record.md; data=real">
+<!-- Board machinery from the ux-mocks template (helpers, ?only=, ?theme=, ?audit=). Frames are the
+     product's own markup (class names from view.rs / ui.rs) styled by one stylesheet per direction,
+     so the chosen direction's CSS ports to app.css almost as is. -->
+<style>
+  :root { --bg:#f6f5f2; --ink:#1f2328; --muted:#5f6673; --line:#e3e1dc; --card:#ffffff; --code:#eeece7;
+    --pick:#dff5e6; --pick-ink:#1d5c37; --warn:#fff2c4; --warn-ink:#5b4300; --no:#fde2e2; --no-ink:#8a1c1c; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#15171b; --ink:#eceef1; --muted:#9aa1ab; --line:#2a2e35; --card:#1e2126; --code:#262a31; --pick:#1b3b29; --pick-ink:#a8e2bf; --warn:#3a3112; --warn-ink:#f0d27a; --no:#3a1717; --no-ink:#f3b0b0; } }
+  :root[data-theme="dark"] { --bg:#15171b; --ink:#eceef1; --muted:#9aa1ab; --line:#2a2e35; --card:#1e2126; --code:#262a31; --pick:#1b3b29; --pick-ink:#a8e2bf; --warn:#3a3112; --warn-ink:#f0d27a; --no:#3a1717; --no-ink:#f3b0b0; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width:1120px; margin:0 auto; padding:32px 24px 80px; display:flex; flex-direction:column; gap:40px; }
+  h1 { font-size:32px; font-weight:750; margin:0; letter-spacing:-0.02em; text-wrap:balance; }
+  h2 { font-size:21px; font-weight:700; margin:0; } h3 { font-size:16px; font-weight:700; margin:0; }
+  p { margin:0; max-width:76ch; }
+  code { font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size:12.5px; background:var(--code); padding:1px 6px; border-radius:6px; }
+  .eyebrow { font-size:12px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .intro { display:flex; flex-direction:column; gap:12px; } .intro p, .intro li { color:var(--muted); }
+  .intro ul { margin:0; padding-left:20px; line-height:1.55; max-width:76ch; } .intro li b { color:var(--ink); }
+  .callout { border-radius:12px; padding:14px 18px; font-size:14px; max-width:80ch; } .callout.warn { background:var(--warn); color:var(--warn-ink); }
+  section.mock { display:flex; flex-direction:column; gap:14px; } .head { display:flex; flex-direction:column; gap:6px; } .head p { color:var(--muted); }
+  .tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:3px 9px; border-radius:9px; background:var(--code); color:var(--muted); margin-left:8px; vertical-align:middle; }
+  .tag.pick { background:var(--pick); color:var(--pick-ink); } .tag.no { background:var(--no); color:var(--no-ink); }
+  .frame-wrap { position:relative; width:100%; border-radius:14px; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.16); background:#ddd; }
+  .frame { position:absolute; left:0; top:0; transform-origin:top left; overflow:hidden; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:20px; align-items:start; }
+  .row.wide { grid-template-columns:minmax(0,3fr) minmax(0,1fr); }
+  .cap { font-size:12px; color:var(--muted); display:flex; justify-content:space-between; margin:0 2px 8px; }
+  .notes { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px 24px; font-size:14px; color:var(--muted); }
+  .notes div { display:flex; gap:8px; align-items:baseline; line-height:1.45; } .notes b { color:var(--ink); flex-shrink:0; }
+  .table-wrap { overflow-x:auto; background:var(--card); border-radius:14px; padding:6px 12px; }
+  table.t { width:100%; border-collapse:collapse; font-size:14px; }
+  table.t th { text-align:left; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding:10px 8px 6px; border-bottom:1px solid var(--line); }
+  table.t td { padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:top; } table.t tr:last-child td { border-bottom:0; }
+  .opts { display:flex; flex-direction:column; gap:34px; } .opt { display:flex; flex-direction:column; gap:10px; }
+  .opt .why { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; font-size:14px; color:var(--muted); line-height:1.45; } .opt .why b { color:var(--ink); }
+  .q { background:var(--card); border-radius:16px; padding:18px 22px; display:flex; flex-direction:column; gap:10px; }
+  .q ol { margin:0; padding-left:22px; line-height:1.55; } .q li { margin-bottom:10px; } .q .rec { display:block; color:var(--muted); font-size:14px; margin-top:2px; } .q .rec b { color:var(--ink); }
+  .waiver { color:var(--muted); font-size:14px; }
+  .shot { width:100%; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,0.16); display:block; }
+  .audit { max-width:1120px; margin:24px auto 0; padding:16px 20px; background:var(--card); color:var(--ink); border-radius:14px; font:13px/1.5 ui-monospace, Menlo, monospace; overflow-x:auto; }
+  .audit pre { margin:0; white-space:pre; } .audit .fail { color:#b03a3a; font-weight:700; }
+</style>
+<!-- ======== the frames' product styles: one token set per appearance, one block per direction ======== -->
+<style id="product">
+  .fx { --mono:ui-monospace,SFMono-Regular,Menlo,monospace; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; background:var(--cd-bg); color:var(--cd-fg); }
+  .fx * { box-sizing:border-box }
+  /* app.css tokens, light and dark, as shipped */
+  .fx { --cd-bg:#fff;--cd-fg:#1c1c1e;--cd-muted:#6b6f76;--cd-line:#e5e7eb;--cd-soft:#f6f7f9;--cd-card:#fff;--cd-faint:#c9cbd3;--cd-accent:#2563eb;--cd-accent-ink:#fff;
+    --cd-hl:#fff1a8;--cd-hl-sel:#ffd54a;--cd-hl-ink:currentColor;--cd-pos:#15803d;--cd-pos-bg:#dcfce7;--cd-neg:#b91c1c;--cd-neg-bg:#fee2e2;--cd-neu:#374151;--cd-neu-bg:#e5e7eb;
+    --cd-open:#f59e0b;--cd-res:#22c55e;--cd-primary:#1c1c1e;--cd-primary-ink:#fff;--cd-hdr-bg:rgba(255,255,255,.96);--cd-sel-bg:#eef2ff;--cd-sel-ink:#1e40af; }
+  .fx.dk { --cd-bg:#000;--cd-fg:#f2f2f7;--cd-muted:#98989f;--cd-line:#38383a;--cd-soft:#1c1c1e;--cd-card:#1c1c1e;--cd-faint:#48484a;--cd-accent:#60a5fa;--cd-accent-ink:#000;
+    --cd-hl:#facc15;--cd-hl-sel:#fde047;--cd-hl-ink:#000;--cd-pos:#4ade80;--cd-pos-bg:#0f2e1a;--cd-neg:#fca5a5;--cd-neg-bg:#2a1215;--cd-neu:#d1d5db;--cd-neu-bg:#2c2c2e;
+    --cd-open:#fbbf24;--cd-res:#4ade80;--cd-primary:#f2f2f7;--cd-primary-ink:#000;--cd-hdr-bg:rgba(0,0,0,.92);--cd-sel-bg:#1e293b;--cd-sel-ink:#bfdbfe; }
+
+  /* ---- shared skeleton (what every direction keeps from app.css) ---- */
+  .fx a { color:var(--cd-accent); text-decoration:none }
+  .fx .cd-hdr { display:flex; align-items:center; gap:10px; padding:8px 16px; min-height:48px; border-bottom:1px solid var(--cd-line); background:var(--cd-hdr-bg); white-space:nowrap; }
+  .fx .cd-line, .fx .cd-rest { display:flex; align-items:center; gap:8px; min-width:0 } .fx .cd-rest { flex:1 }
+  .fx .cd-grow { flex:1 } .fx .cd-icon { display:block } .fx .cd-name { font-weight:600 } .fx .cd-crumb { color:var(--cd-muted) }
+  .fx .cd-chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--cd-line); border-radius:999px; padding:1px 8px; font-size:12px; background:var(--cd-card); color:var(--cd-fg) }
+  .fx .cd-chip.cd-pos { background:var(--cd-pos-bg); color:var(--cd-pos); border-color:transparent }
+  .fx .cd-btn { border:1px solid var(--cd-line); background:var(--cd-card); border-radius:6px; padding:4px 10px; font-size:13px; color:var(--cd-fg); font-family:inherit }
+  .fx .cd-btn.cd-sm { padding:2px 8px; font-size:12px }
+  .fx .cd-actbtn.cd-pos { background:var(--cd-pos-bg); color:var(--cd-pos); border-color:transparent } .fx .cd-actbtn.cd-neg { background:var(--cd-neg-bg); color:var(--cd-neg); border-color:transparent }
+  .fx .cd-status { display:flex; gap:6px; align-items:center; color:var(--cd-muted); font-size:13px } .fx .cd-status b { color:var(--cd-fg); font-weight:600 }
+  .fx .cd-vsw { display:inline-flex; align-items:center; border:1px solid var(--cd-line); border-radius:6px; font-size:13px }
+  .fx .cd-vsw span { padding:3px 8px } .fx .cd-vsw .cd-sel { border-left:1px solid var(--cd-line); border-right:1px solid var(--cd-line); padding:3px 22px 3px 8px; position:relative }
+  .fx .cd-vsw .cd-sel::after { content:"\2304"; position:absolute; right:7px; top:-1px; color:var(--cd-muted) }
+  .fx .cd-off { color:var(--cd-faint) }
+  .fx .cd-layout { display:grid; grid-template-columns:minmax(0,72ch) 320px; justify-content:center; column-gap:28px; padding:0 24px; position:relative }
+  .fx .cd-doc { padding:24px 0 0; line-height:1.65; font-size:15px; position:relative }
+  .fx .cd-doc h1 { font-size:1.9em; line-height:1.2; margin:.2em 0 .6em } .fx .cd-doc h2 { font-size:1.35em; margin:1.4em 0 .4em } .fx .cd-doc p { margin:.5em 0 }
+  .fx mark.cd-hl { background:var(--cd-hl); color:var(--cd-hl-ink); border-radius:2px } .fx mark.cd-hl.cd-selected { background:var(--cd-hl-sel) }
+  .fx .cd-margin { position:relative }
+  .fx .cd-strip { position:absolute; left:0; width:320px; font-size:13px; line-height:1.5 }
+  .fx .cd-strip-h { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--cd-muted); font-weight:600; margin:0 0 6px }
+  .fx .cd-thread { background:var(--cd-card); border:1px solid var(--cd-line); border-radius:8px; box-shadow:0 1px 2px rgba(0,0,0,.04); position:relative }
+  .fx .cd-thread + .cd-thread { margin-top:8px }
+  .fx .cd-row { display:flex; gap:8px; align-items:flex-start; padding:8px 10px 0 }
+  .fx .cd-dot { width:8px; height:8px; border-radius:50%; background:var(--cd-open); flex:none; margin-top:5px } .fx .cd-resolved .cd-dot { background:var(--cd-res) }
+  .fx .cd-main { flex:1; min-width:0 } .fx .cd-quote { color:var(--cd-muted); font-size:12px } .fx .cd-quote q { color:var(--cd-fg) }
+  .fx .cd-tid { font-family:var(--mono); font-size:11px; color:var(--cd-muted) }
+  .fx .cd-c { padding:6px 10px; border-top:1px solid var(--cd-soft) }
+  .fx .cd-who { display:flex; gap:6px; align-items:baseline; font-size:12px; color:var(--cd-muted) } .fx .cd-who b { color:var(--cd-fg); font-weight:600 }
+  .fx .cd-auth { font-size:11px } .fx .cd-ctools { margin-left:auto; display:inline-flex; gap:4px }
+  .fx .cd-link { font-size:11px; color:var(--cd-muted); text-decoration:underline dotted }
+  .fx .cd-cbody p { margin:.15em 0 } .fx .cd-mono { font-family:var(--mono) }
+  .fx .cd-acts { display:flex; gap:6px; padding:6px 10px 8px; border-top:1px solid var(--cd-soft) }
+  .fx .cd-mention { color:var(--cd-accent); font-weight:500 }
+  /* layout C (phone) */
+  .fx.ph .cd-layout { display:block; padding:0 16px } .fx.ph .cd-doc { font-size:15px }
+  .fx.ph .cd-strip { position:static; width:auto; margin:6px 0 10px; border-left:3px solid var(--cd-hl); padding-left:8px }
+  .fx.ph .cd-thread { border:0; box-shadow:none; border-radius:6px; background:var(--cd-card) }
+  .fx.ph .cd-row { padding:4px 6px; background:var(--cd-soft); border-radius:6px }
+  .fx .cd-snip { white-space:nowrap; overflow:hidden; text-overflow:ellipsis } .fx .cd-meta { font-size:11px; color:var(--cd-muted) }
+  .fx.ph .cd-hdr { gap:8px } .fx.ph .cd-nline { color:var(--cd-muted); font-size:13px } .fx.ph .cd-nline b { color:var(--cd-fg) }
+  .fx.ph .cd-arrows { display:inline-flex; gap:2px; margin-left:auto } .fx.ph .cd-arrows span { padding:2px 8px; border:1px solid var(--cd-line); border-radius:6px; font-size:14px }
+  .fx .cd-av { display:none }
+
+  
+  /* ================= Direction B, round 2: every screen ================= */
+  /* new tokens: --cd-raise (a ground one step above a card: pills, rules inside a card), shadows, motion */
+  .fx { --cd-raise:#f1f2f5; --cd-shadow:0 1px 2px rgba(16,17,20,.04),0 6px 20px -12px rgba(16,17,20,.16); --cd-shadow-pop:0 12px 32px -12px rgba(16,17,20,.30); --cd-tie:var(--cd-hl-sel) }
+  .fx.dk { --cd-raise:#2c2c2e; --cd-shadow:0 1px 2px rgba(0,0,0,.5); --cd-shadow-pop:0 12px 32px -8px rgba(0,0,0,.7) }
+  .fx .cd-hdr { min-height:52px; padding:8px 20px; gap:12px }
+  .fx .cd-vsw, .fx .cd-btn { border-radius:8px }
+  .fx .cd-doc h1 { font-size:2.05em; line-height:1.15; letter-spacing:-.022em; font-weight:700; text-wrap:balance }
+  .fx .cd-doc h2 { font-size:1.3em; letter-spacing:-.012em; margin:1.6em 0 .45em }
+  .fx mark.cd-hl { border-radius:3px; box-shadow:0 0 0 1px var(--cd-hl) }
+  .fx mark.cd-hl.cd-selected { box-shadow:0 0 0 2px var(--cd-hl-sel) }
+  .fx .cd-thread { border-radius:12px; box-shadow:var(--cd-shadow) }
+  .fx .cd-row { padding:10px 12px 2px }
+  .fx .cd-c { padding:8px 12px; border-top:0 } .fx .cd-c + .cd-c { border-top:1px solid var(--cd-raise) }
+  .fx .cd-who { align-items:center } .fx .cd-who b { font-size:13px } .fx .cd-ctools { visibility:hidden } .fx .cd-auth { display:none }
+  .fx .cd-who .cd-mono { font-size:11px }
+  .fx .cd-acts { border-top:0; padding:2px 12px 10px }
+  .fx .cd-acts .cd-btn { border-color:transparent; background:var(--cd-raise); border-radius:999px; padding:3px 12px }
+  .fx .cd-mention { background:var(--cd-sel-bg); color:var(--cd-sel-ink); border-radius:4px; padding:0 3px }
+  .fx .cd-thread.cd-selected { border-color:transparent; box-shadow:0 0 0 1.5px var(--cd-fg),var(--cd-shadow-pop) }
+  .fx .cd-thread.cd-selected::before { content:""; position:absolute; right:100%; top:17px; width:28px; height:2px; background:var(--cd-tie); border-radius:2px }
+  .fx .cd-thread.cd-selected::after { content:""; position:absolute; left:-33px; top:14px; width:8px; height:8px; border-radius:50%; background:var(--cd-tie) }
+  .fx .cd-actbtn.cd-pos { background:var(--cd-pos); color:var(--cd-bg) }
+  .fx .cd-status .cd-you { background:var(--cd-sel-bg); color:var(--cd-sel-ink); border-radius:999px; padding:0 7px; font-weight:600 }
+  .fx .cd-strip-h { margin:0 0 6px 2px }
+  .fx .cd-resolved .cd-dot { background:transparent; box-shadow:inset 0 0 0 2px var(--cd-res) }
+  /* ring options (R2-1) */
+  .fx.ringHl .cd-thread.cd-selected { box-shadow:0 0 0 2px var(--cd-hl-sel),var(--cd-shadow-pop) }
+  .fx.ringAc .cd-thread.cd-selected { box-shadow:0 0 0 1.5px var(--cd-accent),var(--cd-shadow-pop) }
+  /* phone (layout C) */
+  .fx.ph .cd-hdr { padding:8px 16px } .fx.ph .cd-doc h1 { font-size:1.75em }
+  .fx.ph .cd-strip { padding-left:10px }
+  .fx.ph .cd-row { border-radius:10px; padding:8px 10px; background:var(--cd-raise) }
+  .fx.ph .cd-thread.cd-open { box-shadow:0 0 0 1px var(--cd-line),var(--cd-shadow); border-radius:12px }
+  .fx.ph .cd-thread.cd-open .cd-row { background:transparent }
+  .fx.ph .cd-ctools { visibility:visible } .fx.ph .cd-link { text-decoration:none }
+  .fx.ph .cd-arrows span { border-radius:8px }
+  /* the top bar, the list */
+  .fx .cd-nav { display:inline-flex; gap:2px; margin-left:10px } .fx .cd-navlink { color:var(--cd-muted); padding:4px 10px; border-radius:999px; font-size:13px }
+  .fx .cd-navlink.cd-current { color:var(--cd-fg); font-weight:600; background:var(--cd-raise) }
+  .fx .cd-listmain { max-width:1100px; margin:0 auto; padding:20px 24px }
+  .fx .cd-filters { display:flex; gap:8px; align-items:center; margin:0 0 16px; font-size:13px; color:var(--cd-fg) }
+  .fx .cd-filters .cd-in { border:1px solid var(--cd-line); border-radius:8px; padding:5px 10px; color:var(--cd-muted); background:var(--cd-card) }
+  .fx table.cd-list { width:100%; border-collapse:collapse; font-size:14px }
+  .fx table.cd-list th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--cd-muted); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--cd-line) }
+  .fx table.cd-list td { padding:11px 10px; border-bottom:1px solid var(--cd-raise); vertical-align:top }
+  .fx table.cd-list tr.hov td { background:var(--cd-soft) } .fx table.cd-list tr.hov td:first-child { border-radius:10px 0 0 10px } .fx table.cd-list tr.hov td:last-child { border-radius:0 10px 10px 0 }
+  .fx .cd-col-id a { color:var(--cd-muted); font-family:var(--mono); font-size:12px }
+  .fx .cd-docname { font-weight:600; color:var(--cd-fg) } .fx .cd-title { font-size:12px; color:var(--cd-muted) }
+  .fx .cd-num { text-align:right; font-variant-numeric:tabular-nums } .fx .cd-muted { color:var(--cd-muted) }
+  .fx .cd-list .cd-mention { font-size:12px; border-radius:999px; padding:0 7px; font-weight:600 }
+  .fx .cd-listfoot { font-size:13px; color:var(--cd-muted); margin:14px 10px }
+  /* settings */
+  .fx .cd-set { display:grid; grid-template-columns:240px 1fr; min-height:calc(100% - 52px) }
+  .fx .cd-side { border-right:1px solid var(--cd-line); padding:16px 12px; display:flex; flex-direction:column; gap:2px; font-size:14px }
+  .fx .cd-side .cd-search { border:1px solid var(--cd-line); border-radius:8px; padding:6px 10px; color:var(--cd-muted); font-size:13px; margin-bottom:12px; background:var(--cd-field,var(--cd-card)) }
+  .fx .cd-side a { color:var(--cd-fg); padding:6px 10px; border-radius:8px } .fx .cd-side a.cd-current { background:var(--cd-sel-bg); color:var(--cd-sel-ink); font-weight:600 }
+  .fx .cd-side .cd-sh { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--cd-muted); font-weight:600; margin:14px 10px 4px }
+  .fx .cd-group { padding:28px 48px; max-width:900px } .fx .cd-group h1 { font-size:26px; letter-spacing:-.02em; margin:0 0 8px }
+  .fx .cd-setrow { display:grid; grid-template-columns:220px 1fr; padding:18px 0; border-top:1px solid var(--cd-line); font-size:14px } .fx .cd-setrow b { font-weight:600 }
+  .fx .cd-seg { display:inline-flex; background:var(--cd-raise); border-radius:10px; padding:2px; font-size:13px } .fx .cd-seg span { padding:4px 12px; border-radius:8px }
+  .fx .cd-seg span.on { background:var(--cd-card); box-shadow:0 1px 3px rgba(0,0,0,.12); font-weight:600 }
+  .fx .cd-sw { display:inline-block; width:24px; height:24px; border-radius:50%; margin-right:8px; vertical-align:middle } .fx .cd-sw.on { box-shadow:0 0 0 2px var(--cd-bg),0 0 0 4px var(--cd-accent) }
+  .fx .cd-sample { display:inline-block; margin-top:10px; border:1px solid var(--cd-line); border-radius:10px; padding:8px 14px; background:#fff; color:#1c1c1e }
+  /* ===== round 3 additions ===== */
+  .fx { --cd-ease:cubic-bezier(.2,.8,.2,1) }
+  .fx .cd-strip { position:absolute }
+  /* the tie as an elbow: JS sets --tt (top, px from the card's top) and --th (height) */
+  .fx .cd-thread.cd-selected::before { content:""; position:absolute; right:calc(100% + 14px); width:15px; top:var(--tt,16px); height:var(--th,2px); border:solid var(--cd-tie); border-width:2px 2px 0 0; border-top-right-radius:6px; background:none; left:auto }
+  .fx .cd-thread.cd-selected::after { content:""; position:absolute; right:100%; left:auto; width:15px; top:16px; height:2px; border-radius:0; background:var(--cd-tie) }
+  .fx .cd-thread.cd-composer { box-shadow:0 0 0 1.5px var(--cd-accent),var(--cd-shadow-pop) } .fx .cd-composer .cd-dot { background:var(--cd-accent) }
+  .fx .cd-editor { padding:4px 12px 10px } .fx .cd-editor .cd-ta { border:1px solid var(--cd-line); border-radius:10px; padding:8px 10px; min-height:64px; background:var(--cd-field,var(--cd-card)); color:var(--cd-muted); font-size:13px; outline:2px solid var(--cd-accent); outline-offset:-1px }
+  .fx .cd-editor .cd-acts { padding:8px 0 0 } .fx .cd-editor .cd-primary { background:var(--cd-primary); color:var(--cd-primary-ink); border-color:transparent }
+  .fx .cd-pending .cd-cbody { color:var(--cd-muted) } .fx .cd-pending .cd-cbody p::after { content:" …" }
+  .fx .cd-c.cd-fresh { background:var(--cd-sel-bg) }
+  .fx .cd-pill { display:inline-flex; gap:6px; align-items:center; background:var(--cd-primary); color:var(--cd-primary-ink); border-radius:999px; padding:6px 14px; font-size:13px; box-shadow:0 6px 18px -4px rgba(0,0,0,.35) }
+  .fx .cd-pill kbd { font:11px/1.6 var(--mono); border:1px solid #666; border-radius:4px; padding:0 5px; color:#ddd }
+  .fx.dk .cd-pill kbd { border-color:#8e8e93; color:#3a3a3c }
+  .fx .cd-banner { padding:8px 20px; font-size:13px; display:flex; gap:10px; align-items:center; background:#fffbeb; color:#78350f; border-bottom:1px solid #fde68a }
+  .fx .cd-banner.cd-newver { background:#eff6ff; color:#1e3a8a; border-color:#bfdbfe }
+  .fx.dk .cd-banner { background:#3a2a0a; color:#fde68a; border-color:#78350f } .fx.dk .cd-banner.cd-newver { background:#0f1b2e; color:#bfdbfe; border-color:#1e3a8a }
+  .fx .cd-toast { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; border-radius:10px; padding:8px 12px; font-size:13px; box-shadow:0 8px 24px rgba(0,0,0,.12) }
+  .fx .cd-orph { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--cd-muted); font-weight:600 }
+  .fx .cd-thread.cd-dim { background:var(--cd-soft) } .fx .cd-dim .cd-dot { background:#9ca3af } .fx .cd-out { color:#c2410c; font-weight:500 }
+  .fx .cd-simple { max-width:22rem; margin:80px auto; display:flex; flex-direction:column; gap:14px } .fx .cd-simple h1 { font-size:22px; letter-spacing:-.015em; margin:0 }
+  .fx .cd-field { border:1px solid var(--cd-line); border-radius:10px; padding:9px 12px; color:var(--cd-muted); font-size:15px }
+</style>
+</head>
+<body>
+<main>
+  <div class="intro" id="s0">
+    <div class="eyebrow">Annotary · Web UI visual refresh · round 3 · drafted 2026-11-08</div>
+    <h1>Margin note: every state, then build</h1>
+    <p>Rounds 1 and 2 settled direction B (Margin note), the system sans, a filled positive Action, an ink ring for the selected card and a hollow ring for resolved Threads (record: <code>docs/plans/visual-refresh/record.md</code>). This round draws every state a Thread card and the page can be in, the tie when a card was pushed below its highlight, embed mode on a phone, and the sign-in page, then lists what gets built. <b>Nothing is built yet.</b> Same real fixture data.</p>
+    <ul>
+      <li><b>The tie bends</b> when the margin had to push a card down: it leaves the column at the highlight's line and steps down to the card (frame 1).</li>
+      <li><b>Every card state</b> side by side: open, selected, composing, posting, a Comment arriving live, resolved, orphaned, an error (frame 2).</li>
+      <li><b>The header's states</b>: head with Actions, an older Version, a new Version arrived, an error toast (frame 3).</li>
+      <li><b>Embed on a phone</b> and the sign-in page (frames 4, 5).</li>
+    </ul>
+  </div>
+
+  <section class="mock" id="s1">
+    <div class="head"><h2>1 · The tie when the card was pushed down <span class="tag pick">hero</span> <span class="tag">light</span> <span class="tag">dark</span></h2><p>Rowan has just clicked "two-tier cache". The Document-level card above it is tall, so the margin placed t6 below its highlight (the script's 8 px gap rule). The tie still starts at the highlight's line.</p></div>
+    <div class="row">
+      <div class="cell"><div class="cap"><span>Desktop · margin, 1100 × 640 crop</span><span>light</span></div><div class="frame-wrap" style="aspect-ratio:1100/640"><div class="frame" id="f1" data-w="1100" data-h="640"></div></div></div>
+      <div class="cell"><div class="cap"><span>Desktop · margin, 1100 × 640 crop</span><span>dark</span></div><div class="frame-wrap" style="aspect-ratio:1100/640"><div class="frame" id="f1d" data-w="1100" data-h="640"></div></div></div>
+    </div>
+    <div class="notes">
+      <div><b>Rule</b><span>The script measures the first highlight of the selected Thread against the card's top and sets two variables; CSS draws the elbow. Straight when they line up.</span></div>
+      <div><b>When</b><span>Only on the selected card in layout A; layout C needs none (the row sits under its paragraph).</span></div>
+      <div><b>Alternative</b><span>Hiding the tie when the card was pushed was considered: it would vanish exactly when the reader most needs it.</span></div>
+    </div>
+  </section>
+
+  <section class="mock" id="s2">
+    <div class="head"><h2>2 · A Thread card in every state <span class="tag">states</span> <span class="tag">light</span></h2><p>The same Thread t6 through what can happen to it on a Saturday afternoon: Rowan reads it, selects it, starts a new Thread nearby, posts a reply, Hermes answers live, Rowan resolves it; plus the orphaned and error cases from older Versions.</p></div>
+    <div class="row" id="states" style="grid-template-columns:repeat(auto-fit,minmax(390px,1fr))"></div>
+    <div class="notes">
+      <div><b>Composing</b><span>The new Thread's card has the accent ring (it is the focus), the textarea a 2 px accent focus ring, Comment is the primary button.</span></div>
+      <div><b>Posting</b><span>The text in <code>--cd-muted</code> with a trailing ellipsis, at full opacity: today's 72% opacity put its meta line at 2.9:1.</span></div>
+      <div><b>Arriving</b><span>The new Comment's ground starts at <code>--cd-sel-bg</code> and fades to the card in 1.2 s; drawn at its first frame.</span></div>
+      <div><b>Orphaned</b><span>On <code>--cd-soft</code> with a gray dot and the warning ink line, as today.</span></div>
+    </div>
+  </section>
+
+  <section class="mock" id="s3">
+    <div class="head"><h2>3 · The header's states <span class="tag">states</span> <span class="tag">light</span> <span class="tag">dark</span></h2><p>Head with Actions (Rowan can approve or send back); viewing v2 (the older-Version banner); v5 arrived while reading (the new-Version banner); a reply failed (the toast).</p></div>
+    <div class="cell"><div class="cap"><span>Desktop · 1440 × 260 crop</span><span>light</span></div><div class="frame-wrap" style="aspect-ratio:1440/260"><div class="frame" id="f3" data-w="1440" data-h="260"></div></div></div>
+    <div class="cell"><div class="cap"><span>Desktop · 1440 × 260 crop</span><span>dark</span></div><div class="frame-wrap" style="aspect-ratio:1440/260"><div class="frame" id="f3d" data-w="1440" data-h="260"></div></div></div>
+    <div class="notes">
+      <div><b>Banners</b><span>Note and info tokens as shipped; 8 px taller padding so the button sits inside.</span></div>
+      <div><b>Toast</b><span>10 px radius like a panel; still dismissed by a click.</span></div>
+    </div>
+  </section>
+
+  <section class="mock" id="s4">
+    <div class="head"><h2>4 · Embed mode on a phone <span class="tag">light</span> <span class="tag">dark</span></h2><p>The Hermes plugin shows the RFC in its sandboxed frame on a phone: no "Open in app", fields at 16 px. The card and row styles are the page's own; embed adds nothing.</p></div>
+    <div class="row">
+      <div class="cell"><div class="cap"><span>Phone · 393 × 852 · embed</span><span>light</span></div><div class="frame-wrap" style="aspect-ratio:393/852"><div class="frame" id="f4" data-w="393" data-h="852"></div></div></div>
+      <div class="cell"><div class="cap"><span>Phone · 393 × 852 · embed</span><span>dark</span></div><div class="frame-wrap" style="aspect-ratio:393/852"><div class="frame" id="f4d" data-w="393" data-h="852"></div></div></div>
+    </div>
+    <div class="notes">
+      <div><b>Reply open</b><span>The reply box at 16 px (iOS would zoom into a smaller field), Post as the primary button.</span></div>
+      <div><b>Mention</b><span>The tag survives in embed: it is server markup.</span></div>
+    </div>
+  </section>
+
+  <section class="mock" id="s5">
+    <div class="head"><h2>5 · Signing in <span class="tag">light</span></h2><p>A remote browser before sign-in (Annotary on a tailnet). The mark at 40 px above the form.</p></div>
+    <div class="cell" style="max-width:600px"><div class="cap"><span>Desktop · 600 × 420 crop</span><span>light</span></div><div class="frame-wrap" style="aspect-ratio:600/420"><div class="frame" id="f5" data-w="600" data-h="420"></div></div></div>
+    <div class="notes"><div><b>Mark</b><span>The brand icon (<code>brand::header_icon</code> markup at 40 px), its colors are the mark's in both palettes.</span></div></div>
+  </section>
+
+  <section class="mock" id="s6">
+    <div class="head"><h2>6 · Motion, final <span class="tag">motion</span></h2><p>Every movement the build adds. Tokens: <code>--cd-ease</code> = cubic-bezier(.2,.8,.2,1). All of them sit inside <code>@media (prefers-reduced-motion: no-preference)</code>.</p></div>
+    <div class="table-wrap"><table class="t">
+      <tr><th>Moment</th><th>What moves</th><th>From, to</th><th>Token</th><th>Stays still</th><th>Reduced motion</th></tr>
+      <tr><td>Selecting a Thread</td><td>The tie grows out of the column</td><td>column edge → card</td><td><code>--cd-ease</code>, 220 ms</td><td>Cards, text (no position animates: CLS 0)</td><td>At once</td></tr>
+      <tr><td>Hovering a card / highlight</td><td>Shadow and highlight shade</td><td>rest → hover</td><td>150 ms</td><td>Everything else</td><td>At once</td></tr>
+      <tr><td>A Comment arrives live</td><td>Its ground fades from the accent tint</td><td>tint → card</td><td>1.2 s ease-out</td><td>Positions</td><td>No wash</td></tr>
+      <tr><td>Selecting text</td><td>The Comment pill scales in from 96% and fades in</td><td>at the selection</td><td>120 ms</td><td>The text</td><td>At once</td></tr>
+    </table></div>
+  </section>
+
+  <section class="mock" id="s7">
+    <div class="head"><h2>7 · Decisions I made</h2></div>
+    <div class="table-wrap"><table class="t">
+      <tr><th style="width:24%">&nbsp;</th><th>Call</th></tr>
+      <tr><td><b>No nudge</b></td><td>The selected card no longer moves 14 px left: the tie and the ring say "selected", and nothing changes position on a click.</td></tr>
+      <tr><td><b>Fresh only for others</b></td><td>The wash marks a Comment that arrived from someone else; your own post already has its pending state.</td></tr>
+      <tr><td><b>Avatar slot</b></td><td><code>.cd-who</code> centers its items and reserves <code>.cd-av</code> (28 px round, before the name) in its own block of <code>app.css</code>, empty until the avatars change lands.</td></tr>
+      <tr><td><b>Version diff view</b></td><td>The refresh's rules live in one marked block at the end of <code>app.css</code>, so a diff view's own block merges beside it.</td></tr>
+    </table></div>
+  </section>
+
+  <section class="mock" id="s8">
+    <div class="q">
+      <h2>8 · Questions</h2>
+      <ol>
+        <li><b>The tie bends when the card was pushed down, or hides?</b><span class="rec"><b>Recommend bend.</b> It is the case where finding the highlight is hardest.</span></li>
+        <li><b>Drop the 14 px nudge on selection?</b><span class="rec"><b>Recommend yes.</b> With a tie the nudge is a second signal that also moves the card under the pointer.</span></li>
+      </ol>
+      <p class="waiver">The decisions I made above are proposals you can wave through; each question still needs its answer.</p>
+    </div>
+  </section>
+
+  <section class="mock" id="s9">
+    <div class="head"><h2>9 · What gets built</h2></div>
+    <div class="table-wrap"><table class="t">
+      <tr><th>File</th><th>What</th></tr>
+      <tr><td><code>server/ui/app.css</code></td><td>New tokens (<code>--cd-raise</code>, shadows, <code>--cd-ease</code>, <code>--cd-tie</code>) in both palettes; one "visual refresh" block for type, header, cards, tie, list, motion; the avatar slot block</td></tr>
+      <tr><td><code>server/ui/app.js</code></td><td>The tie's two variables after layout and selection; <code>cd-fresh</code> on Comments that arrive live</td></tr>
+      <tr><td><code>server/ui/settings.css</code>, <code>admin.css</code></td><td>Radii, the segmented control and the nav pills</td></tr>
+      <tr><td><code>server/ui.rs</code></td><td>@mentions of real Members in Comment bodies as <code>span.cd-mention</code> (not in code or links)</td></tr>
+      <tr><td><code>server/view.rs</code></td><td>The row snippet without Markdown emphasis; "@you" as a tag in the status</td></tr>
+      <tr><td><code>DESIGN.md</code></td><td>The decisions of these rounds</td></tr>
+    </table></div>
+  </section>
+</main>
+
+<script>
+/* ---------- helpers: keep these ---------- */
+const el = (tag, style, kids) => { const n = document.createElement(tag);
+  if (style) Object.assign(n.style, style);
+  if (typeof kids === 'string') n.innerHTML = kids; else (kids || []).forEach(k => k && n.appendChild(k));
+  return n; };
+const svg = (d, size = 24, sw = 2) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+function frame(id, build, bg) {
+  const f = document.getElementById(id); if (!f) return;
+  const w = +f.dataset.w, h = +f.dataset.h;
+  Object.assign(f.style, { width: w + 'px', height: h + 'px', background: bg, position: 'absolute' });
+  build().forEach(kid => kid && f.appendChild(kid));
+  const wrap = f.parentElement;
+  wrap.style.maxWidth = w + 'px';
+  if (wrap.parentElement.classList.contains('cell')) wrap.parentElement.style.maxWidth = w + 'px';
+  const fit = () => { f.style.transform = `scale(${Math.min(1, wrap.clientWidth / w)})`; };
+  fit(); new ResizeObserver(fit).observe(wrap);
+}
+function audit(showAll) {
+  const parse = c => { const m = /rgba?\(([^)]+)\)/.exec(c || ''); if (!m) return null; const p = m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
+  const over = (top, under) => ({ r: top.r * top.a + under.r * (1 - top.a), g: top.g * top.a + under.g * (1 - top.a), b: top.b * top.a + under.b * (1 - top.a), a: 1 });
+  const chan = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = c => 0.2126 * chan(c.r) + 0.7152 * chan(c.g) + 0.0722 * chan(c.b);
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const hex = c => '#' + [c.r, c.g, c.b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  const WHITE = { r: 255, g: 255, b: 255, a: 1 };
+  const groundOf = (node, frame) => { const chain = []; for (let n = node; n && n !== frame.parentElement; n = n.parentElement) chain.push(n);
+    let ground = WHITE; for (const e of chain.reverse()) { const bg = parse(getComputedStyle(e).backgroundColor); if (bg && bg.a > 0) ground = over(bg, ground); } return ground; };
+  const opacityOf = (node, frame) => { let o = 1; for (let n = node; n && n !== frame.parentElement; n = n.parentElement) o *= parseFloat(getComputedStyle(n).opacity) || 1; return o; };
+  const pairs = new Map(); const frames = document.querySelectorAll('.frame');
+  frames.forEach(fr => { const walker = document.createTreeWalker(fr, NodeFilter.SHOW_TEXT);
+    for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+      const text = t.nodeValue.replace(/\s+/g, ' ').trim(); if (!text) continue;
+      const e = t.parentElement; if (!e || e.closest('svg') || e.closest('[aria-disabled="true"]')) continue; // WCAG 1.4.3 exempts inactive controls
+      const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const fg = parse(cs.color); if (!fg) continue;
+      const size = parseFloat(cs.fontSize), bold = (parseInt(cs.fontWeight, 10) || 400) >= 700;
+      const need = size >= 24 || (bold && size >= 18.66) ? 3 : 4.5;
+      const ground = groundOf(e, fr), ink = over({ ...fg, a: fg.a * opacityOf(e, fr) }, ground), r = ratio(ink, ground);
+      const key = `${fr.id}|${hex(ink)}|${hex(ground)}|${need}`;
+      const row = pairs.get(key) || { frame: fr.id, ink: hex(ink), ground: hex(ground), need, ratio: +r.toFixed(2), size: Math.round(size), pass: r >= need, count: 0, text };
+      row.count++; pairs.set(key, row); } });
+  const rows = [...pairs.values()].sort((a, b) => (a.pass - b.pass) || (a.ratio - b.ratio));
+  const failing = rows.filter(r => !r.pass);
+  const line = r => `${r.pass ? 'ok  ' : 'FAIL'} ${r.frame.padEnd(8)} ${r.ratio.toFixed(2).padStart(5)} needs ${r.need}  ${r.ink} on ${r.ground}  ${r.size}px ×${r.count}  "${r.text.slice(0, 40)}"`;
+  const summary = `contrast: ${rows.length} pairs in ${frames.length} frames, ${failing.length} failing`;
+  const box = el('div', null, []); box.className = 'audit';
+  const sum = el('pre', { fontWeight: '700' }, []); sum.id = 'audit-summary'; sum.dataset.failing = failing.length; sum.textContent = summary; if (failing.length) sum.className = 'fail';
+  const rep = el('pre', { marginTop: '8px' }, []); rep.id = 'audit-report'; rep.textContent = (showAll ? rows : failing).map(line).join('\n') || 'no failing pairs';
+  box.appendChild(sum); box.appendChild(rep); document.body.insertBefore(box, document.body.firstChild);
+  document.title = `[contrast: ${failing.length} failing] ` + document.title; window.__audit = rows;
+}
+const params = new URLSearchParams(location.search);
+if (params.get('theme')) document.documentElement.dataset.theme = params.get('theme');
+const only = params.get('only');
+if (only) { const main = document.querySelector('main'), target = document.getElementById(only);
+  if (target) { main.style.display = 'none'; const w = el('div', { padding: '20px', maxWidth: '1120px' }, []);
+    target.parentElement.removeChild(target); w.appendChild(target); document.body.appendChild(w);
+    if (target.classList.contains('frame')) { target.style.position = 'relative'; target.style.transform = 'none'; } } }
+</script>
+<script>
+/* ---------- the data: fixtures/corpus/rfc-tile-cache.md (v4, head) and the corpus list, seeded on a
+   local server 2026-11-08 with five Members; Comment text as seeded. Times in the server's formats. ---------- */
+const DOC = { vault: 'notes', name: 'rfc-tile-cache', id: '5xrngtp8', open: 4, you: 2, resolved: 2,
+  title: 'RFC 014: a two-tier tile cache',
+  p1: 'Fernway Maps serves raster and vector tiles to about four hundred small customers: hiking clubs, ferry operators, two regional newspapers and one very demanding orienteering federation. This RFC proposes replacing the single Redis cache in front of the renderer with a <mark class="cd-hl cd-selected">two-tier cache</mark>, so that a cold zoom level no longer takes the whole render fleet with it.',
+  p2: '<b>Update, 16 March:</b> the failure drills have run, and their results are in the Monday notes.',
+  p3: '<b>Decision wanted by:</b> the end of the spring planning cycle. <b>Owner:</b> Rowan Vale.',
+  p4: 'We keep a small in-process cache on every edge node and add a shared object-store tier behind it. A tile request checks memory first, then the object store. The renderer writes through both tiers. Invalidation moves from "flush everything on a style change" to a <mark class="cd-hl">versioned key</mark>, so publishing a style is cheap and rolling one back is instant.',
+  p5: 'Nothing changes for customers except latency: the tile URLs, the API keys and the attribution rules all stay as they are in the <a>API reference</a>.' };
+const M = { rowan: 'Rowan Vale', mei: 'Mei Tanaka', tomasz: 'Tomasz Reed', hermes: 'Hermes', scribe: 'Scribe' };
+const T1 = { id: 't1', doc: true, resolved: 'Rowan Vale · Nov 8, 2:12 PM · v4', top: 0, cs: [
+    { by: 'mei', at: 'Nov 7, 9:02 AM', v: 1, body: 'Before I approve: the rollback story needs its own section. <span class="cd-mention">@hermes</span> can you draft one from the drill notes?' },
+    { by: 'hermes', at: 'Nov 7, 9:14 AM', v: 1, body: 'Drafted <strong>Rollback</strong> from the 16 March drill: a style rollback is one key flip, measured at 2.3 s to full propagation. Pushed in v2.' },
+    { by: 'rowan', at: 'Nov 8, 2:12 PM', v: 4, body: 'Rollback section reads well. Thanks <span class="cd-mention">@hermes</span>.' } ] };
+const T6 = { id: 't6', quote: 'two-tier cache', sel: true, top: 330, cs: [
+    { by: 'mei', at: 'Nov 8, 2:04 PM', v: 4, body: 'Love this framing. Can we get a diagram of the two tiers for the planning deck?' },
+    { by: 'hermes', at: 'Nov 8, 2:05 PM', v: 4, body: 'I can render one from the architecture notes and attach it as an Asset. <span class="cd-mention">@rowan</span> ok to add it under Summary?' } ] };
+const T2 = { id: 't2', quote: 'versioned key', top: 610, cs: [
+    { by: 'hermes', at: 'Nov 7, 9:12 AM', v: 1, body: 'Versioned keys also make <strong>rollback</strong> a pointer swap. Worth saying so here, since it is the main win for on-call.' },
+    { by: 'rowan', at: 'Nov 8, 2:10 PM', v: 4, body: 'Yes, add a sentence. <span class="cd-mention">@hermes</span> go ahead.' } ] };
+const LIST = [ // id, name, title, ver, action, open, you, updated
+  ['5xrngtp8', 'rfc-tile-cache', 'RFC 014: a two-tier tile cache', 4, 'approve', 4, 2, '3m'],
+  ['ihep66rr', 'meeting-notes-2026-03-16', 'Monday notes, 16 March', 1, 'approve', 0, 0, '5m'],
+  ['rr2nszfb', 'onboarding', 'Welcome to Fernway Maps', 1, '', 1, 0, '5m'],
+  ['ddecw8ng', 'release-checklist', 'Style release checklist', 1, '', 1, 1, '5m'],
+  ['aief3vxg', 'meeting-notes-2026-03-09', 'Monday notes, 9 March', 1, '', 0, 0, '6m'],
+  ['h8xez2dg', 'meeting-notes-2026-03-02', 'Monday notes, 2 March', 1, '', 0, 0, '6m'],
+  ['taqihej4', 'math-and-diagrams', 'How a tile gets its coordinates', 1, '', 0, 0, '6m'],
+  ['63j7h9q3', 'glossary-multilingual', 'Fernway glossary', 1, '', 0, 0, '6m'],
+  ['p26d4vpi', 'field-notes', 'Field notes: Skåne coast survey, week 14', 1, '', 0, 0, '6m'],
+  ['3esmvgkb', 'edge-cases', 'A heading with a closing sequence', 1, '', 0, 0, '6m'],
+  ['37k3sbyh', 'api-reference', 'Fernway Maps API reference', 1, '', 0, 0, '6m'] ];
+const ICON = '<svg class="cd-icon" width="18" height="18" viewBox="0 0 32 32"><rect width="32" height="32" rx="7.2" fill="#1c1c1e"/><rect x="6" y="5" width="16" height="22" rx="2" fill="#f2f2f7"/><rect x="8" y="12" width="12" height="5" rx="1" fill="#f472b6"/><line x1="22" y1="14.5" x2="24" y2="14.5" stroke="#f472b6" stroke-width="2"/><circle cx="26.5" cy="14.5" r="3.5" fill="#f472b6"/></svg>';
+
+/* ---------- markup: the shapes view.rs, listing.rs and ui.rs render ---------- */
+const who = (c) => `<div class="cd-who"><b class="cd-member">${M[c.by]}</b><span class="cd-auth">⚷</span><span>${c.at}</span><span class="cd-mono">v${c.v}</span><span class="cd-ctools"><span class="cd-link">edit</span><span class="cd-link">delete</span></span></div>`;
+const comment = (c) => `<div class="cd-c">${who(c)}<div class="cd-cbody"><p>${c.body}</p></div></div>`;
+const acts = (t) => `<div class="cd-acts"><button class="cd-btn cd-sm">Reply</button><button class="cd-btn cd-sm">${t.resolved ? 'Reopen' : 'Resolve'}</button></div>`;
+const label = (t) => t.doc ? '<span class="cd-kind" style="font-size:10px;text-transform:uppercase;letter-spacing:.06em">whole document</span>' : `<q>${t.quote}</q>`;
+const card = (t) => `<article class="cd-thread${t.sel ? ' cd-selected' : ''}${t.resolved ? ' cd-resolved' : ''}"><div class="cd-row"><span class="cd-dot"></span><div class="cd-main"><div class="cd-quote">${label(t)}</div></div><span class="cd-tid">${t.id}</span></div><div class="cd-body">${t.cs.map(comment).join('')}${t.resolved ? `<div class="cd-resline" style="padding:2px 12px 6px;font-size:12px;color:var(--cd-muted)">✓ resolved by ${t.resolved}</div>` : ''}${acts(t)}</div></article>`;
+const row = (t, open) => `<article class="cd-thread${open ? ' cd-open' : ''}"><div class="cd-row"><span class="cd-dot"></span><div class="cd-main"><div class="cd-quote"><q>${t.quote}</q></div>${open ? '' : `<div class="cd-snip"><b>${M[t.cs[0].by]}</b> ${t.cs[0].body.replace(/<[^>]+>/g, '')}</div><div class="cd-meta">${t.id} · ${t.cs.length - 1} reply · 3h · <span class="cd-mention">@you</span></div>`}</div><span class="cd-tid">${t.id}</span></div>${open ? `<div class="cd-body">${t.cs.map(comment).join('')}${acts(t)}</div>` : ''}</article>`;
+const off = '<span class="cd-off" aria-disabled="true">›</span>';
+function header() {
+  return `<header class="cd-hdr"><div class="cd-line">${ICON}<span class="cd-crumb">${DOC.vault}</span><span class="cd-crumb">/</span><b class="cd-name">${DOC.name}</b></div>
+    <div class="cd-rest"><span class="cd-vsw"><span>‹</span><span class="cd-sel">v4 (head) · Rowan Vale · 3h</span>${off}</span><span class="cd-grow"></span>
+    <span class="cd-status"><b>v4</b> · <span>${DOC.open} open</span> · <span class="cd-you">${DOC.you} @you</span></span>
+    <label class="cd-chip"><input type="checkbox" checked style="margin:0 2px 0 0">resolved (${DOC.resolved})</label>
+    <button class="cd-btn">History</button><button class="cd-btn" style="font-family:var(--mono)">?</button>
+    <span class="cd-chip cd-pos">✓ Approved · Mei Tanaka · 3h</span><button class="cd-btn cd-actbtn cd-pos">Approve</button><button class="cd-btn cd-actbtn cd-neg">Send back</button></div></header>`;
+}
+const fx = (cls, inner, w, h) => el('div', { width: w + 'px', height: h + 'px' }, `<div class="fx ${cls}" style="height:100%">${inner}</div>`);
+function desktop(cls) {
+  const doc = `<h1>${DOC.title}</h1><p>${DOC.p1}</p><p>${DOC.p2}</p><p>${DOC.p3}</p><h2>Summary</h2><p>${DOC.p4}</p><p>${DOC.p5}</p>`;
+  const margin = `<div class="cd-strip" style="top:24px"><div class="cd-strip-h">Whole document</div>${card(T1)}</div><div class="cd-strip" style="top:${T6.top}px">${card(T6)}</div><div class="cd-strip" style="top:${T2.top}px">${card(T2)}</div>`;
+  return [fx(cls, `${header()}<div class="cd-layout"><div class="cd-doc">${doc}</div><div class="cd-margin">${margin}</div></div>`, 1440, 900)];
+}
+function phone(cls) {
+  const hdr = `<header class="cd-hdr"><div class="cd-line">${ICON}<b class="cd-name">${DOC.name}</b><span class="cd-nline">· <b>v4</b> · ${DOC.open} open · <span class="cd-mention">${DOC.you} @you</span></span></div><span class="cd-arrows"><span>‹</span>${off}</span></header>`;
+  const doc = `<h1>${DOC.title}</h1><p>${DOC.p1}</p><div class="cd-strip">${row(T6, true)}</div><p>${DOC.p2}</p><h2>Summary</h2><p>${DOC.p4}</p><div class="cd-strip">${row(T2, false)}</div>`;
+  return [fx('ph ' + cls, `${hdr}<div class="cd-layout"><div class="cd-doc">${doc}</div></div>`, 393, 852)];
+}
+function ringFrame(cls) {
+  return [fx(cls, `<div style="position:relative;padding:30px 30px 0 70px"><mark class="cd-hl cd-selected" style="position:absolute;left:0;top:38px;padding:0 4px">two-tier cache</mark><div style="position:relative;left:40px;width:320px">${card(T6)}</div></div>`, 460, 300)];
+}
+function topbar(current) {
+  return `<header class="cd-hdr cd-hdr-nav"><div class="cd-line">${ICON}<b class="cd-name">annotary</b><nav class="cd-nav"><a class="cd-navlink${current === 'docs' ? ' cd-current' : ''}">Documents</a><a class="cd-navlink${current === 'set' ? ' cd-current' : ''}">Settings</a></nav></div><span class="cd-grow"></span><span class="cd-status"><b>Rowan Vale</b> <span class="cd-muted">@rowan · owner</span></span></header>`;
+}
+function list(cls, ph) {
+  const rows = LIST.map((r, i) => `<tr class="${i === 0 ? 'hov' : ''}">${ph ? '' : `<td class="cd-col-id"><a>${r[0]}</a></td>`}<td><a class="cd-docname">${r[1]}</a><div class="cd-title">${r[2]}</div></td><td>v${r[3]}</td><td>${r[4] ? `<span class="cd-chip cd-pos">${r[4]}</span>` : '<span class="cd-muted">-</span>'}</td><td class="cd-num">${r[5]}${r[6] ? ` <span class="cd-mention">${r[6]} @you</span>` : ''}</td>${ph ? '' : `<td class="cd-muted">${r[7]}</td>`}</tr>`).join('');
+  const filters = ph ? `<div class="cd-filters"><span class="cd-in" style="flex:1">Name contains…</span><span class="cd-btn">Filter</span></div>` : `<div class="cd-filters"><span class="cd-in" style="width:190px">Name contains…</span><span class="cd-in">every Vault ⌄</span><span class="cd-in">action id | none</span><span class="cd-in">since: 2h, 3d, 2026-08-17</span><label><input type="checkbox"> deleted</label><label><input type="checkbox"> mentions me</label><span class="cd-btn">Filter</span><a style="font-size:12px">clear</a></div>`;
+  const head = `<tr>${ph ? '' : '<th>ID</th>'}<th>NAME</th><th>VER</th><th>ACTION</th><th class="cd-num">OPEN</th>${ph ? '' : '<th>UPDATED</th>'}</tr>`;
+  return [fx(cls + (ph ? ' ph' : ''), `${topbar('docs')}<div class="cd-listmain"${ph ? ' style="padding:16px"' : ''}>${filters}<table class="cd-list">${head}${rows}</table><p class="cd-listfoot">11 Documents</p></div>`, ph ? 393 : 1440, ph ? 852 : 900)];
+}
+function settings(cls) {
+  const side = `<div class="cd-side"><div class="cd-search">⌕ Search settings</div><a>Profile</a><a>Devices</a><a class="cd-current">Appearance</a><a>Threads</a><a>Documents</a><a>Keyboard</a><a>Date and time</a><div class="cd-sh">Server</div><a>Members</a><a>Vaults</a><a>Server settings</a></div>`;
+  const sw = (c, on) => `<span class="cd-sw${on ? ' on' : ''}" style="background:${c}"></span>`;
+  const group = `<div class="cd-group"><h1>Appearance</h1><div style="font-size:14px;color:var(--cd-muted);margin-bottom:18px">Applying to <b style="color:var(--cd-fg)">All devices ⌄</b></div>
+    <div class="cd-setrow"><b>Appearance</b><div><span class="cd-seg"><span class="on">Follow system</span><span>Light</span><span>Dark</span></span></div></div>
+    <div class="cd-setrow"><b>Highlight, light</b><div>${sw('#fff1a8', 1)}${sw('#c8f2d0')}${sw('#cfe3ff')}${sw('#fbd3e9')}${sw('#fed7aa')}${sw('#e4d4fb')}<a style="font-size:13px">Custom…</a><br><span class="cd-sample">See <mark style="background:#fff1a8;color:inherit">what's highlighted</mark></span></div></div>
+    <div class="cd-setrow"><b>Highlight, dark</b><div>${sw('#facc15', 1)}${sw('#4ade80')}${sw('#60a5fa')}${sw('#f472b6')}${sw('#fb923c')}${sw('#c084fc')}<a style="font-size:13px">Custom…</a><br><span class="cd-sample" style="background:#000;color:#f2f2f7;border-color:#38383a">See <mark style="background:#facc15;color:#000">what's highlighted</mark></span></div></div>
+    <div class="cd-setrow"><b>Text size</b><div><span class="cd-seg"><span>A−</span><span class="on">100%</span><span>A+</span></span></div></div></div>`;
+  return [fx(cls, `${topbar('set')}<div class="cd-set">${side}${group}</div>`, 1440, 900)];
+}
+
+/* ---------- round 3 frames ---------- */
+function tieFrame(cls) {
+  const doc = `<p style="margin-top:0">${DOC.p1}</p><p>${DOC.p2}</p><p>${DOC.p3}</p>`;
+  const t6 = card(T6).replace('cd-thread cd-selected', 'cd-thread cd-selected" style="--tt:-196px;--th:214px');
+  const margin = `<div class="cd-strip" style="top:0"><div class="cd-strip-h">Whole document</div>${card({ ...T1, resolved: null, cs: T1.cs.slice(0, 2) })}</div><div class="cd-strip" style="top:300px">${t6}</div>`;
+  return [fx(cls, `<div class="cd-layout" style="grid-template-columns:minmax(0,560px) 320px;padding-top:20px"><div class="cd-doc" style="padding-top:0">${doc}</div><div class="cd-margin">${margin}</div></div>`, 1100, 640)];
+}
+const STATES = [
+  ['Open', 'default', () => card({ ...T6, sel: false })],
+  ['Selected', 'cd-selected', () => card(T6)],
+  ['Composing a new Thread', 'cd-composer', () => `<article class="cd-thread cd-composer"><div class="cd-row"><span class="cd-dot"></span><div class="cd-main"><div class="cd-quote"><q>object-store tier</q></div></div><span class="cd-tid">new</span></div><div class="cd-editor"><div class="cd-ta">Comment…</div><div class="cd-acts"><button class="cd-btn cd-sm cd-primary">Comment</button><button class="cd-btn cd-sm">Cancel</button><span style="font-size:11px;color:var(--cd-muted);margin-left:auto">⌘↩</span></div></div></article>`],
+  ['Posting a reply', 'cd-pending', () => card({ ...T6, sel: false, cs: [...T6.cs, { by: 'rowan', at: 'now', v: 4, body: 'Yes please, under Summary.' }] }).replace(/<div class="cd-c">(?![\s\S]*<div class="cd-c">)/, '<div class="cd-c cd-pending">')],
+  ['A Comment arrives live', 'cd-fresh', () => card({ ...T6, sel: false, cs: [...T6.cs, { by: 'rowan', at: 'Nov 8, 2:16 PM', v: 4, body: 'Yes please, under Summary.' }, { by: 'hermes', at: 'now', v: 4, body: 'Done: <strong>two-tiers.svg</strong> is attached under Summary in v5.' }] }).replace(/<div class="cd-c">(?![\s\S]*<div class="cd-c">)/, '<div class="cd-c cd-fresh">')],
+  ['Resolved (Show resolved on)', 'cd-resolved', () => card({ ...T6, sel: false, resolved: 'Rowan Vale · Nov 8, 2:20 PM · v5' })],
+  ['Orphaned (text gone in v5)', 'cd-st-orphaned', () => `<div class="cd-orph">▾ Orphaned (1) <span style="text-transform:none;letter-spacing:0;font-weight:400">— text no longer in v5</span></div><article class="cd-thread cd-dim" style="margin-top:6px"><div class="cd-row"><span class="cd-dot"></span><div class="cd-main"><div class="cd-quote"><q>clients recieve stale tiles</q> <span class="cd-out">· orphaned — text no longer in v5</span></div></div><span class="cd-tid">t3</span></div><div class="cd-body">${comment({ by: 'tomasz', at: 'Nov 7, 9:03 AM', v: 1, body: 'Typo: "recieve". Do we know how many clients saw stale tiles?' })}</div></article>`],
+  ['A reply failed', 'cd-err', () => card({ ...T6, sel: false }).replace('<div class="cd-acts">', '<div class="cd-err" style="margin:0 12px 8px;padding:4px 8px;font-size:12px;color:#9f1239;background:#fff1f2;border:1px solid #fecdd3;border-radius:8px">Not posted: the server could not be reached. Your text is kept.</div><div class="cd-acts">')],
+];
+const st = document.getElementById('states');
+STATES.forEach(([label, key, make], i) => {
+  const cell = el('div', null, []);
+  cell.appendChild(el('div', { fontSize: '12px', color: 'var(--muted)', margin: '0 2px 8px', display: 'flex', justifyContent: 'space-between' }, `<span>${label}</span><span><code>${key}</code></span>`));
+  const stage = el('div', { borderRadius: '14px', padding: '18px 18px 18px 46px', background: '#fff' }, `<div class="fx" style="background:transparent"><div style="position:relative;width:320px">${make()}</div></div>`);
+  stage.className = 'frame'; stage.id = 'st' + i; stage.style.position = 'relative';
+  cell.appendChild(stage); st.appendChild(cell);
+});
+function headerStates(cls) {
+  const older = `<header class="cd-hdr"><div class="cd-line">${ICON}<span class="cd-crumb">notes</span><span class="cd-crumb">/</span><b class="cd-name">rfc-tile-cache</b></div><div class="cd-rest"><span class="cd-vsw"><span>‹</span><span class="cd-sel">v2 · Hermes · 1d · add Rollback</span><span>›</span></span><span class="cd-grow"></span><span class="cd-status"><b>v2</b> · <span>5 open</span></span><span class="cd-chip" style="color:var(--cd-muted)">no action on v2</span></div></header><div class="cd-banner"><span>Viewing <b>v2</b> · Hermes · 1d · “add Rollback, fix typos” — Threads as they were; replies/resolve work, new comments only on head.</span><span class="cd-grow" style="flex:1"></span><span class="cd-btn" style="background:var(--cd-card)">Go to head v4</span></div>`;
+  const newver = `<div class="cd-banner cd-newver"><span><b>v5</b> by Hermes · now · “attach the two-tier diagram”</span><span class="cd-grow" style="flex:1"></span><span class="cd-btn" style="background:var(--cd-card)">Show v5</span></div>`;
+  return [fx(cls, `${header()}${newver}<div style="height:18px"></div>${older}<div style="position:absolute;right:20px;top:64px" class="cd-toast">Not posted: the server could not be reached.</div>`, 1440, 260)];
+}
+function embedPhone(cls) {
+  const hdr = `<header class="cd-hdr"><div class="cd-line">${ICON}<b class="cd-name">${DOC.name}</b><span class="cd-nline">· <b>v4</b> · ${DOC.open} open · <span class="cd-mention">${DOC.you} @you</span></span></div><span class="cd-arrows"><span>‹</span>${off}</span></header>`;
+  const open = row(T6, true).replace('<div class="cd-acts">', '<div class="cd-editor"><div class="cd-ta" style="font-size:16px">Reply…</div><div class="cd-acts"><button class="cd-btn cd-sm cd-primary">Post</button><button class="cd-btn cd-sm">Cancel</button></div></div><div class="cd-acts" style="display:none">');
+  const doc = `<p style="margin-top:0">${DOC.p1}</p><div class="cd-strip">${open}</div><p>${DOC.p2}</p><div class="cd-strip">${row(T2, false)}</div>`;
+  return [fx('ph ' + cls, `${hdr}<div class="cd-layout"><div class="cd-doc">${doc}</div></div>`, 393, 852)];
+}
+function signin() {
+  const big = ICON.replace('width="18" height="18"', 'width="40" height="40"');
+  return [fx('', `<div class="cd-simple">${big}<h1>Sign in to annotary</h1><div class="cd-field">Password</div><button class="cd-btn cd-primary" style="background:var(--cd-primary);color:var(--cd-primary-ink);padding:8px 14px;font-size:14px">Sign in</button></div>`, 600, 420)];
+}
+frame('f1', () => tieFrame(''), '#fff'); frame('f1d', () => tieFrame('dk'), '#000');
+frame('f3', () => headerStates(''), '#fff'); frame('f3d', () => headerStates('dk'), '#000');
+frame('f4', () => embedPhone(''), '#fff'); frame('f4d', () => embedPhone('dk'), '#000');
+frame('f5', () => signin(), '#fff');
+document.documentElement.dataset.pageHeight = document.documentElement.scrollHeight;
+if (params.get('audit')) audit(!!params.get('all'));
+</script>
+</body>
+</html>
