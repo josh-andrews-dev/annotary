@@ -242,10 +242,11 @@ fn the_line_counts_cannot_blow_up() {
 fn the_pairing_matrices_are_gone_before_the_recursion() {
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
     let kids = |n: usize, tag: &str| (0..n).map(|i| format!("<p>{tag} {i}</p>\n")).collect::<String>();
+    // The quote comes first at each level, so it pairs and the recursion runs with the level's
+    // matrices already built: about 330,000 cells at each of 31 levels, 1.6 MB each if they stayed.
     let nested = |n: usize, tag: &str| {
-        (0..31).fold(kids(n, tag), |s, _| format!("<blockquote>{}{s}</blockquote>", kids(n, tag)))
+        (0..31).fold(kids(n, tag), |s, _| format!("<blockquote>{s}{}</blockquote>", kids(n, tag)))
     };
-    // About 330,000 matrix cells at each of 31 levels: 1.6 MB each if they stayed.
     let (a, b) = (nested(620, "a"), nested(540, "b"));
     let (d, peak) = peak_during(|| rendered_diff("", "", &a, &b));
     assert!(!d.stats.too_large, "{:?}", d.stats);

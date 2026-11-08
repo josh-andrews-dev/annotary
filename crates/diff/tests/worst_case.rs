@@ -165,8 +165,11 @@ fn every_known_worst_case_stays_within_the_limits() {
     let (a, b) = (lines(690_000, 7), lines(690_000, 11));
     t.run("review: 690,000 repeating lines (1.9 MB)", (&a, &b), ("<p>x</p>", "<p>y</p>"));
     let kids = |n: usize, tag: &str| (0..n).map(|i| format!("<p>{tag} {i}</p>\n")).collect::<String>();
-    let many =
-        |n: usize, tag: &'static str| nest(kids(n, tag), 31, &move |_| kids(n, tag), "<blockquote>", "</blockquote>");
+    // The quote comes first at each level, so it pairs and the recursion runs with the level's
+    // matrices already built.
+    let many = |n: usize, tag: &'static str| {
+        (0..31).fold(kids(n, tag), |s, _| format!("<blockquote>{s}{}</blockquote>", kids(n, tag)))
+    };
     let (a, b) = (many(1_050, "a"), many(952, "b"));
     t.html("review: 31 quotes, 1,050 vs 952 children each", &a, &b);
     let (a, b) = (many(620, "a"), many(540, "b"));
@@ -218,8 +221,8 @@ fn every_known_worst_case_stays_within_the_limits() {
     t.html("one list at the block limit", &items("a", MAX_BLOCKS - 1), &items("b", MAX_BLOCKS - 1));
     t.html(
         "nesting to the block limit",
-        &"<blockquote>".repeat(MAX_BLOCKS).replace("<blockquote><blockquote>", "<blockquote><blockquote>"),
-        &format!("{}x", "<blockquote>".repeat(MAX_BLOCKS)),
+        &format!("{}x{}", "<blockquote>".repeat(MAX_BLOCKS), "</blockquote>".repeat(MAX_BLOCKS)),
+        &format!("{}y{}", "<blockquote>".repeat(MAX_BLOCKS), "</blockquote>".repeat(MAX_BLOCKS)),
     );
 
     // ---- the shapes of the earlier rounds ----
