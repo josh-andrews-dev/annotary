@@ -46,6 +46,11 @@ install-updater = false
 include = ["deploy/annotary.service", "deploy/healthcheck.sh"]
 allow-dirty = ["ci"]
 
+# GitHub retired the macos-14 image (dist 0.33.1's default for Apple Silicon): "The configuration
+# 'macos-14-arm64-us-default' is not supported" canceled v0.4.0's build. Name a supported one.
+[workspace.metadata.dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
+
 [profile.dist]
 inherits = "release"
 
