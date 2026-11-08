@@ -206,7 +206,7 @@ fn item_json(i: &Item) -> Value {
 
 /// What the card renderer needs to know about the viewer (ticket 11: which buttons to draw).
 struct Viewer<'a> {
-    members: &'a std::collections::HashMap<String, MemberBrief>,
+    members: &'a std::collections::BTreeMap<String, MemberBrief>,
     me: &'a str,
     is_owner: bool,
     /// `comment` on the Vault and the Document is live.

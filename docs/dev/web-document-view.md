@@ -34,7 +34,7 @@ sandboxed frame with an opaque origin and carries everything over `postMessage` 
 with a Bearer Token. Why each choice: `docs/decisions.md`, 2026-11-07.
 
 - **Files:** `server/embed.rs` (the header, `is_embed`, `media`, the `/embed/shell` route, the `parts` middleware and
-  `cuts`, the constants `IMAGE_MAX` = 2 MiB and `PART_MAX` = 384 KiB), `server/ui/embed.js` (the transport core,
+  `cuts`, the constants `IMAGE_MAX` = 700 KiB and `PART_MAX` = 384 KiB), `server/ui/embed.js` (the transport core,
   inlined in the shell and in the head of every embed render), `app.js` (the `transport` object at the top of
   `main`, and the embed block after it), `prefs.rs` (`WebPrefs.embed`, the zone headers), `ui::page_for`,
   `ui::top_nav(…, embed)`, the `.cd-embed` block at the end of `app.css`.
@@ -62,6 +62,10 @@ with a Bearer Token. Why each choice: `docs/decisions.md`, 2026-11-07.
   the embedder (redirects followed, three at most), then `document.open / write / close`. The page's own copy of
   `embed.js` takes over; `window.__cdEmbedGen` makes the previous copy's listeners, requests and timers stand down.
   `window.__cdEmbedPath` / `__cdEmbedHash` say where the frame is (`hash()` replaces `location.hash` for `#tN`).
+  The realm survives the write, and so do frame callbacks a page scheduled: `app.js` keeps the `AnnotaryEmbed` it
+  booted with and its `main` returns when that copy is no longer `current()`, so a page written over another
+  before the other's script ran binds once (S37-10). A failed load clears `loading`, so the same `annotary-init`
+  can try again; an init for the page shown drops a load in flight.
 - **Live:** `transport.events` polls the SSE URL (`doc=`, `me=1`, `kinds=`) as a long-poll answer from the page's
   `seq` with `limit=200`, every `EMBED_POLL_MS` (4 s) while `document.visibilityState` is not `hidden`, at once on
   `visibilitychange` to visible and on any `annotary-event`; one poll at a time; `.cd-live` once the first answer

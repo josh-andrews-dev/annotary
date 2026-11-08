@@ -297,7 +297,9 @@ impl MemberBrief {
 }
 
 /// Every Member by handle, for the pages (one query per page).
-pub fn members_by_handle(st: &AppState) -> Result<std::collections::HashMap<String, MemberBrief>, ApiError> {
+/// Ordered by handle, so a page renders the same bytes on every request (an embed answer in
+/// parts carries one etag across its parts; a hash map's order would change it each time).
+pub fn members_by_handle(st: &AppState) -> Result<std::collections::BTreeMap<String, MemberBrief>, ApiError> {
     Ok(st.store.list_members()?.iter().map(|m| (m.handle.clone(), MemberBrief::from_view(m))).collect())
 }
 

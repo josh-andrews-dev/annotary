@@ -272,6 +272,12 @@ fn all_parts(ts: &TestServer, path: &str) -> Vec<Page> {
 #[test]
 fn a_large_embedded_answer_comes_in_parts() {
     let ts = TestServer::start();
+    // several Members, as every Hermes install has (one per profile): the page must render the
+    // same bytes on every request, or each part would carry another etag and be refused
+    for h in ["piper", "coder", "research", "scribe", "bencha", "benchb", "wfi", "ops"] {
+        let (status, body) = ts.post("/api/v1/members", Some(&ts.owner_token), &json!({ "handle": h }));
+        assert_eq!(status, 201, "{body}");
+    }
     // a Document whose page is far over one part, with multi-byte text across the cuts
     let mut md = String::from("# Large\n\n");
     while md.len() < 3 * PART_MAX {

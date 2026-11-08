@@ -530,11 +530,12 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S37-02 — an embed render's media go through the embedder: an Asset image keeps its URL only as `data-cd-src` (no `src`) with a hidden open button after it, an image over `embed::IMAGE_MAX` is marked `data-cd-big` with the button shown, video, audio and PDF keep theirs as `data-cd-src` with a shown open button after the element; the Threads are spliced and every card is the markup an ordinary render has (story 168)
 - S37-03 — an embed render reads no cookie: the zone and hour cycle come from `X-Annotary-Tz` / `X-Annotary-Hc` (absolute times in that zone, checked as the cookies are), a `cd_tz` cookie is ignored there, and an ordinary request ignores the headers (story 168)
 - S37-04 — `GET /embed/shell` answers a signed-in caller with the bootstrap page: the embed transport, its boot call and the protocol version, as `text/html` with the sandbox CSP and `nosniff` (story 168)
-- S37-05 — an embedded GET whose answer is larger than `embed::PART_MAX` answers `206` part by part (`X-Annotary-Part` asks, `X-Annotary-Parts`, `X-Annotary-Etag`, the real status in `X-Annotary-Status`, the content type kept), the parts join to the full answer and end on character boundaries; a part asked with another etag is `412`; a small answer, a non-GET and an ordinary request are untouched (story 168)
+- S37-05 — an embedded GET whose answer is larger than `embed::PART_MAX` (a page rendered the same on every request, with several Members) answers `206` part by part (`X-Annotary-Part` asks, `X-Annotary-Parts`, `X-Annotary-Etag`, the real status in `X-Annotary-Status`, the content type kept), the parts join to the full answer and end on character boundaries; a part asked with another etag is `412`; a small answer, a non-GET and an ordinary request are untouched (story 168)
 - S37-06 — in a fake embedder (a host page that loads the shell as a `data:` URL into a sandboxed frame without `allow-same-origin` and answers its messages from a real `serve` with a Bearer Token), a person opens the list, opens a Document, comments, replies, resolves and approves; a change made elsewhere appears with no events relayed (the poll), at once when the host posts `annotary-event`; the frame sets no cookie and makes no request of its own (story 168)
 - S37-07 — in the fake embedder, a link, the list's filter form and the Version select navigate in place and post `annotary-nav`; `annotary-init` with another path navigates without a new frame; an Asset link and an open button post `annotary-open-external`; an image arrives through the bridge; a Document larger than one message arrives in parts with every message under 1 MB; messages of another type (`hermes-guest-loaded`) or from another window change nothing; form fields are at least 16 px (story 168)
 - S37-08 — `serve --setup-only --json` runs first-run setup with its transcript on stderr and prints one object on stdout (`created`, `handle`, `name`, `token`, `vault`, `store`); on a store already set up it prints the owner with no Token; `--json ?` lists the fields; `serve --json` without `--setup-only` is a usage error, exit 1 (story 169)
 - S37-09 — the release workflow attests the release tarballs with `actions/attest-build-provenance` pinned to a SHA, in the job that makes the release (the only one with `id-token` and `attestations` write), before `gh release create` (story 170)
+- S37-10 — in the fake embedder, a page written over another before the other's script ran binds once (no doubled highlight); an `annotary-init` whose load failed can be sent again and loads; an `annotary-init` for the page shown while another loads keeps the page shown (story 168)
 <!-- ---- end M3 (Hermes plan) ---- -->
 
 ## Stories
@@ -710,7 +711,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 165 — pairing a phone: `pair` (QR on the terminal), `POST /api/v1/pairing`, **Pair a device** on the Members screen → S18-08, S18-09, S18-10
 - 166 — the list / Document API carries the display title → S18-11
 - 167 — an iPhone / iPad browser offers "Open in Annotary" → S18-12
-- 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07
+- 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07, S37-10
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
 

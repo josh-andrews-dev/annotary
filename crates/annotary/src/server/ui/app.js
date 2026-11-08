@@ -18,12 +18,18 @@
      inline module is deferred, but a fast parse can finish before the first frame is scheduled,
      and then the script would run ahead of the first paint. `.cd-app.cd-ready` still marks the
      moment the margin is laid out and the handlers are bound (`performance.mark('cd:ready')`). */
+  /* Embed mode navigates by `document.write` into the same realm, which keeps a frame callback
+     this page scheduled: if the next page is written before it fires, it would run `main` on that
+     page too and bind everything twice. The embed transport this page was written with tells
+     whether the page is still the current one (`AnnotaryEmbed.current`). */
+  var bootEmbed = window.AnnotaryEmbed;
   if (window.requestAnimationFrame) {
     requestAnimationFrame(function () { setTimeout(main, 0); });
   } else {
     main();
   }
 function main() {
+  if (bootEmbed && !bootEmbed.current()) return;
   var app = document.querySelector('.cd-app');
   if (!app) return;
   var dataEl = document.getElementById('cd-data');

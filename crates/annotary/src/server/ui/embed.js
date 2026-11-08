@@ -161,7 +161,11 @@
         document.write(html);
         document.close();
       });
-    }).catch(function () { if (current() && loading === path) fail('Annotary could not be reached.'); });
+    }).catch(function () {
+      if (!current() || loading !== path) return;
+      loading = null; // so the same `annotary-init` can try again
+      fail('Annotary could not be reached.');
+    });
   }
   function initPath(m) {
     if (typeof m.path === 'string') return clean(m.path);
@@ -184,7 +188,9 @@
       eventFns.slice().forEach(function (fn) { fn(m.payload || m.event || null); });
     } else if (m.type === 'annotary-init') {
       var p = initPath(m);
-      if (p && p !== here() && p !== loading) load(p);
+      if (!p || p === loading) return;
+      if (p === here()) { loading = null; return; } // back to the page shown: drop a load in flight
+      load(p);
     }
   });
 

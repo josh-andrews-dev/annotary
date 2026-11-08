@@ -297,7 +297,7 @@ the Document view render for an embedder and carry every request, navigation and
   `embed::PART_MAX` (384 KiB, leaving room for JSON escaping and base64) answers 206 in numbered parts with an etag,
   which the transport joins; parts end on character boundaries. Rejected splitting the Document into lazily loaded
   pages because Threads are spliced server-side for a final first paint, and parts keep that page whole. Images over
-  `embed::IMAGE_MAX` (2 MiB), video, audio and PDF are an "open" button (`annotary-open-external`).
+  `embed::IMAGE_MAX` (700 KiB), video, audio and PDF are an "open" button (`annotary-open-external`).
 - **Live changes are a poll.** The plugin cannot relay events on every Hermes profile yet, so the embedded feed polls
   `GET /api/v1/events` (the same URL and filters as the browser's SSE, from the page's `seq`) every 4 s while the page
   is visible, and an `annotary-event` only makes it look at once. Rejected trusting relayed payloads, because the poll

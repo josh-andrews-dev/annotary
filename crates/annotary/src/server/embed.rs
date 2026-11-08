@@ -54,8 +54,9 @@ pub const STATUS_HEADER: &str = "x-annotary-status";
 /// The version of the message protocol between the page, the shell and the embedder.
 pub const PROTOCOL: u32 = 1;
 /// The largest image (bytes, from the Version's manifest) an embedded page fetches through the
-/// embedder; a larger one is an "open" button. The one place the cap lives.
-pub const IMAGE_MAX: u64 = 2 * 1024 * 1024;
+/// embedder; a larger one is an "open" button. The one place the cap lives. 700 KiB: the bridge
+/// carries it base64 (a third larger), and Hermes stalls on a message over about 1 MB.
+pub const IMAGE_MAX: u64 = 700 * 1024;
 /// The most body bytes one embedded answer carries ([`parts`]): Hermes's gateway stalls on
 /// messages over about 1 MB, and a body can grow on the way (JSON escaping, `\u` for non-ASCII,
 /// base64 for bytes), so a part stays well under it.

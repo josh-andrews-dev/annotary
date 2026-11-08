@@ -82,8 +82,12 @@ async function api(p: string): Promise<any> {
 }
 
 /** The fake embedder's backend: the frame's request, sent on with the Bearer Token. */
+// Paths the fake backend answers as unreachable (status 0), as a plugin whose server is down would.
+const unreachable = new Set<string>();
+
 async function backend(m: { method: string; path: string; headers?: Record<string, string>; body?: string | null; binary?: boolean }) {
   if (typeof m.path !== 'string' || !m.path.startsWith('/') || m.path.startsWith('//')) return { status: 400, headers: {}, body: '' };
+  if (unreachable.has(m.path)) return { status: 0, headers: {}, body: '' };
   const headers: Record<string, string> = { ...(m.headers || {}), Authorization: `Bearer ${srv.ownerToken}`, 'X-Annotary-Embed': '1' };
   try {
     const res = await fetch(srv.url + m.path, { method: m.method, headers, body: m.body ?? undefined, redirect: 'manual' });
@@ -301,4 +305,55 @@ test('Assets: an image comes through the bridge, links and open buttons go outsi
   const sizes: number[] = await page.evaluate(() => (window as any).sizes);
   expect(Math.max(...sizes)).toBeLessThan(ONE_MB);
   await expect(fl.locator('.cd-doc p').last()).toContainText('again and again');
+});
+
+// spec: S37-10
+test('a page written over another before its script ran binds once; a failed annotary-init can be sent again; init back to the page shown keeps it', async ({ page }) => {
+  const a = seed('emb-race-a', PLAN);
+  const b = seed('emb-race-b', PLAN);
+  cliAs(['thread', 'new', b.id, '3:1-3:5', '-m', 'on a span']);
+  const e = await embed(page, `/d/${a.id}`);
+  const fl = e.fl;
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
+
+  // Hold every frame callback (the realm outlives document.write), write A then B, then let them run.
+  const held = () => e.frame().evaluate(() => {
+    const w = window as any;
+    w.__held = [];
+    w.__realRaf = w.__realRaf || w.requestAnimationFrame;
+    w.requestAnimationFrame = (f: FrameRequestCallback) => { w.__held.push(f); return 0; };
+  });
+  const pathNow = () => e.frame().evaluate(() => (window as any).__cdEmbedPath as string);
+  await held();
+  await toFrame(page, { type: 'annotary-init', path: '/' });
+  await expect.poll(pathNow).toBe('/');
+  await toFrame(page, { type: 'annotary-init', path: `/d/${b.id}` });
+  await expect.poll(pathNow).toBe(`/d/${b.id}`);
+  const queued = await e.frame().evaluate(() => (window as any).__held.length);
+  expect(queued).toBeGreaterThanOrEqual(2); // both pages' boot callbacks are waiting
+  await e.frame().evaluate(() => {
+    const w = window as any;
+    w.requestAnimationFrame = w.__realRaf;
+    w.__held.splice(0).forEach((f: FrameRequestCallback) => f(performance.now()));
+  });
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
+  await expect(fl.locator('mark.cd-hl')).toHaveCount(1);
+  await expect(fl.locator('mark.cd-hl mark.cd-hl')).toHaveCount(0);
+
+  // A load that failed: the toast, then the same init again loads the page.
+  unreachable.add(`/d/${a.id}`);
+  await toFrame(page, { type: 'annotary-init', path: `/d/${a.id}` });
+  await expect(fl.locator('#cd-toast')).toContainText('could not be reached');
+  unreachable.delete(`/d/${a.id}`);
+  await toFrame(page, { type: 'annotary-init', path: `/d/${a.id}` });
+  await expect.poll(pathNow).toBe(`/d/${a.id}`);
+
+  // Back to the page shown while another loads: the load in flight is dropped.
+  unreachable.clear();
+  await held();
+  await toFrame(page, { type: 'annotary-init', path: `/d/${b.id}` });
+  await toFrame(page, { type: 'annotary-init', path: `/d/${a.id}` });
+  await page.waitForTimeout(500);
+  expect(await pathNow()).toBe(`/d/${a.id}`);
+  await e.frame().evaluate(() => { const w = window as any; w.requestAnimationFrame = w.__realRaf; w.__held.splice(0).forEach((f: FrameRequestCallback) => f(performance.now())); });
 });
