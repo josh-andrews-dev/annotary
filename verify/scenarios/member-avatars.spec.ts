@@ -55,7 +55,7 @@ test('a fresh Member gets an animated avatar on a real Document, served locked d
   await expect.poll(() => img.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   expect(await img.evaluate((el) => (el as HTMLImageElement).currentSrc)).toContain(avatar.url);
   await page.waitForTimeout(700);
-  await comment.locator('xpath=ancestor::article').screenshot({ path: `${OUT}/avatars-card.png` });
+  await page.locator(`article.cd-thread:has(.cd-member[title="@${handle}"])`).first().screenshot({ path: `${OUT}/avatars-card.png` });
   await shot(page, 'avatars-document');
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -80,7 +80,7 @@ test('a fresh Member gets an animated avatar on a real Document, served locked d
   await openDoc(page, doc.id);
   await comment.scrollIntoViewIfNeeded();
   await page.waitForTimeout(700);
-  await comment.locator('xpath=ancestor::article').screenshot({ path: `${OUT}/avatars-card-dark.png` });
+  await page.locator(`article.cd-thread:has(.cd-member[title="@${handle}"])`).first().screenshot({ path: `${OUT}/avatars-card-dark.png` });
   expect((await call('PUT', '/api/v1/me/settings', owner, { key: 'appearance', value: before, scope: 'all' })).status).toBe(200);
 
   await page.goto('/settings/server/members');
