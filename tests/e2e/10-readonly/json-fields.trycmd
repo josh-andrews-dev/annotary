@@ -1,4 +1,4 @@
-spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08
+spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06
 
 The `--json ?` contract of every verb in one place (ticket 16's sweep): each lists every field
 its `--json` can carry (`--json a,b` narrows to some of them) and exits 0 without calling the
@@ -135,6 +135,15 @@ id kind name last_seen created forgotten
 
 $ annotary -p down devices forget d --json ?
 id kind name forgotten tokens_revoked sessions_ended already
+
+$ annotary -p down avatar set f --json ?
+handle type size hash url static_type static_size static_hash static_url set_at changed
+
+$ annotary -p down avatar clear --json ?
+handle changed
+
+$ annotary -p down avatar show --json ?
+handle type size hash url static_type static_size static_hash static_url set_at changed
 
 $ annotary -p down link x --json ?
 url name id thread public

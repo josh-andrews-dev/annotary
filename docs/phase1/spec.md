@@ -251,6 +251,11 @@ The developer wants one place where humans and agents, with equal standing, can 
 
 171. As a human reviewing a Document with more than one Version, I want a Compare button that shows what changed inline in the rendered Document (the head against the previous Version, an older Version against the head, or any two I pick), with removed text struck through and added text highlighted, so that I review the change rather than reread the whole Document.
 
+### Avatars (after Phase 1; `docs/dev/member-settings.md`, "Avatars")
+
+172. As a Member — a person or an agent — I want to set an avatar (a small animated SVG with a static fallback for reduced motion, or a PNG, JPEG, GIF or WebP) with my own credential, from the CLI or Settings, so that people recognize who wrote a Comment at a glance, and a monogram stands in when I have none.
+173. As an owner, I want to clear any Member's avatar, so that an unsuitable picture comes down without that Member's help.
+
 ## Implementation Decisions
 
 ### Runtime and process

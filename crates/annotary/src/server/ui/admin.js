@@ -227,6 +227,10 @@
         inlineConfirm($('[data-slot=rename]', card), 'Enable @' + handle + '? The same Member comes back with its Grants and history; its old Tokens and sessions stay refused (they are revoked now), so mint a new Token.', 'Enable', function () {
           return api('POST', base + '/enable').then(function (res) { return res.ok ? refreshMember(handle) : res; });
         });
+      } else if (act === 'clear-avatar') {
+        inlineConfirm($('[data-slot=rename]', card), 'Clear @' + handle + '’s avatar? They can set a new one.', 'Clear', function () {
+          return api('DELETE', base + '/avatar').then(function (res) { return res.ok ? refreshMember(handle) : res; });
+        });
       } else if (act === 'mint') {
         var slot = $('[data-slot=mint]', card);
         slot.innerHTML = '<label>Name <input type="text" data-f="name" placeholder="optional, e.g. laptop" spellcheck="false"></label> ' +

@@ -4,6 +4,7 @@
 //! the exit code. clap usage errors exit 1 (not clap's default 2); `-h`/`-V` exit 0.
 
 pub mod act;
+pub mod avatar; // Member avatars
 // ---- ticket 13 ----
 pub mod daemon;
 // ---- end ticket 13 ----
@@ -202,6 +203,11 @@ pub enum Command {
         cmd: Option<devices::DevicesCmd>,
     },
     // ---- end CMD-23 ----
+    /// Your avatar beside your Comments: set FILE [--static FILE] | clear | show
+    Avatar {
+        #[command(subcommand)]
+        cmd: Option<avatar::AvatarCmd>,
+    },
     // ---- ticket 18 ----
     /// Pair a phone or tablet: a new Token as a annotary://pair QR code
     #[command(help_template = help::PAIR)]
@@ -330,6 +336,7 @@ where
         Command::Vault { cmd } => vault::run(&ctx, cmd),       // CMD-5
         Command::Settings { cmd } => settings::run(&ctx, cmd), // CMD-23
         Command::Devices { cmd } => devices::run(&ctx, cmd),   // CMD-23
+        Command::Avatar { cmd } => avatar::run(&ctx, cmd),     // Member avatars
         Command::Pair(args) => pair::run(&ctx, args),          // ticket 18
         Command::Login(args) => login::login(&ctx, args),
         Command::Logout(args) => login::logout(&ctx, args),

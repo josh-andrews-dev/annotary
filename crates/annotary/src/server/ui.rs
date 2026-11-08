@@ -258,6 +258,8 @@ pub struct MemberBrief {
     /// Agent harness / model as secondary text — nothing in the Phase 1 model carries it, so
     /// it is `None` today; the markup hook (`.cd-sec`) is in place.
     pub secondary: Option<String>,
+    /// Member avatars: the image's and the static fallback's blob hashes, when they set one.
+    pub avatar: Option<(String, Option<String>)>,
 }
 
 impl MemberBrief {
@@ -267,13 +269,20 @@ impl MemberBrief {
             name: m.display_name.clone(),
             auth: if m.has_password { "password" } else { "token" },
             secondary: None,
+            avatar: m.avatar.as_ref().map(|a| (a.hash.clone(), a.static_hash.clone())),
         }
     }
 
     /// An unknown handle (nothing in `list_members` — cannot happen for stored rows, but never
     /// panic in a page).
     pub fn unknown(handle: &str) -> MemberBrief {
-        MemberBrief { handle: handle.to_string(), name: format!("@{handle}"), auth: "token", secondary: None }
+        MemberBrief {
+            handle: handle.to_string(),
+            name: format!("@{handle}"),
+            auth: "token",
+            secondary: None,
+            avatar: None,
+        }
     }
 
     /// `<b title="@handle">Name<span class="cd-sec"> · harness</span></b><span class="cd-auth" title="…">⚷</span>`.
@@ -295,6 +304,69 @@ impl MemberBrief {
         )
     }
 }
+
+// ---- Member avatars ----
+/// How many monogram colors there are (`.cd-av-h0` … `.cd-av-h7` in `app.css`).
+pub const MONOGRAM_COLORS: u32 = 8;
+
+impl MemberBrief {
+    /// The Member's avatar, decorative (the name sits next to it), 28 px unless the caller's CSS
+    /// says otherwise — the one renderer of an avatar (cards, the Members screen, Settings):
+    /// `span.cd-av.cd-av-img > picture.cd-av-pic` with a `prefers-reduced-motion: reduce`
+    /// `<source>` for the static fallback and an `<img>` (an SVG shown by `<img>` never runs a
+    /// script); an embed render keeps the URLs only as `data-cd-av` / `data-cd-av-static` for
+    /// `app.js` to fetch through the embedder. Without one: `span.cd-av.cd-av-mono.cd-av-hN`, the
+    /// name's first letter on a color the handle picks.
+    pub fn avatar_html(&self, embed: bool) -> String {
+        let Some((hash, static_hash)) = &self.avatar else {
+            return format!(
+                "<span class=\"cd-av cd-av-mono cd-av-h{}\" aria-hidden=\"true\">{}</span>",
+                monogram_color(&self.handle),
+                esc(&monogram(&self.name, &self.handle))
+            );
+        };
+        let url = super::avatars::avatar_url(hash);
+        let static_url = static_hash.as_deref().map(super::avatars::avatar_url);
+        let picture = if embed {
+            format!(
+                "<img data-cd-av=\"{}\"{} alt=\"\" width=\"28\" height=\"28\">",
+                esc(&url),
+                static_url.map(|u| format!(" data-cd-av-static=\"{}\"", esc(&u))).unwrap_or_default()
+            )
+        } else {
+            format!(
+                "{}<img src=\"{}\" alt=\"\" width=\"28\" height=\"28\" decoding=\"async\">",
+                static_url
+                    .map(|u| format!("<source media=\"(prefers-reduced-motion: reduce)\" srcset=\"{}\">", esc(&u)))
+                    .unwrap_or_default(),
+                esc(&url)
+            )
+        };
+        format!(
+            "<span class=\"cd-av cd-av-img\" aria-hidden=\"true\"><picture class=\"cd-av-pic\">{picture}</picture></span>"
+        )
+    }
+}
+
+/// The monogram letter: the first letter or digit of the name, else of the handle, uppercased.
+pub fn monogram(name: &str, handle: &str) -> String {
+    name.chars()
+        .chain(handle.chars())
+        .find(|c| c.is_alphanumeric())
+        .map(|c| c.to_uppercase().collect())
+        .unwrap_or_else(|| "?".to_string())
+}
+
+/// The monogram color of a handle (FNV-1a, so every page and every server agree).
+pub fn monogram_color(handle: &str) -> u32 {
+    let mut h: u32 = 0x811c_9dc5;
+    for b in handle.bytes() {
+        h ^= u32::from(b);
+        h = h.wrapping_mul(0x0100_0193);
+    }
+    h % MONOGRAM_COLORS
+}
+// ---- end Member avatars ----
 
 /// Every Member by handle, for the pages (one query per page).
 /// Ordered by handle, so a page renders the same bytes on every request (an embed answer in
@@ -381,6 +453,69 @@ mod tests {
         assert!(!c.contains("<img"), "{c}");
         assert!(!c.contains("data-l"), "{c}");
         assert!(c.contains("<strong>b</strong>"));
+    }
+
+    // spec: S41-07
+    #[test]
+    fn avatars_render_as_a_picture_or_a_monogram() {
+        let mut m = MemberBrief::unknown("scribe");
+        m.name = "élan Scribe".into();
+        let mono = m.avatar_html(false);
+        assert_eq!(
+            mono,
+            format!(
+                "<span class=\"cd-av cd-av-mono cd-av-h{}\" aria-hidden=\"true\">É</span>",
+                monogram_color("scribe")
+            )
+        );
+        assert_eq!(m.avatar_html(true), mono);
+        assert_eq!(monogram("  ", "42x"), "4");
+        assert_eq!(monogram("", ""), "?");
+        assert!(monogram_color("rowan") < MONOGRAM_COLORS);
+        // Eight colors are all in use for handles like the corpus's.
+        let used: std::collections::BTreeSet<u32> =
+            ["rowan", "scribe", "linter", "kim", "ana", "codex", "ava", "bot", "ivy", "max", "sol", "tess"]
+                .iter()
+                .map(|h| monogram_color(h))
+                .collect();
+        assert!(used.len() >= 5, "{used:?}");
+        m.avatar = Some(("a".repeat(64), Some("b".repeat(64))));
+        let a = "a".repeat(64);
+        let b = "b".repeat(64);
+        assert_eq!(
+            m.avatar_html(false),
+            format!(
+                "<span class=\"cd-av cd-av-img\" aria-hidden=\"true\"><picture class=\"cd-av-pic\"><source media=\"(prefers-reduced-motion: reduce)\" srcset=\"/avatars/{b}\"><img src=\"/avatars/{a}\" alt=\"\" width=\"28\" height=\"28\" decoding=\"async\"></picture></span>"
+            )
+        );
+        let embed = m.avatar_html(true);
+        assert_eq!(
+            embed,
+            format!(
+                "<span class=\"cd-av cd-av-img\" aria-hidden=\"true\"><picture class=\"cd-av-pic\"><img data-cd-av=\"/avatars/{a}\" data-cd-av-static=\"/avatars/{b}\" alt=\"\" width=\"28\" height=\"28\"></picture></span>"
+            )
+        );
+        assert!(!embed.contains(" src=") && !embed.contains("<source"));
+        m.avatar = Some((a.clone(), None));
+        assert!(!m.avatar_html(false).contains("<source"));
+    }
+
+    // spec: S41-08
+    #[test]
+    fn monogram_colors_carry_white_text_in_both_themes() {
+        let lum = |c: u8| {
+            let c = f64::from(c) / 255.0;
+            if c <= 0.03928 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+        };
+        for n in 0..MONOGRAM_COLORS {
+            let sel = format!(".cd-av-h{n}{{background:#");
+            let at = CSS.find(&sel).unwrap_or_else(|| panic!("no {sel}")) + sel.len();
+            let hex = &CSS[at..at + 6];
+            let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).unwrap();
+            let l = 0.2126 * lum(byte(0)) + 0.7152 * lum(byte(2)) + 0.0722 * lum(byte(4));
+            let ratio = 1.05 / (l + 0.05);
+            assert!(ratio >= 4.5, ".cd-av-h{n} #{hex}: contrast with white is {ratio:.2}");
+        }
     }
 
     #[test]

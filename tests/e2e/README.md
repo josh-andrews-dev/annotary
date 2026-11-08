@@ -75,6 +75,7 @@ Run with `make e2e` (= `cargo test -p annotary --test e2e -- --ignored`); regene
   `crates/annotary/tests/cli_vaults.rs`; the headers themselves `tests/vaults_api.rs`.
 <!-- ---- end CMD-5 ---- -->
 <!-- ---- CMD-23 ---- -->
+- Avatars: `88-avatars/avatars.trycmd` sets and clears @scribe's (profile `agent`, no new Member, so later `member list` goldens do not change) and walks every exit path; `avatars.in/big.sh` makes the oversized file there.
 - Settings and Devices (CMD-23): `87-settings/settings.trycmd` runs for its own Member @kim:
   `sh setup.sh` (`settings.in/`) adds @kim, a profile `kim` on the harness server (removed again at
   the end, so no later `profile list` sees it) and Kim's Web (`?device=web`), iPhone and iPad (curl

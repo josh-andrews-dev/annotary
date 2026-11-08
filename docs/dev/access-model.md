@@ -18,3 +18,6 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- CMD-23 ---- -->
 - **Devices and self-rename (CMD-23):** `tokens.device_id` / `sessions.device_id` record the Device a credential was last used from (a session is always `web`; a Token takes the id of `X-Annotary-Device` in `auth::check_device`, which also refuses a malformed id 400 `bad_device` and a forgotten one 409 `device_forgotten` on every route). `POST /api/v1/me/rename {name}` lets any Member rename themselves (same rules as the owner's `members/{handle}/rename`, which stays owner-only). See [member-settings.md](member-settings.md).
 <!-- ---- end CMD-23 ---- -->
+<!-- ---- Member avatars ---- -->
+- **Avatars:** every Member sets and clears their own (`PUT|DELETE /api/v1/me/avatar`); `DELETE /api/v1/members/{handle}/avatar` is owner-only for anyone else's, disabled Members included, and nobody sets another Member's. `GET /avatars/{hash}` needs only a signed-in Member, like the Member list. See [member-settings.md](member-settings.md), "Avatars".
+<!-- ---- end Member avatars ---- -->

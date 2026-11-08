@@ -22,9 +22,9 @@ Usage: annotary <command> [args] [options]
 
 Documents
   list [NAME]                 Documents in the Vault (id name vN action open updated), most active first
-  push FILE.md                Upload a new Version (or create the Document); re-anchors Threads at the edge
+  push FILE.md                Upload a new Version (or create the Document); re-anchors Threads
   pull DOC                    Write <name>.md + <name>.annotary into the current dir
-  show DOC                    One-line header + open Threads (what an agent reads first)
+  show DOC                    Header + open Threads (what an agent reads first)
   status DOC                  version · action · open Threads · mentions of you · event cursor
   versions DOC                Version list
   delete | restore | purge DOC
@@ -35,17 +35,17 @@ Threads
   thread new DOC ANCHOR       Start a Thread (\"L:C-L:C\" range, --document, or --asset REF)
   thread reply DOC ID         Reply (add --resolve to close it in the same step)
   thread resolve | reopen | edit | delete DOC ID
-  mentions                    Threads mentioning you across every Document you can read (--since)
+  mentions                    Threads mentioning you, every Document you can read (--since)
 Actions
   act DOC ACTION              Take an Action on head (--version N guards against a moved head)
   actions DOC                 Action history, newest first
 Wait
-  wait [DOC]                  Block until a new Version, Action or @mention, then print it and exit
+  wait [DOC]                  Block until a new Version, Action or @mention; print it
 Local server
   serve                       Run the server in the foreground (127.0.0.1:7377)
   daemon <cmd>                install | uninstall | status | start | stop | restart (macOS LaunchAgent)
   export FILE.tar             Archive the store
-  password --clear | --set    Change a local password in a stopped data dir
+  password --clear | --set    Change a local password (stopped data dir)
   rerender DOC | --all        Re-render after an upgrade
 Members & credentials (owner)
   member <cmd>                add | list | rename | disable | enable | grant | role
@@ -53,10 +53,11 @@ Members & credentials (owner)
   vault <cmd>                 list | create | rename | delete
   settings <cmd>              list | get | set | reset  (yours)
   devices <cmd>               list | rename | forget  (yours)
-  pair                        Pair a phone or tablet: a new Token as a QR code
-  login | logout              Get a token with the local password / forget it
+  avatar <cmd>                set | clear | show  (yours)
+  pair                        Pair a phone or tablet (QR code)
+  login | logout              Get a token with the password / forget it
   profile <cmd>               list | add | remove  (list shows whose each profile is)
-  skill install               Write the agent skill for this CLI version
+  skill install               Write this version's agent skill
 
 Options (every command)
   -p, --profile NAME          Who you are: a profile in ~/.annotary/config.toml (no default;

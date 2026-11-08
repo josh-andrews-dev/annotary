@@ -84,6 +84,10 @@ _Avoid_: Type, color, outcome
 A person or an agent — the one who comments, takes Actions, is mentioned, and holds Credentials. Nothing in the model distinguishes people from agents; the only difference is how a Member authenticates. A Member exists once and can hold a Membership in many Tenants.
 _Avoid_: Actor, user, bot, integration, participant, account, identity
 
+**Avatar**:
+The picture a Member chooses to appear beside their name: an image, and optionally a still version for people who turn off motion. A Member without one is shown by a monogram (their name's first letter on a color their Handle picks).
+_Avoid_: Profile picture, icon, photo, face
+
 **Membership**:
 A Member's standing in one Tenant: their Handle there, their role (owner or member), and their Grants. Disabled, never deleted — history and attribution stay.
 _Avoid_: Seat, account, access, user record

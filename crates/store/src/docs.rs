@@ -684,7 +684,7 @@ fn head_name(tx: &Transaction, doc_id: &str) -> Result<String> {
     })?)
 }
 
-/// Every blob hash any Version still references.
+/// Every blob hash any Version or a current Member avatar still references.
 pub(crate) fn referenced_hashes(tx: &Transaction) -> Result<BTreeSet<String>> {
     let mut out = BTreeSet::new();
     let mut stmt = tx.prepare("SELECT md_hash, manifest, html_hash FROM versions")?;
@@ -695,6 +695,7 @@ pub(crate) fn referenced_hashes(tx: &Transaction) -> Result<BTreeSet<String>> {
         let manifest: serde_json::Value = serde_json::from_str(&manifest).unwrap_or_default();
         out.extend(version_blob_refs(&md, &manifest, html.as_deref()));
     }
+    out.extend(crate::avatar::avatar_blob_refs(tx)?);
     Ok(out)
 }
 

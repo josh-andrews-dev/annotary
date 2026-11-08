@@ -2,7 +2,7 @@
 // build under test on a loopback port that `deploy/verify_live.py` starts and deletes. Never run
 // directly: it needs VERIFY_URL / VERIFY_CLI_HOME / VERIFY_BIN / VERIFY_OUT / VERIFY_TMP from
 // that script. Results and traces go inside the copy's folder (they hold Document text), so they
-// are deleted with it; only screenshots a scenario saves to VERIFY_OUT stay (for the PR).
+// are deleted with it; only screenshots a scenario saves to VERIFY_OUT stay (real data: never publish them).
 import { defineConfig } from '@playwright/test';
 import * as path from 'node:path';
 

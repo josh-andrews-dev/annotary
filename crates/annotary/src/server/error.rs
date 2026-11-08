@@ -89,7 +89,11 @@ impl ApiError {
             "too_large",
             format!("{what} is {} — the cap is {}", human_size(size), human_size(max)),
         )
-        .hint("caps: Markdown 2 MB, each Asset 100 MB, all Assets of a Version 500 MB");
+        .hint(if what.contains("avatar") {
+            "avatars: an image up to 256 KB (an SVG up to 64 KB), a static fallback up to 256 KB"
+        } else {
+            "caps: Markdown 2 MB, each Asset 100 MB, all Assets of a Version 500 MB"
+        });
         e.extra = Some(Box::new(json!({ "what": what, "size": size, "max": max })));
         e
     }
@@ -117,6 +121,8 @@ impl From<StoreError> for ApiError {
         match e {
             StoreError::HandleTaken(_) => ApiError::conflict(e.to_string()),
             StoreError::InvalidHandle { .. } | StoreError::Invalid { .. } => ApiError::invalid(e.to_string()),
+            StoreError::InvalidAvatar(_) => ApiError::new(StatusCode::BAD_REQUEST, "invalid_avatar", e.to_string())
+                .hint("an avatar is a PNG, JPEG, GIF, WebP or a plain SVG (shapes, gradients, CSS animation; no scripts, links or outside files)"),
             StoreError::InvalidName { .. } => ApiError::new(StatusCode::BAD_REQUEST, "invalid_name", e.to_string())
                 .hint(
                     "Names are the filename stem: not empty, no path separators or control characters, no leading '.'",

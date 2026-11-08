@@ -17,7 +17,7 @@ run:
 5. signs in over loopback, mints a Token in the copy and writes a private CLI home whose only
    profile, `copy`, points at the copy;
 6. runs the Playwright scenarios in `verify/` (unless --no-scenarios) with VERIFY_URL,
-   VERIFY_CLI_HOME, VERIFY_BIN and VERIFY_OUT (where scenarios save PR screenshots);
+   VERIFY_CLI_HOME, VERIFY_BIN and VERIFY_OUT (where scenarios save screenshots);
 7. always (also on failure or Ctrl-C) stops the server's and Playwright's process groups and
    deletes the folder, Playwright's traces included; on Linux both also get SIGTERM if this
    script dies, and the next run's sweep stops whatever a hard-killed run left;
@@ -386,7 +386,7 @@ def main() -> int:
     ap.add_argument("--snapshot", help="a snapshot tar (default: the live server's newest)")
     ap.add_argument("--no-scenarios", action="store_true", help="set up, check and tear down only")
     ap.add_argument("--tmp", default=tempfile.gettempdir(), help="where the copy goes")
-    ap.add_argument("--out", default=os.path.join(REPO, "target/verify-live"), help="screenshots for the PR")
+    ap.add_argument("--out", default=os.path.join(REPO, "target/verify-live"), help="screenshots of the real data; never publish them")
     ap.add_argument("playwright_args", nargs="*", help="passed to playwright test (after --)")
     a = ap.parse_args()
 

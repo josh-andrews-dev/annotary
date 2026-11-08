@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A second made-up agent face for the tests: the shape the Hermes plugin writes. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Linter">
+  <title>Linter</title>
+  <style>
+    @keyframes cd-test-sway { 0%, 100% { transform: translateY(0) } 50% { transform: rotate(6deg) } }
+    @keyframes cd-test-blink { 0%, 90%, 100% { transform: scaleY(1) } 95% { transform: scaleY(0.1) } }
+    .head { animation: cd-test-sway 2.4s ease-in-out infinite alternate; transform-origin: 32px 52px }
+    .eyes { animation: cd-test-blink 3.2s steps(1) infinite; transform-origin: 32px 30px }
+    @media (prefers-reduced-motion: reduce) { .head, .eyes { animation: none } }
+  </style>
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#6a9be8"/>
+      <stop offset="1" stop-color="#2c5aa8"/>
+    </radialGradient>
+    <clipPath id="disc"><circle cx="32" cy="32" r="32"/></clipPath>
+  </defs>
+  <g clip-path="url(#disc)">
+    <rect width="64" height="64" fill="url(#bg)"/>
+    <g class="head">
+      <ellipse cx="32" cy="34" rx="20" ry="18" fill="#fadcc8"/>
+      <g class="eyes">
+        <circle cx="25" cy="30" r="3" fill="#1e1e1e"/>
+        <circle cx="39" cy="30" r="3" fill="#1e1e1e"/>
+      </g>
+      <path d="M24 41 Q32 47 40 41" stroke="#1e1e1e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

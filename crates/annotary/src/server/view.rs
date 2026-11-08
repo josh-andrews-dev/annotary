@@ -213,6 +213,8 @@ struct Viewer<'a> {
     can_comment: bool,
     /// CMD-23: how the viewer's settings render timestamps.
     times: &'a Times,
+    /// An embed render: avatars keep their URLs for `app.js` to fetch through the embedder.
+    embed: bool,
 }
 
 impl Viewer<'_> {
@@ -268,8 +270,14 @@ fn render_page(
     // ---- CMD-23: the viewer's Web settings, read in the same response (the first paint is final) ----
     let prefs = WebPrefs::load(st, auth, headers)?;
     let times = prefs.times();
-    let viewer =
-        Viewer { members: &members, me: &auth.0.handle, is_owner: auth.0.is_owner(), can_comment, times: &times };
+    let viewer = Viewer {
+        members: &members,
+        me: &auth.0.handle,
+        is_owner: auth.0.is_owner(),
+        can_comment,
+        times: &times,
+        embed: prefs.embed,
+    };
     // ---- end ticket 11 ----
 
     let member = |handle: &str| viewer.member(handle);
@@ -475,6 +483,9 @@ fn render_page(
         "seq": seq,
         "me": auth.0.handle,
         "me_name": member(&auth.0.handle).name,
+        // Member avatars: the viewer's own, rendered here, for the comment the script shows
+        // before the server confirms it (card markup has one renderer).
+        "me_av": member(&auth.0.handle).avatar_html(prefs.embed),
         "owner": auth.0.is_owner(),
         "can_comment": can_comment,
         "can_act": can_act,
@@ -581,7 +592,8 @@ fn label_html(it: &Item, version: u32) -> String {
 }
 
 fn comment_html(c: &CommentView, viewer: &Viewer) -> String {
-    let who = viewer.member(&c.author_handle).html();
+    let author = viewer.member(&c.author_handle);
+    let who = format!("{}{}", author.avatar_html(viewer.embed), author.html());
     let edited = if c.edited_at.is_some() { "<span>· edited</span>" } else { "" };
     let body =
         if c.is_deleted() { "<span class=\"cd-tomb\">(deleted)</span>".to_string() } else { ui::comment_html(&c.body) };
@@ -728,13 +740,15 @@ pub async fn fragment(
     let members = ui::members_by_handle(&st)?;
     let live = !doc.is_deleted();
     // CMD-23: the card the page swaps in renders its times as the page did
-    let times = WebPrefs::load(&st, &auth, &headers)?.times();
+    let prefs = WebPrefs::load(&st, &auth, &headers)?;
+    let times = prefs.times();
     let viewer = Viewer {
         members: &members,
         me: &auth.0.handle,
         is_owner: auth.0.is_owner(),
         can_comment: live && auth.0.has_right(&doc.vault_name, Right::Comment),
         times: &times,
+        embed: prefs.embed,
     };
     let mut item = [item_of(&t, &auth.0.member_id)];
     set_occ(&st, &mut item, &md_hash)?;

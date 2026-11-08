@@ -6,7 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## Stories` section at the end maps every numbered story of the spec (1–170) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–173) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -161,6 +161,7 @@ markers in implementation code — only in tests.
 - S06-13 — `logout` revokes the profile's Token on the server and removes it from the profile; `profile list|add|remove` manage `config.toml` without ever printing a Token; `list` shows each profile's `@member`, so an agent can find its own (stories 26, 27)
 - S06-14 — the exit-4 message names the missing Right and suggests `annotary member grant HANDLE VAULT RIGHT` (story 29)
 - S06-15 — table-driven rights matrix: {read, comment, action, write} × every endpoint × {owner, member with `*`, member with a Vault Grant, member with none, disabled} → 200/401/403 (Testing seam 2)
+- S06-16 — `POST /logout` reads its request body before it answers, so the redirect never leaves unread bytes on a connection the client reuses to follow it
 <!-- ---- end ticket 06 ---- -->
 
 <!-- ---- ticket 09 ---- -->
@@ -570,9 +571,24 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S40-13 — a Version select on the diff page works from the moment it exists, before the page's main script has run, in a browser and in an embed render; the change buttons are disabled until they work (story 171)
 <!-- ---- end compare Versions ---- -->
 
+<!-- ---- member avatars ---- -->
+## Member avatars
+
+- S41-01 — the avatar SVG check (`annotary_store::avatar`) accepts the Hermes plugin's real faces (`fixtures/avatars/hermes-*.svg`: idle, think, work) and an animated SVG of that shape (`<style>` with `@keyframes` and a `prefers-reduced-motion` media rule, nested `<g>` with `animation`, gradients, `clipPath`, `url(#id)` paints, a leading XML declaration and XML comments) and refuses, never alters, everything else with a reason: `<script>`, an `on*` attribute, `foreignObject` or any element off the allowlist, an attribute off the allowlist, an `href` / `xlink:href` that is not `#fragment` (external, `javascript:`, `data:`), `xml:base`, another namespace, a `DOCTYPE` (entities, XXE, the billion laughs), an unknown entity, a processing instruction, CSS `@import` / `@font-face` / any at-rule but `@keyframes` and `@media`, CSS `url()` other than exactly `url(#id)`, `image-set()` / `expression()`, a CSS comment, quote or escape anywhere in a `<style>`, a style attribute or a presentation value (refused before any other check and with nothing stripped, so a browser and the check cannot split the CSS into different tokens), a `(` that does not directly follow an allowed function's name (only a media query has bare ones), text outside `<style>` / `<title>`, a root other than `<svg>`, non-UTF-8, malformed XML, too deep or too many elements, and more than 64 KiB (story 172)
+- S41-02 — raster avatars are recognized by their bytes, never a client's claim: PNG, JPEG, GIF and WebP up to 256 KiB with readable dimensions; the static fallback is PNG, JPEG or WebP up to 256 KiB; any other bytes are refused `invalid_avatar` and an oversized image `too_large` (story 172)
+- S41-03 — `Store::set_avatar` / `clear_avatar` (schema v6 `member_avatars`) store the image and the optional static fallback as content-addressed blobs in one transaction with `member.avatar_set {member, handle, hash, type, static_hash, static_type}` / `member.avatar_cleared {member, handle}`; setting the same images again or clearing a Member with none changes nothing and appends no event; every Member read (`MemberView.avatar`) carries it; the blob GC and `export` keep a current avatar's blobs and a cleared one's go to the GC (story 172)
+- S41-04 — `PUT /api/v1/me/avatar {image, static?}` (base64) sets the caller's own avatar and `DELETE /api/v1/me/avatar` clears it, for every Member; `DELETE /api/v1/members/{handle}/avatar` is owner-only (403 for a member, 404 for an unknown handle); answers are the Member's JSON with `changed`, and every member JSON carries `avatar {url, type, size, hash, static_url?, static_type?, static_size?, static_hash?, set_at}` or null; a bad image is 400 `invalid_avatar` with the reason, bad base64 400 `invalid`, an oversized one 413 `too_large` (stories 172, 173)
+- S41-05 — `GET /avatars/{hash}` serves a current avatar or static fallback to any signed-in Member with the type the server recorded, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:`, an immutable cache and an `ETag` of the hash; any other hash (a Document's blob, a cleared avatar) is 404 (story 172)
+- S41-06 — CLI `avatar set FILE [--static FILE]`, `avatar clear [--member HANDLE]` and `avatar show [HANDLE]` print `@handle TYPE SIZE STATIC` (TTY aligned two-space fields, non-TTY tab-separated; `none` without an avatar; `cleared` on clear), `--json` the avatar record with `changed`; an unchanged set or a clear of no avatar is a note on stderr and exit 0; a file that cannot be read exit 1, a refused image exit 1, an oversized one exit 5, an unknown Member exit 2, clearing another Member's as a member exit 4, no credential exit 3, unreachable exit 6 (story 172)
+- S41-07 — the Document page and the card fragment draw the author's avatar before the name on every Comment (root and replies) as `<picture class="cd-av-pic">` whose `<source media="(prefers-reduced-motion: reduce)">` is the static fallback and whose `<img>` (never `<object>` or inline SVG) is the avatar, 28 px round; a Member without one gets a monogram (the name's first letter) on one of eight colors chosen by the handle; an embed render keeps the URLs only as `data-cd-av` / `data-cd-av-static` (no `src`, no `<source>`); the Members screen and Settings → Profile use the same renderer (story 172)
+- S41-08 — in a browser, a card by a Member with an animated SVG avatar shows it (loaded, 28 px, round, from `/avatars/…`), the static fallback is what loads under `prefers-reduced-motion: reduce`, a Member without one shows the monogram, the comment row stays on one line at a phone's width, and the dark theme keeps the monogram readable (story 172)
+- S41-09 — in the fake embedder, avatars arrive through the bridge (`binary`), each URL fetched once however many cards show it, the static one under reduced motion, and the frame makes no request of its own (story 172)
+- S41-10 — Settings → Profile shows your avatar (or monogram) with Upload and Clear: choosing an animated SVG and a static PNG uploads both, the preview and the card follow, a refused file says why and keeps the old avatar, Clear goes back to the monogram; the owner Members screen shows every Member's avatar and its Clear avatar clears another Member's (stories 172, 173)
+<!-- ---- end member avatars ---- -->
+
 ## Stories
 
-Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–170)
+Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–173)
 and the ids whose tests cover it — the checker demands every number and only known ids; a story
 whose coverage Phase 1 does not automate points at a Deferred id.
 
@@ -747,6 +763,9 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
 - 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13
+
+- 172 — a Member's avatar (an animated SVG with a static fallback, or a picture) next to their name → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07, S41-08, S41-09, S41-10
+- 173 — an owner clears any Member's avatar → S41-04, S41-10
 
 ## Deferred
 

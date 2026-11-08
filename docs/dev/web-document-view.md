@@ -27,6 +27,8 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- end CMD-23 ---- -->
 
 <!-- ---- M3 (Hermes plan) ---- -->
+- **Avatars:** `ui::MemberBrief::avatar_html(embed)` is the one renderer. `view::comment_html` puts it first in `.cd-who` (the root and every reply); `#cd-data.me_av` carries the viewer's own for the comment `app.js` shows before the server confirms it. `.cd-av` is 28 px and round; `picture.cd-av-pic` has a `prefers-reduced-motion: reduce` `<source>` when there is a still, and an `<img>`, so an SVG can never run a script; `.cd-av-mono.cd-av-hN` is the monogram (`ui::monogram`, FNV-1a of the handle, eight colors that each carry white text at 4.5:1 or better in both themes, a unit test checks).
+
 ## Embed mode (M3 of the Hermes plan)
 
 The list and the Document view rendered for an **embedder** (the Hermes plugin): a host that shows them in a
@@ -56,7 +58,8 @@ with a Bearer Token. Why each choice: `docs/decisions.md`, 2026-11-07.
   click, an outside `http(s)` / `mailto` link) or an in-page scroll (`#…`); GET forms (the list's filters: submit
   button, Enter, `submit`) into a navigation with the fields as the query; `button.cd-embed-open` into
   `annotary-open-external`; and fetches each `img[data-cd-src]:not([data-cd-big])` as a blob URL, showing its button
-  when that fails. Listeners sit on `window`, after the page's own `document` handlers. Fields are at least 16 px
+  when that fails. Avatars keep their URLs as `data-cd-av` / `data-cd-av-static` (no `src`, no `<source>`); `loadAvatars` fetches each
+  URL once as a blob (`binary`), the still under reduced motion, at boot and for each card or pending comment it inserts. Listeners sit on `window`, after the page's own `document` handlers. Fields are at least 16 px
   in embed mode (iOS Safari zooms into smaller ones on focus).
 - **Navigation is in place.** `AnnotaryEmbed.navigate(path)` posts `annotary-nav` and loads the page: a GET through
   the embedder (redirects followed, three at most), then `document.open / write / close`. The page's own copy of
