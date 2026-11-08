@@ -241,6 +241,12 @@ The developer wants one place where humans and agents, with equal standing, can 
 166. As an app, I want the Document list and Document API to carry the display title, so that I show what the web shows without rendering Markdown.
 167. As an iPhone user opening a Document page in Safari, I want an "Open in Annotary" link, so that I can continue in the app.
 
+### Embedding (M3 of the Hermes plan — after Phase 1; `docs/dev/web-document-view.md`, "Embed mode")
+
+168. As a person using Annotary inside another app (a Hermes Desktop plugin, the Hermes Webapp on a phone), I want the Document list and the Document view — comment, reply, resolve, Actions, Versions, live changes — to work in that app's sandboxed frame, with every request going through the app, so that I review without leaving it and nothing changes in an ordinary browser.
+169. As a program that sets up an Annotary server (an installer, a plugin), I want `serve --setup-only --json` to give me the owner and the first Token as JSON, so that I never parse the transcript meant for people.
+170. As someone installing a release binary, I want each release tarball to carry a build-provenance attestation, so that I can check it was built by this repo's release workflow.
+
 ## Implementation Decisions
 
 ### Runtime and process

@@ -6,7 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## Stories` section at the end maps every numbered story of the spec (1–167) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–170) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -523,9 +523,23 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 
 - S36-01 — a composer opened (by `c`, the pill or an inline Asset) on a line whose only Threads are resolved is visible and focused although that line's strip was hidden with them; Cancel hides the strip again, and posting shows the new card there while the resolved Thread stays behind the toggle (stories 119, 120)
 
+<!-- ---- M3 (Hermes plan) ---- -->
+## M3 (Hermes plan) — embed mode, a scriptable setup and attested releases
+
+- S37-01 — a list, Document or older-Version page asked with `X-Annotary-Embed: 1` wears `.cd-app.cd-embed`, inlines the embed transport (`ui/embed.js`) before `app.js`, links no icons, has no "Open in Annotary", no Settings link and no Sign out, and answers with `Content-Security-Policy: sandbox allow-scripts` and `Vary: X-Annotary-Embed`; the same page without the header has none of that and keeps its icons, Settings link and "Open in Annotary" (story 168)
+- S37-02 — an embed render's media go through the embedder: an Asset image keeps its URL only as `data-cd-src` (no `src`) with a hidden open button after it, an image over `embed::IMAGE_MAX` is marked `data-cd-big` with the button shown, video, audio and PDF keep theirs as `data-cd-src` with a shown open button after the element; the Threads are spliced and every card is the markup an ordinary render has (story 168)
+- S37-03 — an embed render reads no cookie: the zone and hour cycle come from `X-Annotary-Tz` / `X-Annotary-Hc` (absolute times in that zone, checked as the cookies are), a `cd_tz` cookie is ignored there, and an ordinary request ignores the headers (story 168)
+- S37-04 — `GET /embed/shell` answers a signed-in caller with the bootstrap page: the embed transport, its boot call and the protocol version, as `text/html` with the sandbox CSP and `nosniff` (story 168)
+- S37-05 — an embedded GET whose answer is larger than `embed::PART_MAX` answers `206` part by part (`X-Annotary-Part` asks, `X-Annotary-Parts`, `X-Annotary-Etag`, the real status in `X-Annotary-Status`, the content type kept), the parts join to the full answer and end on character boundaries; a part asked with another etag is `412`; a small answer, a non-GET and an ordinary request are untouched (story 168)
+- S37-06 — in a fake embedder (a host page that loads the shell as a `data:` URL into a sandboxed frame without `allow-same-origin` and answers its messages from a real `serve` with a Bearer Token), a person opens the list, opens a Document, comments, replies, resolves and approves; a change made elsewhere appears with no events relayed (the poll), at once when the host posts `annotary-event`; the frame sets no cookie and makes no request of its own (story 168)
+- S37-07 — in the fake embedder, a link, the list's filter form and the Version select navigate in place and post `annotary-nav`; `annotary-init` with another path navigates without a new frame; an Asset link and an open button post `annotary-open-external`; an image arrives through the bridge; a Document larger than one message arrives in parts with every message under 1 MB; messages of another type (`hermes-guest-loaded`) or from another window change nothing; form fields are at least 16 px (story 168)
+- S37-08 — `serve --setup-only --json` runs first-run setup with its transcript on stderr and prints one object on stdout (`created`, `handle`, `name`, `token`, `vault`, `store`); on a store already set up it prints the owner with no Token; `--json ?` lists the fields; `serve --json` without `--setup-only` is a usage error, exit 1 (story 169)
+- S37-09 — the release workflow attests the release tarballs with `actions/attest-build-provenance` pinned to a SHA, in the job that makes the release (the only one with `id-token` and `attestations` write), before `gh release create` (story 170)
+<!-- ---- end M3 (Hermes plan) ---- -->
+
 ## Stories
 
-Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–167)
+Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–170)
 and the ids whose tests cover it — the checker demands every number and only known ids; a story
 whose coverage Phase 1 does not automate points at a Deferred id.
 
@@ -696,6 +710,9 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 165 — pairing a phone: `pair` (QR on the terminal), `POST /api/v1/pairing`, **Pair a device** on the Members screen → S18-08, S18-09, S18-10
 - 166 — the list / Document API carries the display title → S18-11
 - 167 — an iPhone / iPad browser offers "Open in Annotary" → S18-12
+- 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07
+- 169 — `serve --setup-only --json` → S37-08
+- 170 — attested release tarballs → S37-09
 
 ## Deferred
 
