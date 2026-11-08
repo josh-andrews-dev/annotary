@@ -1,6 +1,6 @@
 // Browser-side helpers of the ticket-11 specs: selecting rendered text the way a user would
 // (a DOM Range over the text nodes of a block) and opening a Document page ready for input.
-import { type Page } from '@playwright/test';
+import { type Frame, type Page } from '@playwright/test';
 import { harness } from './harness';
 
 export const docUrl = (id: string, v?: number) => `${harness().url}/d/${id}${v ? `/v/${v}` : ''}`;
@@ -21,7 +21,7 @@ export async function waitLive(page: Page) {
  * the selection is a real DOM Range over the text nodes, so it may start and end in different
  * inline elements (a `<strong>`, a `<code>`, a link…). Whitespace in `text` matches any run.
  */
-export async function selectText(page: Page, within: string, text: string) {
+export async function selectText(page: Page | Frame, within: string, text: string) {
   await page.evaluate(([sel, t]) => {
     const root = document.querySelector(sel as string);
     if (!root) throw new Error('no element ' + sel);

@@ -351,3 +351,15 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
 .cd-simple{max-width:36rem;margin:4rem auto;padding:0 1rem}
 .cd-simple h1{font-size:1.4em}
 .cd-simple .cd-err{color:var(--cd-err-strong)}
+
+/* ---------- M3: embed mode (`.cd-embed`, embed.rs) ---------- */
+/* Media come through the embedder: an image waits on a soft ground until its blob arrives, and
+   video, audio, PDF and large images get an "open" button whose label is drawn here (no text node
+   in the Document, so the selection mapping reads the same text). */
+.cd-embed img[data-cd-src]:not([src]){background:var(--cd-soft)}
+.cd-embed img.cd-embed-failed{outline:1px dashed var(--cd-faint)}
+.cd-embed-open:not([hidden]){display:inline-flex;align-items:center;gap:4px;margin:2px 4px;padding:4px 10px;border:1px solid var(--cd-line);border-radius:6px;background:var(--cd-card);color:var(--cd-fg);font:inherit;font-size:13px;cursor:pointer}
+.cd-embed-open::before{content:"Open " attr(data-cd-kind)}
+/* iOS Safari zooms into a field under 16px on focus: in an embedder's frame (the Webapp on a phone)
+   every field is at least 16px. */
+.cd-app.cd-embed input:not([type=checkbox]):not([type=radio]),.cd-app.cd-embed textarea,.cd-app.cd-embed select{font-size:max(16px,1em)}

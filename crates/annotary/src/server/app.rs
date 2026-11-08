@@ -110,6 +110,8 @@ pub fn router(state: AppState) -> Router {
         .route("/settings/server/{page}", get(admin::server_page))
         .route("/members", get(settings_page::members_redirect))
         // ---- end CMD-23 ----
+        // M3 (Hermes plan): the bootstrap page an embedder loads into its frame (`embed.rs`)
+        .route("/embed/shell", get(super::embed::shell))
         // ticket 03: Assets at a stable URL (`assets.rs`); a browser reaches them with its cookie
         .route("/a/{hash}", get(assets::get))
         .route_layer(axum::middleware::from_fn_with_state(state.clone(), web::require_web_auth));
@@ -195,6 +197,9 @@ pub fn router(state: AppState) -> Router {
         .layer(axum::middleware::from_fn(super::login_guard::refuse_cross_site))
         // CMD-5: a request with the CLI profile's Vault gets the resolved Vault back (`vaults.rs`).
         .layer(axum::middleware::from_fn(vaults::echo_layer))
+        // M3: an embedded answer larger than one message goes in parts (`embed.rs`); outermost, so
+        // it cuts the body every other layer has finished.
+        .layer(axum::middleware::from_fn(super::embed::parts))
         .with_state(state)
 }
 

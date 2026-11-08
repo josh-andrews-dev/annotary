@@ -50,12 +50,36 @@ pub fn shell_ex(title: &str, body: &str, extra_css: &str, extra_js: &str) -> Str
     // browser paints the server-composed page before running them (a parser-blocking script at
     // the end of a 1.8 MB body held the first paint back until it had run; modules keep their
     // order, so admin.js still finds `window.cd`). Everything is still one response. ----
+    shell_full(title, body, extra_css, extra_js, HEAD_LINKS)
+}
+
+fn shell_full(title: &str, body: &str, extra_css: &str, extra_js: &str, head_links: &str) -> String {
     let js2 = if extra_js.is_empty() { String::new() } else { format!("<script type=\"module\">{extra_js}</script>") };
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\
-         <title>{}</title>{HEAD_LINKS}<style>{CSS}{extra_css}</style></head><body>{body}<script type=\"module\">{JS}</script>{js2}</body></html>\n",
+         <title>{}</title>{head_links}<style>{CSS}{extra_css}</style></head><body>{body}<script type=\"module\">{JS}</script>{js2}</body></html>\n",
         esc(title)
     )
+}
+
+/// A page response for the signed-in Member's `prefs`: [`page`], or for an embed render
+/// (`embed.rs`) the same shell with the transport (`ui/embed.js`) in place of the icon links (a
+/// frame with no origin cannot load them), and `Content-Security-Policy: sandbox allow-scripts`:
+/// the HTML is for the embedder's opaque frame, never this origin. `Vary` on the embed header
+/// either way.
+pub fn page_for(prefs: &super::prefs::WebPrefs, title: &str, body: &str) -> Response {
+    let mut resp = if prefs.embed {
+        // The transport (`ui/embed.js`) is a classic script in the head: it runs before `app.js`.
+        let head = format!("<script>{}</script>", super::embed::JS);
+        let mut r = Html(shell_full(title, body, "", "", &head)).into_response();
+        r.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-cache"));
+        r.headers_mut().insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(super::embed::SANDBOX_CSP));
+        r
+    } else {
+        page(title, body)
+    };
+    resp.headers_mut().insert(header::VARY, HeaderValue::from_static("X-Annotary-Embed"));
+    resp
 }
 
 /// A full page response built with [`shell_ex`] (`text/html`, never cached).
@@ -68,8 +92,10 @@ pub fn page_ex(title: &str, body: &str, extra_css: &str, extra_js: &str) -> Resp
 /// The shared top bar of the list page and the Settings pages: the icon, `annotary` + the nav
 /// (`Documents` and `Settings`, for every Member — CMD-23: the owner pages are the Settings
 /// sidebar's Server group, shown to owners only), the signed-in Member, and Sign out when a
-/// password is set. `current` marks the active link (`"/"`, `"/settings"`).
-pub fn top_nav(st: &AppState, auth: &super::auth::Auth, current: &str) -> Result<String, ApiError> {
+/// password is set. `current` marks the active link (`"/"`, `"/settings"`). An embed render
+/// (`embed.rs`) links Documents only: the Settings and owner screens stay out of the embedder's
+/// frame, and there is no session to end.
+pub fn top_nav(st: &AppState, auth: &super::auth::Auth, current: &str, embed: bool) -> Result<String, ApiError> {
     let password_set = st.store.password_set()?;
     let me = match st.store.member_by_id(&auth.0.member_id)? {
         Some(m) => MemberBrief::from_view(&m),
@@ -83,8 +109,10 @@ pub fn top_nav(st: &AppState, auth: &super::auth::Auth, current: &str) -> Result
         )
     };
     let mut nav = link("/", "cd-nav-docs", "Documents");
-    nav.push_str(&link("/settings", "cd-nav-settings", "Settings"));
-    let signout = if password_set {
+    if !embed {
+        nav.push_str(&link("/settings", "cd-nav-settings", "Settings"));
+    }
+    let signout = if password_set && !embed {
         "<form method=\"post\" action=\"/logout\" class=\"cd-logout\"><button type=\"submit\" class=\"cd-btn\">Sign out</button></form>"
     } else {
         ""
@@ -114,7 +142,7 @@ pub fn simple(status: StatusCode, title: &str, inner: &str) -> Response {
 /// A small centered page wearing the given settings (CMD-23: a signed-in Member's error pages).
 pub fn simple_with(prefs: &super::prefs::WebPrefs, status: StatusCode, title: &str, inner: &str) -> Response {
     let body = format!("<div {}><main class=\"cd-simple\">{inner}</main></div>", prefs.app_attrs(""));
-    let mut resp = page(title, &body);
+    let mut resp = page_for(prefs, title, &body);
     *resp.status_mut() = status;
     resp
 }
@@ -132,7 +160,8 @@ pub fn error_page_for(
     headers: &axum::http::HeaderMap,
     e: ApiError,
 ) -> Response {
-    let prefs = super::prefs::WebPrefs::load(st, auth, headers).unwrap_or_default();
+    let prefs = super::prefs::WebPrefs::load(st, auth, headers)
+        .unwrap_or_else(|_| super::prefs::WebPrefs { embed: super::embed::is_embed(headers), ..Default::default() });
     error_page_with(&prefs, e)
 }
 

@@ -325,6 +325,8 @@ fn render_page(
         )
     });
     let html = ui::asset_links_blank(&html);
+    // M3: an embed render's media go through the embedder (`embed.rs`); the cards are unchanged.
+    let html = if prefs.embed { super::embed::media(&html, &super::embed::sizes(&v.manifest)) } else { html };
     let body_html = splice::splice(&html, head_strip.as_deref(), &strips, tail.as_deref());
 
     // ---- header pieces ----
@@ -426,7 +428,12 @@ fn render_page(
         id = esc(&doc.id),
         help = help_html(&prefs.send_key),
         resolved_checked = if prefs.show_resolved { " checked" } else { "" },
-        open_app = open_app_link(&st.store.public_url()?.unwrap_or_else(|| origin.to_string()), &doc.id), // ticket 18
+        // ticket 18; not in an embed render (`embed.rs`): the frame cannot leave for the app
+        open_app = if prefs.embed {
+            String::new()
+        } else {
+            open_app_link(&st.store.public_url()?.unwrap_or_else(|| origin.to_string()), &doc.id)
+        },
         toast = "<div class=\"cd-toast\" id=\"cd-toast\" hidden></div>",
         pill = if number == head && can_comment {
             "<button type=\"button\" class=\"cd-pill\" id=\"cd-pill\" hidden>Comment <kbd>c</kbd></button>"
@@ -479,7 +486,7 @@ fn render_page(
     );
     let title =
         if number == head { format!("{} — annotary", v.name) } else { format!("{} v{number} — annotary", v.name) };
-    Ok(ui::page(&title, &body))
+    Ok(ui::page_for(&prefs, &title, &body))
 }
 
 /// The keyboard help overlay (`?`): the map of story 126 and nothing more. CMD-23: the

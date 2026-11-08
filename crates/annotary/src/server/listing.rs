@@ -78,7 +78,7 @@ fn render(st: &AppState, auth: &Auth, headers: &HeaderMap, q: &ListPageQuery) ->
     let vaults = readable_vaults(st, auth)?;
 
     // ---- header: the shared top bar (ticket 12 — nav to the owner screens for owners) ----
-    let header = ui::top_nav(st, auth, "/")?;
+    let header = ui::top_nav(st, auth, "/", prefs.embed)?;
 
     // ---- filters ----
     let vault_opts: String = vaults
@@ -194,5 +194,5 @@ fn render(st: &AppState, auth: &Auth, headers: &HeaderMap, q: &ListPageQuery) ->
         "<div {} id=\"cd-app\">{header}<main class=\"cd-listmain\">{filters}{table}{foot}</main></div>",
         prefs.app_attrs("cd-listpage")
     );
-    Ok(ui::page("Documents — annotary", &body))
+    Ok(ui::page_for(&prefs, "Documents — annotary", &body))
 }

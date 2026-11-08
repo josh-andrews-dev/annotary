@@ -20,3 +20,7 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- CMD-23 ---- -->
 - **A Member's own events (CMD-23):** `setting.changed` and `device.*` carry `payload.member` and are readable by that Member only — owners included in "only" — and only on a feed that adds `me=1` (`Filter.me`; `EventQuery.member_events` ORs them into the SQL beside `doc=` / `kinds=`, and `admit` passes them whatever the kind narrowing). Their payloads carry no values. See [member-settings.md](member-settings.md).
 <!-- ---- end CMD-23 ---- -->
+
+<!-- ---- M3 (Hermes plan) ---- -->
+- **Embed mode polls this route** (`ui/app.js` `transport.events`): an embedded page asks the live feed's URL as a long-poll with `wait` absent (answer now), from its last `seq`, `limit=200`, every 4 s while visible. A large embedded answer is cut into parts by `embed::parts`; a `text/event-stream` answer never is. See [web-document-view.md](web-document-view.md), "Embed mode".
+<!-- ---- end M3 (Hermes plan) ---- -->

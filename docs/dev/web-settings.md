@@ -91,3 +91,7 @@ Implementation notes for the Settings screen every Member has (its design decisi
   Web / iPhone / iPad example on private servers — iOS Devices are the owner's Token with
   `X-Annotary-Device` / `X-Annotary-Device-Info` — copy, keyboard, search, wide / narrow, the
   Server group, Profile and Devices).
+
+<!-- ---- M3 (Hermes plan) ---- -->
+- **Not in embed mode:** an embed render's top bar has no Settings link (`ui::top_nav(…, embed)`), so an embedder never shows these pages (plan D1); `settings.js` keeps calling `fetch` / `EventSource` directly. The settings themselves still apply to embed renders (`WebPrefs::load`).
+<!-- ---- end M3 (Hermes plan) ---- -->

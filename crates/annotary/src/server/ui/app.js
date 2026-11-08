@@ -32,23 +32,195 @@ function main() {
   var docEl = app.querySelector('.cd-doc');
   var WIDE = 850;
 
-  /* ---------- CMD-23: the browser's time zone and hour cycle, for times the server renders ----------
-     `cd_tz` (IANA name) and `cd_hc` (`12` / `24`) are saved on any page when missing or changed;
-     the next page renders absolute times in that zone (Times shown as: Absolute). Until then times
-     render relative, as before. Nothing on this page changes when they are saved. */
+  /* ---------- M3 (Hermes plan): one transport for every request, navigation, event and pref ----------
+     In a browser it is what the page always did: `fetch` with the cookie, `EventSource`,
+     `location.href`, `document.cookie`. In an embed render (`.cd-app.cd-embed`, `embed.rs`) shown
+     in an embedder's sandboxed frame — an opaque origin: no cookies, no storage, nothing it can
+     load by URL — it is `window.AnnotaryEmbed` (`ui/embed.js`, inlined before this script; it
+     exists only in such a frame), which carries everything over `postMessage`. The live feed is a
+     poll there (the embedder may not relay events at all); an `annotary-event` makes it look now. */
+  var EMBED_POLL_MS = 4000;
+  var zoneWant = {};
+  try {
+    var zoneOpts = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions();
+    var cycle = zoneOpts.hourCycle || (zoneOpts.hour12 ? 'h12' : 'h23');
+    zoneWant = { cd_tz: zoneOpts.timeZone, cd_hc: (cycle === 'h23' || cycle === 'h24') ? '24' : '12' };
+  } catch (e) { /* no Intl: times stay relative */ }
   function cookieVal(name) {
     var m = new RegExp('(?:^|; )' + name + '=([^;]*)').exec(document.cookie || '');
     return m ? m[1] : null;
   }
-  try {
-    var zoneOpts = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions();
-    var cycle = zoneOpts.hourCycle || (zoneOpts.hour12 ? 'h12' : 'h23');
-    var zoneWant = { cd_tz: zoneOpts.timeZone, cd_hc: (cycle === 'h23' || cycle === 'h24') ? '24' : '12' };
-    Object.keys(zoneWant).forEach(function (k) {
-      var v = zoneWant[k];
-      if (v && /^[A-Za-z0-9\/_+-]{1,64}$/.test(v) && cookieVal(k) !== v) document.cookie = k + '=' + v + '; Path=/; SameSite=Lax; Max-Age=31536000';
+  function queryOf(url) {
+    var q = {};
+    (url.split('?')[1] || '').split('&').forEach(function (kv) {
+      var i = kv.indexOf('=');
+      if (i > 0) q[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1));
     });
-  } catch (e) { /* no Intl: times stay relative */ }
+    return q;
+  }
+  var transport = (function () {
+    var E = window.AnnotaryEmbed;
+    if (!(app.classList.contains('cd-embed') && E)) {
+      return {
+        embedded: false,
+        request: function (method, path, o) {
+          o = o || {};
+          var init = { method: method, credentials: 'same-origin', headers: o.headers || {} };
+          if (o.body !== undefined && o.body !== null) init.body = o.body;
+          return fetch(path, init);
+        },
+        events: function (url, types, on) {
+          if (!window.EventSource) return null;
+          var es = new EventSource(url);
+          es.addEventListener('ready', function (e) {
+            var j = null;
+            try { j = JSON.parse(e.data); } catch (x) { j = null; }
+            on.ready(j);
+          });
+          types.forEach(function (type) {
+            es.addEventListener(type, function (e) {
+              var ev = null;
+              try { ev = JSON.parse(e.data); } catch (x) { ev = null; }
+              on.event(ev);
+            });
+          });
+          es.onerror = function () { on.error(); };
+          return es;
+        },
+        navigate: function (path) { location.href = path; },
+        hash: function () { return location.hash || ''; },
+        pref: cookieVal,
+        savePrefs: function () {
+          /* CMD-23: `cd_tz` (IANA name) and `cd_hc` (`12` / `24`) are saved on any page when
+             missing or changed; the next page renders absolute times in that zone (Times shown as:
+             Absolute). Until then times render relative, as before. Nothing on this page changes. */
+          try {
+            Object.keys(zoneWant).forEach(function (k) {
+              var v = zoneWant[k];
+              if (v && /^[A-Za-z0-9\/_+-]{1,64}$/.test(v) && cookieVal(k) !== v) document.cookie = k + '=' + v + '; Path=/; SameSite=Lax; Max-Age=31536000';
+            });
+          } catch (e) { /* no cookies here: times stay relative */ }
+        }
+      };
+    }
+    /* The feed an EventSource on `url` would give (its `doc=`, `me=1`, `kinds=`), as a poll of the
+       same URL from the page's `since`: every EMBED_POLL_MS while the page is visible, at once when
+       it becomes visible again or the embedder posts `annotary-event`. One poll at a time; an event
+       is applied once (by `seq`). */
+    function events(url, types, on) {
+      var q = queryOf(url), last = +q.since || 0, busy = false, again = false, timer = null, ready = false;
+      function admit(ev) {
+        if (!ev || !(+ev.seq > last)) return;
+        last = +ev.seq;
+        if (types.indexOf(ev.type) >= 0) on.event(ev);
+      }
+      function schedule() {
+        clearTimeout(timer);
+        if (E.current() && document.visibilityState !== 'hidden') timer = setTimeout(poll, EMBED_POLL_MS);
+      }
+      function poll() {
+        if (!E.current()) return;
+        if (busy) { again = true; return; }
+        busy = true;
+        var u = url.replace(/([?&])since=\d*/, '$1since=' + last);
+        if (!/[?&]since=/.test(u)) u += (u.indexOf('?') < 0 ? '?' : '&') + 'since=' + last;
+        E.request('GET', u + '&limit=200', { headers: { Accept: 'application/json' } })
+          .then(function (r) { if (!r.ok) throw new Error('events: HTTP ' + r.status); return r.json(); })
+          .then(function (j) {
+            (j.events || []).forEach(admit);
+            if (+j.seq > last) last = +j.seq;
+            if (!ready) { ready = true; on.ready({ seq: last }); }
+          })
+          .catch(function () { ready = false; on.error(); })
+          .then(function () {
+            busy = false;
+            if (again) { again = false; poll(); } else schedule();
+          });
+      }
+      E.onEvent(function () { if (E.current()) poll(); });
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') clearTimeout(timer);
+        else poll();
+      });
+      poll();
+      return { close: function () { clearTimeout(timer); } };
+    }
+    /* A link's target, resolved against the page's own path: `{path}` on this server (`/d/…`,
+       `?…`, `../x`), `{url}` elsewhere (http, https, mailto), else null. */
+    function resolve(href) {
+      var dummy = 'https://embed.invalid';
+      var u;
+      try { u = new URL(href, dummy + E.path()); } catch (e) { return null; }
+      if (u.origin === dummy) return { path: u.pathname + u.search + u.hash };
+      return /^(https?|mailto):$/.test(u.protocol) ? { url: u.href } : null;
+    }
+    return {
+      embedded: true,
+      resolve: resolve,
+      request: E.request,
+      events: events,
+      navigate: E.navigate,
+      openExternal: E.openExternal,
+      hash: E.hash,
+      pref: function (k) { return zoneWant[k] || null; },
+      savePrefs: function () { /* no cookies: the zone travels as X-Annotary-Tz / -Hc (embed.js) */ }
+    };
+  })();
+  transport.savePrefs();
+
+  /* ---------- M3: an embed render's links, forms, buttons and images go through the transport ----------
+     Nothing in the frame loads by URL, so: a link to this server is a navigation (or
+     `annotary-open-external` for an Asset, a `target=_blank` or modified click, a download), a link
+     elsewhere `annotary-open-external {url}`; an in-page `#…` link scrolls as before. A GET form (the
+     list's filters) becomes a navigation with its fields as the query; the frame may not be allowed
+     forms, so the submit button and Enter are caught before the browser submits.
+     `button.cd-embed-open` (after video, audio, PDF and large images, `embed.rs`) opens the Asset;
+     images up to the server's cap (`embed::IMAGE_MAX`) come through the transport as blob URLs, and
+     a failed one shows its button. Listeners sit on `window`, after every handler on `document`. */
+  function embedSubmit(form) {
+    if (!form || (form.getAttribute('method') || 'get').toLowerCase() !== 'get') return;
+    var qs = new URLSearchParams(new FormData(form)).toString();
+    var r = transport.resolve(form.getAttribute('action') || '');
+    if (r && r.path) transport.navigate(r.path.split('#')[0].split('?')[0] + (qs ? '?' + qs : ''));
+  }
+  if (transport.embedded) {
+    window.addEventListener('click', function (e) {
+      var t = e.target;
+      if (e.defaultPrevented || e.button || !t || !t.closest) return;
+      var open = t.closest('button.cd-embed-open[data-cd-open]');
+      if (open) { e.preventDefault(); transport.openExternal(open.getAttribute('data-cd-open')); return; }
+      var sub = t.closest('button,input[type=submit]');
+      if (sub && sub.type === 'submit' && sub.form) { e.preventDefault(); embedSubmit(sub.form); return; }
+      var a = t.closest('a[href]');
+      if (!a) return;
+      var href = a.getAttribute('href');
+      if (!href || href.charAt(0) === '#') return;
+      e.preventDefault();
+      var r = transport.resolve(href);
+      if (!r) return;
+      if (r.url) transport.openExternal(r.url);
+      else if (/^\/a\//.test(r.path) || a.target === '_blank' || a.hasAttribute('download') || e.metaKey || e.ctrlKey || e.shiftKey) transport.openExternal(r.path);
+      else transport.navigate(r.path);
+    });
+    window.addEventListener('keydown', function (e) {
+      var t = e.target;
+      if (e.defaultPrevented || e.key !== 'Enter' || !t || !t.form || t.tagName !== 'INPUT') return;
+      if (/^(checkbox|radio|button|submit|reset|file)$/.test(t.type)) return;
+      e.preventDefault();
+      embedSubmit(t.form);
+    });
+    window.addEventListener('submit', function (e) { e.preventDefault(); embedSubmit(e.target); });
+    $$('img[data-cd-src]:not([data-cd-big])', document).forEach(function (img) {
+      transport.request('GET', img.getAttribute('data-cd-src'), { binary: true, headers: { Accept: 'image/*' } })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+        .then(function (b) { img.src = URL.createObjectURL(b); })
+        .catch(function () {
+          img.classList.add('cd-embed-failed');
+          var btn = img.nextElementSibling;
+          if (btn && btn.classList.contains('cd-embed-open')) btn.hidden = false;
+        });
+    });
+  }
 
   /* ---------- ticket 18 (X5): "Open in Annotary" — iPhone / iPad only ----------
      The server renders the chip `hidden` (no layout, no shift for anyone else); Safari on an
@@ -331,7 +503,9 @@ function main() {
     } else if (t.subject === 'asset') {
       var el = null;
       if (t.hash) {
-        el = $('img[src^="/a/' + t.hash + '"],video[src^="/a/' + t.hash + '"],audio[src^="/a/' + t.hash + '"],object[data^="/a/' + t.hash + '"]', docEl);
+        el = $('img[src^="/a/' + t.hash + '"],video[src^="/a/' + t.hash + '"],audio[src^="/a/' + t.hash + '"],object[data^="/a/' + t.hash + '"]', docEl)
+          // M3: an embed render keeps the Asset URL as data-cd-src (embed.rs)
+          || $('img[data-cd-src^="/a/' + t.hash + '"],video[data-cd-src^="/a/' + t.hash + '"],audio[data-cd-src^="/a/' + t.hash + '"],object[data-cd-src^="/a/' + t.hash + '"]', docEl);
       }
       if (!el && t.ref) {
         el = $$('.asset-missing', docEl).filter(function (x) { return x.getAttribute('data-ref') === t.ref; })[0] || null;
@@ -479,9 +653,10 @@ function main() {
       if (m && isWide()) m.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
   });
-  if (location.hash && /^#cd-t\d+$/.test(location.hash)) select(location.hash.slice(4), true);
+  var startHash = transport.hash(); // M3: in an embed render, the `#…` of the path the shell was loaded at
+  if (startHash && /^#cd-t\d+$/.test(startHash)) select(startHash.slice(4), true);
   // ticket 18: `annotary link DOC tN` prints …/d/{id}#tN — the same Thread selected.
-  else if (location.hash && /^#t\d+$/.test(location.hash)) select(location.hash.slice(1), true);
+  else if (startHash && /^#t\d+$/.test(startHash)) select(startHash.slice(1), true);
 
   /* ---------- header: narrow overlay, resolved toggle, Version select, details ---------- */
   var line = $('.cd-line');
@@ -520,7 +695,7 @@ function main() {
     vsel.addEventListener('change', function () {
       var o = vsel.options[vsel.selectedIndex];
       var href = o && o.getAttribute('data-href');
-      if (href) location.href = href;
+      if (href) transport.navigate(href);
     });
   }
   $$('details.cd-orphaned').forEach(function (d) { d.addEventListener('toggle', scheduleLayout); });
@@ -565,11 +740,11 @@ function main() {
     localizeTimes(news);
   }
   function loadNews() {
-    if (!D || !window.fetch) { renderNews([], 'events unavailable'); return; }
+    if (!D || !(window.fetch || transport.embedded)) { renderNews([], 'events unavailable'); return; }
     var out = [], since = 0, tries = 0, head = D.seq || 0;
     renderNews([], 'loading…');
     (function step() {
-      fetch('/api/v1/events?doc=' + encodeURIComponent(D.id) + '&since=' + since + '&limit=1000', { credentials: 'same-origin' })
+      transport.request('GET', '/api/v1/events?doc=' + encodeURIComponent(D.id) + '&since=' + since + '&limit=1000')
         .then(function (r) { if (!r.ok) throw new Error('events: HTTP ' + r.status); return r.json(); })
         .then(function (j) {
           out = out.concat(j.events || []);
@@ -610,9 +785,9 @@ function main() {
 
   /* ---------- HTTP ---------- */
   function api(method, path, body) {
-    var o = { method: method, credentials: 'same-origin', headers: {} };
+    var o = { headers: {} };
     if (body !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); }
-    return fetch(path, o).then(function (r) {
+    return transport.request(method, path, o).then(function (r) {
       return r.text().then(function (txt) {
         var j = null;
         try { j = txt ? JSON.parse(txt) : null; } catch (e) { j = null; }
@@ -1194,7 +1369,7 @@ function main() {
   function loadSource() {
     if (source && source.lines) return Promise.resolve(source.lines);
     if (source && source.promise) return source.promise;
-    var p = fetch('/api/v1/blobs/' + encodeURIComponent(D.md_hash), { credentials: 'same-origin' })
+    var p = transport.request('GET', '/api/v1/blobs/' + encodeURIComponent(D.md_hash))
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
       .then(function (text) { source = { lines: splitLines(text) }; return source.lines; })
       .catch(function (e) { source = null; throw e; });
@@ -1427,7 +1602,7 @@ function main() {
   function mediaOf(el) {
     var m = el && el.closest && el.closest('img,video,audio,object');
     if (!m || !docEl.contains(m) || m.closest('.cd-strip')) return null;
-    var src = m.getAttribute('src') || m.getAttribute('data') || '';
+    var src = m.getAttribute('data-cd-src') || m.getAttribute('src') || m.getAttribute('data') || ''; // M3: data-cd-src in an embed render
     var h = /^\/a\/([0-9a-f]{64})/.exec(src);
     if (!h) return null;
     var hash = h[1];
@@ -1788,7 +1963,7 @@ function main() {
         break;
       case '[': case ']':
         var a = $(e.key === '[' ? '.cd-vsw a.cd-older' : '.cd-vsw a.cd-newer');
-        if (a) { e.preventDefault(); location.href = a.getAttribute('href'); }
+        if (a) { e.preventDefault(); transport.navigate(a.getAttribute('href')); }
         break;
       case '?':
         e.preventDefault();
@@ -1864,24 +2039,23 @@ function main() {
     }
   }
   function subscribe() {
-    if (!isDocPage || !window.EventSource || es) return;
+    if (!isDocPage || es) return;
     try {
-      es = new EventSource('/api/v1/events?doc=' + encodeURIComponent(D.id) + '&since=' + (D.seq || 0) + '&me=1');
-    } catch (e) { es = null; return; }
-    es.addEventListener('ready', function (e) {
-      app.classList.add('cd-live');
-      try { var j = JSON.parse(e.data); if (j && j.seq) D.seq = Math.max(D.seq || 0, j.seq); } catch (x) { /* ignore */ }
-    });
-    ['thread.created', 'thread.replied', 'thread.resolved', 'thread.reopened', 'comment.edited', 'comment.deleted',
-      'action.taken', 'version.pushed', 'document.actions_declared', 'document.deleted', 'document.restored'].forEach(function (type) {
-      es.addEventListener(type, function (e) {
-        var ev = null;
-        try { ev = JSON.parse(e.data); } catch (x) { ev = null; }
-        onLiveEvent(ev);
-      });
-    });
-    es.addEventListener('setting.changed', settingsChanged); // CMD-23
-    es.onerror = function () { app.classList.remove('cd-live'); };
+      es = transport.events('/api/v1/events?doc=' + encodeURIComponent(D.id) + '&since=' + (D.seq || 0) + '&me=1',
+        ['thread.created', 'thread.replied', 'thread.resolved', 'thread.reopened', 'comment.edited', 'comment.deleted',
+          'action.taken', 'version.pushed', 'document.actions_declared', 'document.deleted', 'document.restored',
+          'setting.changed'], {
+          ready: function (j) {
+            app.classList.add('cd-live');
+            if (j && j.seq) D.seq = Math.max(D.seq || 0, j.seq);
+          },
+          event: function (ev) {
+            if (ev && ev.type === 'setting.changed') settingsChanged(); // CMD-23
+            else onLiveEvent(ev);
+          },
+          error: function () { app.classList.remove('cd-live'); }
+        });
+    } catch (e) { es = null; }
   }
   if (isDocPage) (window.requestIdleCallback || function (f) { setTimeout(f, 0); })(subscribe);
 
@@ -1938,7 +2112,7 @@ function main() {
       var sendKbd = document.getElementById('cd-send-key');
       if (sendKbd) sendKbd.textContent = v.send_key === 'mod_enter' ? '\u2318\u21A9' : '\u21A9';
       var times = v.times === 'absolute' ? 'absolute' : 'relative', clock = String(v.clock || 'system');
-      var tz = cookieVal('cd_tz');
+      var tz = transport.pref('cd_tz');
       if (times !== app.getAttribute('data-cd-times') || clock !== app.getAttribute('data-cd-clock') || (tz && !app.hasAttribute('data-cd-tz'))) {
         app.setAttribute('data-cd-times', times);
         app.setAttribute('data-cd-clock', clock);
@@ -1951,13 +2125,14 @@ function main() {
       if (resChanged || scaleChanged) layout();
     });
   }
-  if (!isDocPage && app.classList.contains('cd-listpage') && window.EventSource) {
+  if (!isDocPage && app.classList.contains('cd-listpage')) {
     (window.requestIdleCallback || function (f) { setTimeout(f, 0); })(function () {
       try {
-        es = new EventSource('/api/v1/events?me=1&kinds=setting.changed');
-        es.addEventListener('setting.changed', settingsChanged);
-        es.addEventListener('ready', function () { app.classList.add('cd-live'); });
-        es.onerror = function () { app.classList.remove('cd-live'); };
+        es = transport.events('/api/v1/events?me=1&kinds=setting.changed', ['setting.changed'], {
+          ready: function () { app.classList.add('cd-live'); },
+          event: settingsChanged,
+          error: function () { app.classList.remove('cd-live'); }
+        });
       } catch (e) { es = null; }
     });
   }
