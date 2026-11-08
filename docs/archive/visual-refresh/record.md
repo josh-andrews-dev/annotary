@@ -77,6 +77,16 @@ phone and sign-in. The audit caught the posting Comment: today's 72% opacity put
 
 **Decided (agent, 2026-11-08):** 1 bend, 2 yes. Build.
 
+## Build notes (2026-11-08)
+
+What the build changed from round 3, each found by a test or by looking at the real page:
+
+- Highlights have no hover transition (round 3's motion table had one): a mid-fade background made
+  the resolved toggle's own test read the old color.
+- The Action chip is hidden from 850 to 1600 px, where the status line says the same, so the header
+  holds one row with the Version select's label kept at 190 px or wider.
+- The tie's dot was dropped: the elbow is drawn with borders, and the card is the note.
+
 ## Cut from the boards
 
 - Per-Member name colors and an "AI" badge (drawn in C, rejected): identity comes from the avatars

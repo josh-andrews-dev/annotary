@@ -140,7 +140,8 @@ button{font:inherit;cursor:pointer}
 .cd-doc table{border-collapse:collapse;margin:.8em 0;display:block;overflow-x:auto;max-width:100%;font-variant-numeric:tabular-nums}
 /* tables: horizontal rules only, the head on a heavier rule */
 .cd-doc th,.cd-doc td{border:0;border-bottom:1px solid var(--cd-line);padding:6px 12px 6px 0;vertical-align:top}
-.cd-doc th{border-bottom:2px solid var(--cd-line);font-weight:600;text-align:left}
+.cd-doc th{border-bottom:2px solid var(--cd-line);font-weight:600}
+.cd-doc th:not([align]){text-align:left}
 .cd-doc hr{border:0;border-top:1px solid var(--cd-line);margin:1.2em 0}
 .cd-doc img,.cd-doc video{max-width:100%;height:auto;border-radius:6px}
 .cd-doc object[type="application/pdf"]{width:100%;height:70vh;border:1px solid var(--cd-line);border-radius:6px}
@@ -243,6 +244,9 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
 @container cd (max-width: 1599.98px){
   /* one header row: the id is in the URL, and the status line already says the Action */
   .cd-docid{display:none}
+  .cd-vsw select{max-width:190px}
+}
+@container cd (max-width: 1099.98px){
   .cd-vsw select{max-width:170px}
 }
 @container cd (min-width: 850px) and (max-width: 1599.98px){
@@ -353,7 +357,7 @@ table.cd-list tr:hover td:first-child{border-radius:10px 0 0 10px}table.cd-list 
 /* the id is a handle, not the thing you read: quiet */
 table.cd-list .cd-col-id a{color:var(--cd-muted);font-size:12px}
 table.cd-list .cd-col-id a:hover{color:var(--cd-accent)}
-table.cd-list .cd-mention{border-radius:999px;padding:0 7px;font-weight:600}
+table.cd-list .cd-mention{border-radius:999px;padding:0 7px;font-weight:600;white-space:nowrap}
 table.cd-list th.cd-num,table.cd-list td.cd-num{text-align:right}
 table.cd-list tr:hover td{background:var(--cd-soft)}
 .cd-docname{font-weight:600;color:var(--cd-fg)}
@@ -374,7 +378,7 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
 @keyframes cd-wash{from{background-color:var(--cd-sel-bg)}}
 @keyframes cd-pop{from{opacity:0;transform:scale(.96)}}
 @media (prefers-reduced-motion: no-preference){
-  .cd-btn,.cd-navlink,.cd-row,.cd-thread,mark.cd-hl{transition:background-color .15s,box-shadow .15s,border-color .15s}
+  .cd-btn,.cd-navlink,.cd-row,.cd-thread{transition:background-color .15s,box-shadow .15s,border-color .15s}
   .cd-ctools{transition:opacity .15s}
   .cd-strip.cd-tied::before{animation:cd-tie .14s var(--cd-ease) both}
   .cd-strip.cd-tied::after{animation:cd-tie .1s .12s var(--cd-ease) both}

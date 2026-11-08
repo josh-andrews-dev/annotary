@@ -570,6 +570,16 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S40-13 — a Version select on the diff page works from the moment it exists, before the page's main script has run, in a browser and in an embed render; the change buttons are disabled until they work (story 171)
 <!-- ---- end compare Versions ---- -->
 
+## The margin-note visual refresh
+
+- S41-01 — in layout A the selected Thread's strip is tied to its highlight: `cd-tied` with `--cd-tie-a` (the highlight's first line) no lower than `--cd-tie-b` (the card); gone on deselect; never in layout C.
+- S41-02 — a Comment someone else posts arrives with `cd-fresh`; your own never does.
+- S41-03 — an `@handle` the store resolved is a `span.cd-mention` in a Comment body; not in code or a link, and not an unknown handle.
+- S41-04 — the row's snippet in layout C has no Markdown emphasis or code markers.
+- S41-05 — under `prefers-reduced-motion: reduce` the tie, the wash and the pill do not animate.
+- S41-06 — the palettes' text pairs reach WCAG AA (4.5:1) in light and dark.
+- S41-07 — with Actions, the Document header stays one row at 1280 px.
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–170)
@@ -747,6 +757,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
 - 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13
+- 172 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07
 
 ## Deferred
 

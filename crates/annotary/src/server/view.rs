@@ -762,6 +762,7 @@ mod tests {
         occ_before(md, &line_starts(md), &Range::parse(range).unwrap(), exact)
     }
 
+    // spec: S41-04
     #[test]
     fn the_row_snippet_drops_markdown_markers() {
         assert_eq!(

@@ -426,6 +426,7 @@ pub fn json_for_script(v: &serde_json::Value) -> String {
 mod tests {
     use super::*;
 
+    // spec: S41-03
     #[test]
     fn mention_spans_wrap_resolved_handles_in_text_only() {
         let h = vec!["rowan".to_string(), "mei-t".to_string()];
@@ -486,6 +487,51 @@ mod tests {
         assert_eq!(rel_age("2026-08-14T09:12:04.123Z", at(86_400 * 45)), "2mo");
         assert_eq!(rel_age("2026-08-14T09:12:04.123Z", at(86_400 * 800)), "2y");
         assert_eq!(esc("a<b>&\"'"), "a&lt;b&gt;&amp;&quot;&#39;");
+    }
+
+    // spec: S41-06
+    #[test]
+    fn the_palettes_text_pairs_reach_aa() {
+        fn block(sel: &str) -> String {
+            let at = CSS.find(&format!("{sel}{{")).unwrap_or_else(|| panic!("no {sel} block"));
+            let rest = &CSS[at..];
+            rest[..rest.find('}').unwrap()].to_string()
+        }
+        fn hex(b: &str, name: &str) -> [f64; 3] {
+            let key = format!("--cd-{name}:#");
+            let at = b.find(&key).unwrap_or_else(|| panic!("no {name}")) + key.len();
+            let v: String = b[at..].chars().take_while(char::is_ascii_hexdigit).collect();
+            let v = if v.len() == 3 { v.chars().flat_map(|c| [c, c]).collect() } else { v };
+            [0, 2, 4].map(|i| u8::from_str_radix(&v[i..i + 2], 16).unwrap() as f64)
+        }
+        fn lum(c: [f64; 3]) -> f64 {
+            let f = |v: f64| {
+                let v = v / 255.0;
+                if v <= 0.03928 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+            };
+            0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+        }
+        let pairs = [
+            ("fg", "bg"),
+            ("fg", "card"),
+            ("muted", "bg"),
+            ("muted", "card"),
+            ("accent", "bg"),
+            ("sel-ink", "sel-bg"),
+            ("pos", "pos-bg"),
+            ("bg", "pos"),
+            ("neu", "neu-bg"),
+            ("neg", "neg-bg"),
+            ("fg", "raise"),
+            ("primary-ink", "primary"),
+        ];
+        for (name, b) in [("light", block(":root")), ("dark", block(".cd-app.cd-theme-dark"))] {
+            for (fg, bg) in pairs {
+                let (x, y) = (lum(hex(&b, fg)), lum(hex(&b, bg)));
+                let ratio = (x.max(y) + 0.05) / (x.min(y) + 0.05);
+                assert!(ratio >= 4.5, "{name}: --cd-{fg} on --cd-{bg} is {ratio:.2}:1");
+            }
+        }
     }
 
     /// CMD-23: the dark palette is written twice in app.css (`.cd-theme-dark`, and

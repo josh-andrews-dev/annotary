@@ -374,3 +374,7 @@ GitHub retired `macos-14`, dist 0.33.1's default for `aarch64-apple-darwin`. Cho
 `[workspace.metadata.dist.github-custom-runners]`; rejected `macos-latest`, because a moving label changes the build
 host without a reviewed change. Rejected regenerating `release.yml` with a newer dist, because that is a larger change
 to the release path than one runner name.
+
+## 2026-11-08: the web UI's visual refresh is the mark's margin note
+
+Josh asked for a sleeker, livelier, more striking page inside its minimal look. Chose one new visual idea, the mark's own: the selected card is joined to its highlight by a line in the Member's highlight color, bending down when the margin pushed the card lower. The rest is type, radii, soft shadows, mention tags and a filled positive Action. Rejected the brand's pink as the accent and per-Member name colors, because pink means nothing else in the UI and a colored name is a hue the tokens do not have. Rejected an "AI" badge, because people and agents read alike and the model has no Member kind. Rejected a web font, because it is a request in every page and every embed answer and a swap against the CLS budget of 0. The tie is drawn on the strip rather than the card, because a card deep in the Document has `content-visibility`, whose paint containment clips anything outside its box.
