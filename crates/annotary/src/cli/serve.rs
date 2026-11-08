@@ -13,7 +13,11 @@
 //! prompt reads one line from stdin (EOF/blank = default; the effective answer is echoed);
 //! `ANNOTARY_SETUP_HANDLE`, `ANNOTARY_SETUP_NAME`, `ANNOTARY_SETUP_PASSWORD` answer a
 //! prompt without asking (the prompt machinery is `cli::prompt`, shared with `login`).
-//! `--setup-only` exits after setup instead of serving.
+//! `--setup-only` exits after setup instead of serving. With `--json` (M3 of the Hermes plan:
+//! a program that sets a server up reads the owner's Token without scraping the transcript) the
+//! transcript goes to stderr and stdout is one object, [`SETUP_FIELDS`]: `created` (setup ran
+//! now), `handle`, `name`, `token` (only when `created`: it is shown once), `vault`, `store`.
+//! `serve --json` without `--setup-only` is a usage error.
 //!
 //! CMD-23: the hidden `--print-schema-version` prints the store schema this binary runs and exits
 //! before the data dir is touched (no LOCK, no migration); the deploy uses it to decide whether
@@ -26,7 +30,10 @@ use clap::Args;
 
 use annotary_store::{SetupInput, SetupOutcome, Store};
 
+use serde_json::{Map, json};
+
 use crate::exit::{CliError, CliResult};
+use crate::output::{FieldSpec, JsonMode};
 use crate::paths;
 use crate::server;
 
@@ -53,7 +60,8 @@ pub struct ServeArgs {
     #[arg(long, value_name = "URL")]
     pub link_base: Option<String>,
     // ---- end ticket 18 ----
-    /// Run first-run setup if the store is empty, then exit without serving
+    /// Run first-run setup if the store is empty, then exit without serving (with --json: the
+    /// owner and the first Token as one object on stdout, the transcript on stderr)
     #[arg(long)]
     pub setup_only: bool,
     /// Recompute what every push computed at the edge — the Thread placements (ticket 07) and
@@ -103,11 +111,25 @@ pub fn apply_url_flags(store: &Store, url: &UrlFlag, link_base: &UrlFlag) -> Cli
 }
 // ---- end ticket 18 ----
 
+/// `serve --setup-only --json` fields (M3 of the Hermes plan).
+pub const SETUP_FIELDS: FieldSpec = FieldSpec {
+    all: &["created", "handle", "name", "token", "vault", "store"],
+    default: &["created", "handle", "token", "store"],
+};
+
 pub fn run(ctx: &Ctx, args: ServeArgs) -> CliResult<()> {
     // CMD-23: before anything else, so it never creates, locks or migrates a store.
     if args.print_schema_version {
         println!("{}", annotary_store::SCHEMA_VERSION);
         return Ok(());
+    }
+    // M3: `--json` is the setup's result; a running server has none to print.
+    if ctx.out.json.as_ref() == Some(&JsonMode::ListFields) {
+        return ctx.out.json_records(&SETUP_FIELDS, Vec::new(), true);
+    }
+    if ctx.out.is_json() && !args.setup_only {
+        return Err(CliError::usage("serve prints JSON only with --setup-only")
+            .hint("annotary serve --setup-only --json prints the owner and the first Token"));
     }
     // Cheap argument checks first: a refused bind or a bad URL must not touch the store.
     let ip =
@@ -120,6 +142,28 @@ pub fn run(ctx: &Ctx, args: ServeArgs) -> CliResult<()> {
     let store = Arc::new(Store::open(&store_dir)?);
     store.set_verify_edge(args.verify_edge == "on"); // tickets 07 / 17
 
+    if args.setup_only && ctx.out.is_json() {
+        let mut rec = Map::new();
+        if !store.is_set_up()? {
+            let outcome = first_run_to(&store, &store_dir, Sink::Stderr)?;
+            apply_url_flags(&store, &url_flag, &link_flag)?;
+            rec.insert("created".into(), json!(true));
+            rec.insert("handle".into(), json!(outcome.owner.handle));
+            rec.insert("name".into(), json!(outcome.owner.display_name));
+            rec.insert("token".into(), json!(outcome.owner_token.plain));
+            rec.insert("vault".into(), json!(outcome.vault.name));
+        } else {
+            apply_url_flags(&store, &url_flag, &link_flag)?;
+            let owner = store.list_members()?.into_iter().find(|m| m.role == annotary_store::Role::Owner);
+            rec.insert("created".into(), json!(false));
+            if let Some(o) = owner {
+                rec.insert("handle".into(), json!(o.handle));
+                rec.insert("name".into(), json!(o.display_name));
+            }
+        }
+        rec.insert("store".into(), json!(store_dir.to_string_lossy()));
+        return ctx.out.json_records(&SETUP_FIELDS, vec![rec], true);
+    }
     if args.setup_only {
         if !store.is_set_up()? {
             let outcome = first_run(&store, &store_dir)?;
@@ -201,9 +245,10 @@ fn init_logging() {
 
 // ---------------------------------------------------------------- first-run setup
 
-/// The setup prompter: transcript on stdout, two-space indent; see `cli::prompt`.
-fn prompter() -> Prompter {
-    let p = Prompter::new(Sink::Stdout, "  ");
+/// The setup prompter: transcript on `sink` (stdout, or stderr under `--json`), two-space
+/// indent; see `cli::prompt`.
+fn prompter(sink: Sink) -> Prompter {
+    let p = Prompter::new(sink, "  ");
     if p.stdin_idle() {
         eprintln!(
             "(stdin is idle — first-run setup takes the defaults; ANNOTARY_SETUP_HANDLE/NAME/PASSWORD answer prompts)"
@@ -239,8 +284,15 @@ fn full_name() -> Option<String> {
 
 /// Run first-run setup with prompts, printing the transcript on stdout.
 pub fn first_run(store: &Store, store_dir: &std::path::Path) -> CliResult<SetupOutcome> {
-    println!("Tenant created at {}", paths::display(store_dir));
-    let p = prompter();
+    first_run_to(store, store_dir, Sink::Stdout)
+}
+
+/// [`first_run`] with its transcript on `sink` (`serve --setup-only --json`: stderr).
+fn first_run_to(store: &Store, store_dir: &std::path::Path, sink: Sink) -> CliResult<SetupOutcome> {
+    let to_err = matches!(sink, Sink::Stderr);
+    let say = |s: String| if to_err { eprintln!("{s}") } else { println!("{s}") };
+    say(format!("Tenant created at {}", paths::display(store_dir)));
+    let p = prompter(sink);
     let (user, full) = whoami();
     let default_handle = annotary_store::suggest_handle(&user).unwrap_or_else(|| "owner".to_string());
     let handle = loop {
@@ -248,7 +300,7 @@ pub fn first_run(store: &Store, store_dir: &std::path::Path) -> CliResult<SetupO
         match annotary_store::validate_handle(&h) {
             Ok(()) => break h,
             Err(e) => {
-                println!("  {e}");
+                say(format!("  {e}"));
                 if std::env::var_os("ANNOTARY_SETUP_HANDLE").is_some() || !p.stdin_tty {
                     return Err(CliError::usage(e.to_string()));
                 }
@@ -259,7 +311,7 @@ pub fn first_run(store: &Store, store_dir: &std::path::Path) -> CliResult<SetupO
     let password =
         p.ask_password("local password (blank = loopback trust, browser is you)", Some("ANNOTARY_SETUP_PASSWORD"));
     let outcome = store.setup(SetupInput { owner_handle: handle, owner_name: name, password })?;
-    println!("Vault \"{}\" created.", outcome.vault.name);
+    say(format!("Vault \"{}\" created.", outcome.vault.name));
     Ok(outcome)
 }
 

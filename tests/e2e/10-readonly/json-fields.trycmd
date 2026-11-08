@@ -1,10 +1,10 @@
-spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31
+spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08
 
 The `--json ?` contract of every verb in one place (ticket 16's sweep): each lists every field
 its `--json` can carry (`--json a,b` narrows to some of them) and exits 0 without calling the
 server — so this runs with profile `down` (an unreachable server) and on any platform (`daemon`
 answers `--json ?` before looking at the OS). A verb that gains or renames a field changes this
-golden; `serve` has no `--json`.
+golden; `serve` has a `--json` only with `--setup-only` (S37-08).
 
 ```console
 $ annotary -p down list --json ?
@@ -156,6 +156,9 @@ name server vault has_token config
 
 $ annotary -p down skill install --json ?
 path version written dir previous
+
+$ annotary -p down serve --setup-only --json ?
+created handle name token vault store
 
 $ annotary -p down daemon install --json ?
 state pid since url port store log plist installed loaded label version

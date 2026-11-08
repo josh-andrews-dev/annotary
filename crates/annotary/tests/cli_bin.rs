@@ -147,3 +147,50 @@ fn first_run_setup_is_scriptable_via_stdin_and_env() {
     let s = annotary_store::Store::open(&home3.path().join("store")).unwrap();
     assert!(!s.is_set_up().unwrap());
 }
+
+// spec: S37-08
+#[test]
+fn setup_only_json_prints_the_owner_and_the_token_once() {
+    let home = tempfile::tempdir().unwrap();
+    let run = |args: &[&str]| {
+        bin()
+            .args(args)
+            .env("ANNOTARY_HOME", home.path())
+            .env("ANNOTARY_SETUP_HANDLE", "rowan")
+            .env("ANNOTARY_SETUP_NAME", "Rowan Vale")
+            .env("ANNOTARY_SETUP_PASSWORD", "")
+            .stdin(Stdio::null())
+            .output()
+            .unwrap()
+    };
+    let out = run(&["serve", "--setup-only", "--json", "created,handle,name,token,vault,store"]);
+    let (stdout, stderr) = (String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert_eq!(out.status.code(), Some(0), "{stdout}\n{stderr}");
+    // stdout is one JSON object and nothing else; the transcript is on stderr
+    assert_eq!(stdout.lines().count(), 1, "{stdout}");
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(v["created"], true);
+    assert_eq!(v["handle"], "rowan");
+    assert_eq!(v["name"], "Rowan Vale");
+    assert_eq!(v["vault"], "notes");
+    assert_eq!(v["store"], home.path().join("store").to_string_lossy().as_ref());
+    let token = v["token"].as_str().unwrap();
+    assert!(token.starts_with("ant_"), "{v}");
+    assert!(stderr.contains("Tenant created at") && stderr.contains("Vault \"notes\" created."), "{stderr}");
+    assert!(!stderr.contains(token) && !stderr.contains("ANNOTARY_TOKEN="), "the Token only on stdout");
+    // the Token works
+    let s = annotary_store::Store::open(&home.path().join("store")).unwrap();
+    assert_eq!(s.authenticate(token).unwrap().expect("the token signs in").handle, "rowan");
+    drop(s);
+    // again: the owner, no Token (it was shown once), `created` false and so left out
+    let out = run(&["serve", "--setup-only", "--json"]);
+    assert_eq!(out.status.code(), Some(0));
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v, serde_json::json!({ "handle": "rowan", "store": home.path().join("store").to_string_lossy() }));
+    // `--json ?` lists the fields; without --setup-only it is a usage error
+    let out = run(&["serve", "--setup-only", "--json", "?"]);
+    assert_eq!(String::from_utf8_lossy(&out.stdout), "created handle name token vault store\n");
+    let out = run(&["serve", "--json"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("serve prints JSON only with --setup-only"));
+}
