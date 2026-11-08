@@ -358,7 +358,7 @@ test('a page written over another before its script ran binds once; a failed ann
   await e.frame().evaluate(() => { const w = window as any; w.requestAnimationFrame = w.__realRaf; w.__held.splice(0).forEach((f: FrameRequestCallback) => f(performance.now())); });
 });
 
-// spec: S39-07
+// spec: S40-07
 test('Compare and both Version selects of the diff page navigate in place; the marks render in the frame', async ({ page }) => {
   const a = seed('emb-cmp', PLAN);
   fs.writeFileSync(path.join(a.dir, 'emb-cmp.md'), PLAN.replace('early', 'right away'));

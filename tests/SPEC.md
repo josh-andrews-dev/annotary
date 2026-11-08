@@ -546,17 +546,23 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S38-03 — the owner Members screen: a disabled Member's card has **Enable** (an active one has none); confirming it re-draws the card active with Mint Token, Pair a device and Advanced back, the old Tokens shown as revoked, and the active count up by one (stories 17, 34)
 <!-- ---- end member enable ---- -->
 
+<!-- ---- skill: answer the Threads ---- -->
+## The skill answers review Threads the way a colleague would
+
+- S39-01 — SKILL.md tells an agent, after it pushes, to reply on each Thread it acted on: briefly, what changed and in which Version (`"Done in v5: …"`) or why it did not change it, an answer (no edit) to a question, a question back when a comment is unclear; it resolves only what it fully addressed; the agent golden flow answers a question without an edit (story 147)
+<!-- ---- end skill: answer the Threads ---- -->
+
 <!-- ---- compare Versions ---- -->
 ## Compare Versions — an inline rendered diff of two Versions
 
-- S39-01 — `annotary_diff::rendered_diff` over two Versions' rendered HTML: unchanged blocks come out as the newer Version renders them; a block only in the newer one is marked whole as added and a block only in the older one as removed (struck through, its `id`s and `data-l` dropped), each with a visually hidden text label; a changed paragraph, heading or code block is diffed word by word inside the newer block (`del.cd-del` / `ins.cd-ins`, entities and media whole, markup from the newer Version, so the output is balanced); a paragraph rewritten past recognition is a removed block and an added one (story 171)
-- S39-02 — lists, tables, block quotes and footnotes are diffed by item, row and cell, never by text inside a list or table: an added or removed item keeps the list valid, a changed cell is diffed word by word; a change only to markup (a link target, emphasis) is marked as a formatting change, not as changed words (story 171)
-- S39-03 — the diff's numbers: `+N −M lines` from the Markdown line diff, the counts of added, removed and changed blocks, and the change points (`data-cd-dx="1…"` in document order, one per run of adjacent changes); a run of unchanged top-level blocks longer than the context is folded into a closed `details.cd-dx-same` that says how many blocks it holds (story 171)
-- S39-04 — `GET /d/{id}/diff?from=A&to=B` (web auth + `read`): one server-composed page with the header, both Version selects, the summary, the legend and the diff; no `from`/`to` = the previous Version against the head, `from` alone = against the head, `to` alone = against the Version before it, `from > to` is shown oldest first; an unknown Version is the HTML 404 page, a Document with one Version says there is nothing to compare; an embed render wears `.cd-embed`, keeps media as `data-cd-src`, and has no Thread cards (story 171)
-- S39-05 — the Document page has a Compare link only when the Document has more than one Version: on the head it compares the previous Version with the head, on an older Version that Version with the head (story 171)
-- S39-06 — in a browser: Compare on the head opens the previous Version against the head, on an older Version that Version against the head; the selects pick any other pair; added and removed text are marked inline with labels; next and previous step through the changes; folded unchanged blocks open; going back shows the Document page with its cards laid out (story 171)
-- S39-07 — in the fake embedder, Compare and both selects navigate in place and post `annotary-nav`, and the diff renders with its marks (story 171)
-- S39-08 — at a phone width the diff page has no horizontal scroll, the selects and the change buttons fit, and the marks are visible in the dark theme too (story 171)
+- S40-01 — `annotary_diff::rendered_diff` over two Versions' rendered HTML: unchanged blocks come out as the newer Version renders them; a block only in the newer one is marked whole as added and a block only in the older one as removed (struck through, its `id`s and `data-l` dropped), each with a visually hidden text label; a changed paragraph, heading or code block is diffed word by word inside the newer block (`del.cd-del` / `ins.cd-ins`, entities and media whole, markup from the newer Version, so the output is balanced); a paragraph rewritten past recognition is a removed block and an added one (story 171)
+- S40-02 — lists, tables, block quotes and footnotes are diffed by item, row and cell, never by text inside a list or table: an added or removed item keeps the list valid, a changed cell is diffed word by word; a change only to markup (a link target, emphasis) is marked as a formatting change, not as changed words (story 171)
+- S40-03 — the diff's numbers: `+N −M lines` from the Markdown line diff, the counts of added, removed and changed blocks, and the change points (`data-cd-dx="1…"` in document order, one per run of adjacent changes); a run of unchanged top-level blocks longer than the context is folded into a closed `details.cd-dx-same` that says how many blocks it holds (story 171)
+- S40-04 — `GET /d/{id}/diff?from=A&to=B` (web auth + `read`): one server-composed page with the header, both Version selects, the summary, the legend and the diff; no `from`/`to` = the previous Version against the head, `from` alone = against the head, `to` alone = against the Version before it, `from > to` is shown oldest first; an unknown Version is the HTML 404 page, a Document with one Version says there is nothing to compare; an embed render wears `.cd-embed`, keeps media as `data-cd-src`, and has no Thread cards (story 171)
+- S40-05 — the Document page has a Compare link only when the Document has more than one Version: on the head it compares the previous Version with the head, on an older Version that Version with the head (story 171)
+- S40-06 — in a browser: Compare on the head opens the previous Version against the head, on an older Version that Version against the head; the selects pick any other pair; added and removed text are marked inline with labels; next and previous step through the changes; folded unchanged blocks open; going back shows the Document page with its cards laid out (story 171)
+- S40-07 — in the fake embedder, Compare and both selects navigate in place and post `annotary-nav`, and the diff renders with its marks (story 171)
+- S40-08 — at a phone width the diff page has no horizontal scroll, the selects and the change buttons fit, and the marks are visible in the dark theme too (story 171)
 <!-- ---- end compare Versions ---- -->
 
 ## Stories
@@ -711,7 +717,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 144 — CLI submits `placements[]`, server spot-verifies → S07-06, S07-07, S07-16, S09-08
 - 145 — renderer/diff/sidecar crates build to WASM → S07-15, S09-12
 - 146 — one Markdown superset, no flavor detection → S09-01, S09-05, S32-03, S32-04, S32-06
-- 147 — SKILL.md ≤ 60 lines / ≈ 900 tokens → S14-01, S14-04, S14-07, S14-08
+- 147 — SKILL.md ≤ 60 lines / ≈ 900 tokens → S14-01, S14-04, S14-07, S14-08, S39-01
 - 148 — `skill install [--dir]` + keep-current hook → S14-02
 - 149 — `--help` is the reference → S14-01, S14-03
 - 150 — TTY / non-TTY parity → S01-12, S02-30, S04-16, S05-14, S07-17, S08-06, S13-02, S14-04, S14-05, S14-06, S16-04
@@ -735,7 +741,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07, S37-10
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
-- 171 — compare two Versions inline (the Compare button, the diff page) → S39-01, S39-02, S39-03, S39-04, S39-05, S39-06, S39-07, S39-08
+- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08
 
 ## Deferred
 

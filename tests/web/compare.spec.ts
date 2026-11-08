@@ -36,7 +36,7 @@ async function openDiff(page: Page, url: string, width = 1280) {
 
 const diffUrl = (id: string, from: number, to: number) => `${harness().url}/d/${id}/diff?from=${from}&to=${to}`;
 
-// spec: S39-05
+// spec: S40-05
 test('the Document page has Compare only with more than one Version, with the default pair', async ({ page }) => {
   const one = seedDoc('cmp-one', V1);
   await openDoc(page, one.id);
@@ -48,7 +48,7 @@ test('the Document page has Compare only with more than one Version, with the de
   await expect(page.locator('#cd-compare')).toHaveAttribute('href', `/d/${id}/diff?from=2&to=4`);
 });
 
-// spec: S39-06
+// spec: S40-06
 test('Compare opens the default pair, the selects pick another, the marks are labeled, and back shows the cards', async ({ page }) => {
   const id = seedHistory('cmp-flow');
   // On the head: the previous Version against it.
@@ -108,7 +108,7 @@ test('Compare opens the default pair, the selects pick another, the marks are la
   await expect(page.locator('#cd-dxopen-to')).toHaveAttribute('href', `/d/${id}/v/3`);
 });
 
-// spec: S39-06
+// spec: S40-06
 test('next and previous step through the changes; folded unchanged blocks open', async ({ page }) => {
   const body = Array.from({ length: 30 }, (_, i) => `Paragraph ${i + 1} is long enough to take a line of its own on the page.\n\n`).join('');
   const a = `# Long plan\n\n${body}The end.\n`;
@@ -144,7 +144,7 @@ test('next and previous step through the changes; folded unchanged blocks open',
   await expect(fold.locator('p', { hasText: 'Paragraph 15 is' })).toBeVisible();
 });
 
-// spec: S39-04
+// spec: S40-04
 test('a Document with one Version and the same Version twice say there is nothing to compare', async ({ page }) => {
   const one = seedDoc('cmp-single', V1);
   await openDiff(page, `${harness().url}/d/${one.id}/diff`);
@@ -156,7 +156,7 @@ test('a Document with one Version and the same Version twice say there is nothin
   await expect(page.locator('#cd-dxfrom')).toHaveValue('2');
 });
 
-// spec: S39-08
+// spec: S40-08
 test('at a phone width nothing scrolls sideways, and the marks show in both themes', async ({ browser }) => {
   const id = seedHistory('cmp-phone');
   for (const scheme of ['light', 'dark'] as const) {

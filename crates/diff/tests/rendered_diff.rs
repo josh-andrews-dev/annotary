@@ -115,7 +115,7 @@ fn assert_reads_back(a: &str, b: &str) {
     same(&text(&d.html, &|t| is_label(t) || added(t)), &old_text, "older", &d.html);
 }
 
-// spec: S39-01
+// spec: S40-01
 #[test]
 fn unchanged_added_removed_and_changed_blocks() {
     let a = "# Plan\n\nWe ship the beta on Friday with three people.\n\n## Risks\n\nGone paragraph here.\n\nKept at the end.\n";
@@ -180,7 +180,7 @@ fn unchanged_added_removed_and_changed_blocks() {
     assert_balanced(&d.html);
 }
 
-// spec: S39-02
+// spec: S40-02
 #[test]
 fn lists_tables_quotes_and_footnotes_diff_by_item() {
     let a = "- one\n- two\n- three\n  - nested a\n  - nested b\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n\n> quoted line one\n>\n> quoted two\n\nNote[^1].\n\n[^1]: The footnote text.\n";
@@ -225,7 +225,7 @@ fn lists_tables_quotes_and_footnotes_diff_by_item() {
     assert!(d.html.contains("<del class=\"cd-del\"><input type=\"checkbox\" disabled></del><ins class=\"cd-ins\"><input type=\"checkbox\" checked disabled></ins>"), "{}", d.html);
 }
 
-// spec: S39-03
+// spec: S40-03
 #[test]
 fn line_counts_change_points_and_folds() {
     let body: String = (1..=20).map(|i| format!("Paragraph number {i} stays.\n\n")).collect();
@@ -267,7 +267,7 @@ fn corpus() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/corpus")
 }
 
-// spec: S39-01, S39-02
+// spec: S40-01, S40-02
 #[test]
 fn every_pair_of_corpus_versions_reads_back_both_ways() {
     let mut pairs = 0;

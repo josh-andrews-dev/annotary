@@ -77,7 +77,7 @@ fn doc_part(body: &str) -> &str {
     &body[at..at + body[at..].find("</article></main>").unwrap()]
 }
 
-// spec: S39-04
+// spec: S40-04
 #[test]
 fn the_diff_page_composes_the_pair_with_its_defaults() {
     let ts = TestServer::start();
@@ -143,7 +143,7 @@ fn the_diff_page_composes_the_pair_with_its_defaults() {
     assert!(!doc_part(&body).contains("data-cd-dx="), "{body}");
 }
 
-// spec: S39-04
+// spec: S40-04
 #[test]
 fn an_embed_render_of_the_diff_keeps_media_for_the_bridge() {
     let ts = TestServer::start();
@@ -174,7 +174,7 @@ fn an_embed_render_of_the_diff_keeps_media_for_the_bridge() {
     assert!(doc_part(&body).contains(&format!(" src=\"/a/{}\"", sha256_hex(&b))), "{body}");
 }
 
-// spec: S39-05
+// spec: S40-05
 #[test]
 fn the_document_page_links_compare_only_with_more_than_one_version() {
     let ts = TestServer::start();
