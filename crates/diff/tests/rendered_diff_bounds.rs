@@ -169,10 +169,10 @@ fn ordinary_documents_are_never_shown_whole() {
     assert!(!d.stats.shown_whole, "flat: {} charged", d.work);
     assert_eq!(d.stats.blocks_changed, 1_800);
     assert!(d.html.contains("says <del class=\"cd-del\">same</del><ins class=\"cd-ins\">changed</ins> and"));
-    // Normally nested: a quote holding a list of items of paragraphs, three levels, also about 2 MB.
+    // Normally nested: quotes holding lists of paragraphs, three levels, as large as a real one.
     let item = |i: usize, w: &str| format!("<li><p>Item {i} of the list says {w} and then a little more.</p></li>\n");
     let quote = |w: &str| {
-        let blocks: String = (0..300)
+        let blocks: String = (0..60)
             .map(|b| {
                 let items: String = (0..100).map(|i| item(b * 100 + i, if i == 7 { w } else { "same" })).collect();
                 format!("<blockquote><p>Group {b}</p><ul>{items}</ul></blockquote>\n")
@@ -183,25 +183,105 @@ fn ordinary_documents_are_never_shown_whole() {
     let (a, b) = (quote("same"), quote("changed"));
     let d = rendered_diff("", "", &a, &b);
     assert!(!d.stats.shown_whole, "nested: {} charged", d.work);
-    assert_eq!(d.stats.blocks_changed, 300);
+    assert_eq!(d.stats.blocks_changed, 60);
     assert!(d.work < annotary_diff::WORK_BUDGET / 2, "nested: {} charged", d.work);
 }
 
 // spec: S40-09
 #[test]
-fn a_document_of_tiny_blocks_is_cut_off_and_stays_valid() {
+fn one_block_over_the_limit_stops_the_whole_comparison() {
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
-    let items = |tag: &str| {
-        let lis: String = (0..300_000).map(|i| format!("<li>{tag}{}</li>\n", i % 9)).collect();
-        format!("<p>Kept title</p>\n<ul>{lis}</ul>\n<p>After the list {tag}</p>\n")
+    let max = annotary_diff::MAX_BLOCKS;
+    let items = |tag: &str, n: usize| {
+        format!("<ul>{}</ul>\n", (0..n - 1).map(|i| format!("<li>{tag}{i}</li>\n")).collect::<String>())
     };
-    let (a, b) = (items("a"), items("b"));
-    let (d, peak) = peak_during(|| rendered_diff("", "", &a, &b));
-    assert!(peak < 128 * MB, "peak {} MB for {} KB of input", peak / MB, (a.len() + b.len()) / 1024);
-    assert!(d.stats.shown_whole, "the page says it cut the comparison short");
+    // Over on either side: nothing parsed, nothing compared, no piece of the Document shown.
+    for (a, b) in [(items("a", max + 1), items("b", 3)), (items("a", 3), items("b", max + 1))] {
+        let (d, peak) = peak_during(|| rendered_diff("", "", &a, &b));
+        assert!(d.stats.too_large && d.html.is_empty(), "{:?}", d.stats);
+        assert_eq!(d.work, 0);
+        assert!(peak < MB, "peak {} KB: the gate builds nothing", peak / 1024);
+    }
+    // Table cells count: a row one over is too large as well.
+    let row = |tag: &str, n: usize| {
+        format!("<table><tr>{}</tr></table>", (0..n - 2).map(|i| format!("<td>{tag}{i}</td>")).collect::<String>())
+    };
+    assert!(rendered_diff("", "", &row("a", max + 1), &row("b", max + 1)).stats.too_large);
+    // At the limit it is compared, and every item is a real item.
+    let (a, b) = (items("a", max), items("b", max));
+    let d = rendered_diff("", "", &a, &b);
+    assert!(!d.stats.too_large);
     assert_eq!(d.html.matches("<li").count(), d.html.matches("</li>").count());
-    assert_eq!(d.html.matches("<ul").count(), d.html.matches("</ul>").count());
-    assert!(d.html.contains("After the list"), "the end of the Document is still there");
+    assert!(
+        !d.html.contains("<ins class=\"cd-ins\"><li") && !d.html.contains("<del class=\"cd-del\"><li"),
+        "no markup inside a mark"
+    );
+}
+
+// spec: S40-03, S40-09
+#[test]
+fn the_line_counts_cannot_blow_up() {
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let lines = |step: usize| (0..200_000).map(|i| format!("{}\n", i * step % 97)).collect::<String>();
+    let (a, b) = (lines(7), lines(11));
+    let t = Instant::now();
+    let (d, peak) = peak_during(|| rendered_diff(&a, &b, "<p>x</p>", "<p>y</p>"));
+    assert!(t.elapsed() < Duration::from_secs(if cfg!(debug_assertions) { 10 } else { 1 }), "took {:?}", t.elapsed());
+    assert!(peak < 8 * MB, "peak {} MB", peak / MB);
+    // Both lists are almost the same 97 lines in another order.
+    assert_eq!(d.stats.lines_added, d.stats.lines_removed);
+    assert!(d.stats.lines_added < 100, "{}", d.stats.lines_added);
+    // By content: a moved line counts for neither side, a changed one for both.
+    assert_eq!(annotary_diff::line_counts("a\nb\nc\n", "c\na\nb\n"), (0, 0));
+    assert_eq!(annotary_diff::line_counts("a\nb\n", "a\nx\n"), (1, 1));
+    assert_eq!(annotary_diff::line_counts("a\na\n", "a\n"), (0, 1), "a repeated line counts each time");
+}
+
+// spec: S40-09
+#[test]
+fn the_pairing_matrices_are_gone_before_the_recursion() {
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let kids = |n: usize, tag: &str| (0..n).map(|i| format!("<p>{tag} {i}</p>\n")).collect::<String>();
+    let nested = |n: usize, tag: &str| {
+        (0..31).fold(kids(n, tag), |s, _| format!("<blockquote>{}{s}</blockquote>", kids(n, tag)))
+    };
+    // About 330,000 matrix cells at each of 31 levels: 1.6 MB each if they stayed.
+    let (a, b) = (nested(620, "a"), nested(540, "b"));
+    let (d, peak) = peak_during(|| rendered_diff("", "", &a, &b));
+    assert!(!d.stats.too_large, "{:?}", d.stats);
+    assert!(peak < 24 * MB, "peak {} MB", peak / MB);
+}
+
+// spec: S40-09
+#[test]
+fn a_row_too_wide_to_diff_within_the_budget_stays_one_row() {
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    // Reversed long paragraphs leave too little budget for a block diff of a row this wide, but
+    // enough to reach the row at all.
+    let spend = |flip: bool| {
+        (0..55)
+            .map(|i| {
+                let mut w: Vec<String> = (0..500).map(|k| format!("w{k}x{i}")).collect();
+                if flip {
+                    w.reverse();
+                }
+                format!("<p>{}</p>\n<p>keep {i}</p>\n", w.join(" "))
+            })
+            .collect::<String>()
+    };
+    let cells = 19_000;
+    let table = |tag: &str| {
+        format!(
+            "<table><tbody><tr>{}</tr></tbody></table>\n",
+            (0..cells).map(|i| format!("<td>{tag}{i}</td>")).collect::<String>()
+        )
+    };
+    let (a, b) = (format!("{}{}", spend(false), table("a")), format!("{}{}", spend(true), table("b")));
+    let d = rendered_diff("", "", &a, &b);
+    assert!(d.work > annotary_diff::WORK_BUDGET / 2, "the paragraphs spent the budget: {}", d.work);
+    assert_eq!(d.html.matches("<td").count(), cells, "one cell per column");
+    assert!(d.stats.blocks_changed >= cells, "every cell compared in place: {:?}", d.stats);
+    assert!(d.html.contains("<del class=\"cd-del\">a0</del><ins class=\"cd-ins\">b0</ins>"));
 }
 
 // spec: S40-09
@@ -214,8 +294,8 @@ fn a_version_that_renders_past_the_size_limit_is_not_compared() {
     assert!(d.stats.too_large && d.html.is_empty(), "{:?}", d.stats);
     assert_eq!((d.stats.lines_added, d.stats.lines_removed, d.work), (0, 1, 0), "the line count still holds");
     assert!(peak < MB, "peak {} KB", peak / 1024);
-    // Just under the limit it is compared.
-    let c = at("old", annotary_diff::MAX_HTML_BYTES - 64);
+    // Just under the limit it is compared (one long paragraph, so the block limit is not what stops it).
+    let c = format!("<p>{}</p>", "x".repeat(annotary_diff::MAX_HTML_BYTES - 16));
     assert!(c.len() <= annotary_diff::MAX_HTML_BYTES);
     assert!(!rendered_diff("", "", &c, &b).stats.too_large);
 }

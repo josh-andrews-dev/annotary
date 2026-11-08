@@ -104,12 +104,16 @@ test('every real Document with more than one Version reads back as its newer Ver
     .map((d) => ({ ...d, versions: versionsOf(d.id) }))
     .filter((d) => d.versions.length > 1);
   let pairs = 0;
+  let largest = 0;
   for (const d of multi) {
     const head = Math.max(...d.versions.map((v) => v.number));
     await openDoc(page, d.id);
     const want = await pageText(page);
+    largest = Math.max(largest, await page.locator('#cd-doc [data-l]').count());
     for (const from of [...new Set([head - 1, 1])]) {
       await openDiff(page, d.id, from, head);
+      await expect(page.locator('#cd-dxwhole'), `${d.id}: compared word by word`).toHaveCount(0);
+      await expect(page.locator('#cd-dxnote', { hasText: 'too large' }), `${d.id}: not too large`).toHaveCount(0);
       expect(await diffText(page), `${d.id} v${from} → v${head}`).toBe(want);
       pairs++;
     }
@@ -137,7 +141,7 @@ test('every real Document with more than one Version reads back as its newer Ver
       throw new Error(`${d.id}: the diff scrolls sideways by ${overflow}px at 390 (widest: ${JSON.stringify(widest)}); its Document page by ${docOverflow}px`);
     }
   }
-  test.info().annotations.push({ type: 'data', description: `${multi.length} Documents, ${pairs} pairs` });
+  test.info().annotations.push({ type: 'data', description: `${multi.length} Documents, ${pairs} pairs, largest ${largest} blocks` });
   expect(pairs).toBeGreaterThan(0);
   expect(errors, 'no script error').toEqual([]);
 });

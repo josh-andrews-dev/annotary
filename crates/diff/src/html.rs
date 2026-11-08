@@ -45,13 +45,12 @@ const MAX_PAIRING: usize = 1_000_000;
 const MAX_WORD_TOKENS: usize = 20_000;
 /// Up to this many tokens a diff is minimal Myers; above it, the bounded heuristic Myers.
 const MAX_MINIMAL_TOKENS: usize = 2_000;
-/// Block elements read per side: past it, the rest of each element is one opaque run, because the
-/// tree costs a few hundred bytes per block and a list item can take four bytes of Markdown.
-const MAX_BLOCKS: usize = 100_000;
-/// Rendered HTML per side past which nothing is compared at all: memory follows the HTML, and a
-/// few bytes of Markdown can render 20 times their size. An ordinary Document at the Markdown cap
-/// renders well under it.
-pub const MAX_HTML_BYTES: usize = 12 << 20;
+/// Block elements per side (table cells included) past which nothing is compared: the tree and the
+/// marks cost a few hundred bytes per block, and a list item can take four bytes of Markdown.
+pub const MAX_BLOCKS: usize = 20_000;
+/// Rendered HTML per side past which nothing is compared: memory follows the HTML, and a few bytes
+/// of Markdown can render 20 times their size. Prose at the Markdown cap renders well under it.
+pub const MAX_HTML_BYTES: usize = 4 << 20;
 /// In a run of more than this many old × new blocks, a block is only measured against those near
 /// its own position, because comparing every pair of similar blocks would outweigh the rest.
 const BAND_ABOVE: usize = 400;
@@ -61,8 +60,8 @@ const BAND: usize = 32;
 const MAX_DEPTH: usize = 32;
 /// The work one diff may do, in units of about a nanosecond of a release build. Every step that
 /// can repeat per nesting level or grow faster than its input charges its worst case first; past
-/// the budget, blocks are shown whole (`DiffStats::shown_whole`). What is left uncharged is one
-/// linear pass: parsing, the marks and the fold.
+/// the budget, blocks are shown whole (`DiffStats::shown_whole`). What is left uncharged is linear
+/// in input the gate has already limited: the gate itself, parsing, the marks and the fold.
 pub const WORK_BUDGET: u64 = 400_000_000;
 /// Per byte of a subtree: stripping its attributes, normalizing its text and hashing the key.
 const KEY_COST: u64 = 2;
@@ -74,7 +73,7 @@ const TOKEN_COST: u64 = 15;
 /// What a diff found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DiffStats {
-    /// Markdown source lines added / removed (histogram line diff).
+    /// Markdown source lines only in the newer / only in the older Version, by content.
     pub lines_added: usize,
     pub lines_removed: usize,
     /// Blocks marked whole as added / removed, and blocks changed inside.
@@ -85,7 +84,7 @@ pub struct DiffStats {
     pub changes: usize,
     /// The work budget ran out, so some blocks are shown whole rather than word by word.
     pub shown_whole: bool,
-    /// A Version renders to more than [`MAX_HTML_BYTES`]: nothing was compared.
+    /// A Version is over [`MAX_HTML_BYTES`] or [`MAX_BLOCKS`]: nothing was compared.
     pub too_large: bool,
 }
 
@@ -98,33 +97,85 @@ pub struct RenderedDiff {
     pub work: u64,
 }
 
-/// Diff Version A (`old_md`, rendered as `old_html`) against Version B (`new_md`, `new_html`).
+/// Diff Version A (`old_md`, rendered as `old_html`) against Version B (`new_md`, `new_html`). Every
+/// limit is checked first; over any of them nothing is parsed and nothing is compared.
 pub fn rendered_diff(old_md: &str, new_md: &str, old_html: &str, new_html: &str) -> RenderedDiff {
+    let too_large = over_limits(old_html) || over_limits(new_html);
     let (lines_added, lines_removed) = line_counts(old_md, new_md);
-    if old_html.len().max(new_html.len()) > MAX_HTML_BYTES {
-        let stats = DiffStats { lines_added, lines_removed, too_large: true, ..DiffStats::default() };
+    let stats = DiffStats { lines_added, lines_removed, too_large, ..DiffStats::default() };
+    if too_large {
         return RenderedDiff { html: String::new(), stats, work: 0 };
     }
-    let (old, old_cut) = parse(old_html);
-    let (new, new_cut) = parse(new_html);
-    let stats = DiffStats { lines_added, lines_removed, shown_whole: old_cut || new_cut, ..DiffStats::default() };
+    let old = parse(old_html);
+    let new = parse(new_html);
     let mut cx = Cx { stats, open: false, work: 0 };
     let pieces = cx.seq(&old, &new, None);
+    drop((old, new)); // the pieces borrow the HTML, not the trees
     RenderedDiff { html: fold(pieces), stats: cx.stats, work: cx.work }
 }
 
-/// Lines added and removed between two Markdown texts (histogram line diff, CRLF tolerated).
+/// Over a limit on either side? A linear scan that builds nothing. It counts every block open tag,
+/// so it never counts fewer blocks than [`parse`] will read.
+fn over_limits(html: &str) -> bool {
+    if html.len() > MAX_HTML_BYTES {
+        return true;
+    }
+    let mut blocks = 0;
+    let mut i = 0;
+    while let Some(k) = html[i..].find('<').map(|p| i + p) {
+        if html[k..].starts_with("<!--") {
+            i = html[k..].find("-->").map(|p| k + p + 3).unwrap_or(html.len());
+        } else if html.as_bytes().get(k + 1).is_some_and(u8::is_ascii_alphabetic) {
+            let end = tag_end(html, k);
+            if is_block_open(&name_at(html, k + 1), &html[k..end]) {
+                blocks += 1;
+                if blocks > MAX_BLOCKS {
+                    return true;
+                }
+            }
+            i = end;
+        } else {
+            i = k + 1;
+        }
+    }
+    false
+}
+
+/// Lines only in `new` and lines only in `old`, by content (CRLF tolerated): a sort and a merge, so
+/// no input can make it slow. A line that moved counts for neither.
 pub fn line_counts(old: &str, new: &str) -> (usize, usize) {
-    use imara_diff::{Algorithm, Diff, Interner};
-    let (a, b) = (annotary_sidecar::range::lines(old), annotary_sidecar::range::lines(new));
-    let mut interner: Interner<&str> = Interner::new(a.len() + b.len());
-    let before: Vec<_> = a.iter().map(|l| interner.intern(l)).collect();
-    let after: Vec<_> = b.iter().map(|l| interner.intern(l)).collect();
-    let mut diff = Diff::default();
-    diff.compute_with(Algorithm::Histogram, &before, &after, interner.num_tokens());
-    diff.hunks().fold((0, 0), |(add, del), h| {
-        (add + (h.after.end - h.after.start) as usize, del + (h.before.end - h.before.start) as usize)
-    })
+    let (a, b) = (line_hashes(old), line_hashes(new));
+    let common = common_sorted(&a, &b);
+    (b.len() - common, a.len() - common)
+}
+
+/// The sorted hashes of a text's lines ([`annotary_sidecar::range::lines`] semantics).
+fn line_hashes(text: &str) -> Vec<u64> {
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let body = text.strip_suffix('\n').unwrap_or(text);
+    let mut v = Vec::with_capacity(body.bytes().filter(|b| *b == b'\n').count() + 1);
+    v.extend(body.split('\n').map(|l| fnv1a(l.strip_suffix('\r').unwrap_or(l).as_bytes())));
+    v.sort_unstable();
+    v
+}
+
+/// How many items two sorted lists have in common, duplicates counted.
+fn common_sorted<T: Ord>(a: &[T], b: &[T]) -> usize {
+    let (mut i, mut j, mut common) = (0, 0, 0);
+    while i < a.len() && j < b.len() {
+        match a[i].cmp(&b[j]) {
+            std::cmp::Ordering::Less => i += 1,
+            std::cmp::Ordering::Greater => j += 1,
+            std::cmp::Ordering::Equal => {
+                common += 1;
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+    common
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -262,15 +313,12 @@ struct Parser<'a> {
     i: usize,
     /// The open block elements around the cursor (at most [`MAX_DEPTH`]).
     stack: Vec<String>,
-    /// Block elements read so far (at most [`MAX_BLOCKS`]).
-    blocks: usize,
 }
 
 /// Parse a rendered fragment into its top-level nodes.
-fn parse(html: &str) -> (Vec<Node<'_>>, bool) {
-    let mut p = Parser { s: html, i: 0, stack: Vec::new(), blocks: 0 };
-    let nodes = p.children().0;
-    (nodes, p.blocks >= MAX_BLOCKS)
+fn parse(html: &str) -> Vec<Node<'_>> {
+    let mut p = Parser { s: html, i: 0, stack: Vec::new() };
+    p.children().0
 }
 
 impl<'a> Parser<'a> {
@@ -321,16 +369,6 @@ impl<'a> Parser<'a> {
                 self.i = end;
                 continue;
             }
-            if self.blocks >= MAX_BLOCKS {
-                // One opaque run up to this element's own close (balanced: whole children only).
-                let close = match self.stack.last() {
-                    Some(open) => matching_close(s, k, open),
-                    None => (s.len(), s.len()),
-                };
-                self.i = close.1;
-                break close;
-            }
-            self.blocks += 1;
             flush(&mut out, text_start, k);
             let el = if VOID.contains(&name.as_str()) || tag.ends_with("/>") {
                 self.i = end;
@@ -507,64 +545,69 @@ impl<'a> Tok<'a> {
     }
 }
 
-/// An inline fragment as tokens: tags, whole media / math, entities, words, spaces, punctuation.
-fn tokens(s: &str) -> Vec<Tok<'_>> {
-    scan_tokens(s, true)
-}
-
-/// The same with the text between tags left in one piece: enough to show a side whole, and cheap
-/// enough to do once the budget is out.
-fn coarse_tokens(s: &str) -> Vec<Tok<'_>> {
-    scan_tokens(s, false)
-}
-
-fn scan_tokens(s: &str, words: bool) -> Vec<Tok<'_>> {
+/// An inline fragment as tokens (tags, whole media / math, entities, words, spaces, punctuation),
+/// or `None` past `limit` of them: the list is never longer than a word diff can use.
+fn tokens(s: &str, limit: usize) -> Option<Vec<Tok<'_>>> {
     let mut out = Vec::new();
+    for_each_token(s, true, &mut |t| {
+        if out.len() == limit {
+            return false;
+        }
+        out.push(t);
+        true
+    })
+    .then_some(out)
+}
+
+/// Call `f` on each token until it says stop; `true` when the scan reached the end. With `words`
+/// off, the text between tags is one token. Nothing is collected here, so reading a node costs no
+/// memory of its own.
+fn for_each_token<'a>(s: &'a str, words: bool, f: &mut dyn FnMut(Tok<'a>) -> bool) -> bool {
     let mut i = 0;
     while i < s.len() {
-        if s.as_bytes()[i] == b'<' {
-            if s[i..].starts_with("<!--") {
-                let e = s[i..].find("-->").map(|p| i + p + 3).unwrap_or(s.len());
-                out.push(Tok { s: &s[i..e], kind: Kind::Tag });
-                i = e;
-                continue;
+        if s.as_bytes()[i] != b'<' {
+            let e = s[i..].find('<').map(|p| i + p).unwrap_or(s.len());
+            let go = if words { text_tokens(&s[i..e], f) } else { f(Tok { s: &s[i..e], kind: Kind::Text }) };
+            if !go {
+                return false;
             }
+            i = e;
+            continue;
+        }
+        let (e, kind) = if s[i..].starts_with("<!--") {
+            (s[i..].find("-->").map(|p| i + p + 3).unwrap_or(s.len()), Kind::Tag)
+        } else {
             let e = tag_end(s, i);
             let closing = s[i..].starts_with("</");
             let name = name_at(s, i + if closing { 2 } else { 1 });
             if !closing && ATOM.contains(&name.as_str()) && !s[i..e].ends_with("/>") {
                 let pat = format!("</{name}");
-                let e2 = s[e..].find(&pat).map(|p| tag_end(s, e + p)).unwrap_or(s.len());
-                out.push(Tok { s: &s[i..e2], kind: Kind::Atom });
-                i = e2;
-                continue;
+                (s[e..].find(&pat).map(|p| tag_end(s, e + p)).unwrap_or(s.len()), Kind::Atom)
+            } else if !closing && VOID.contains(&name.as_str()) {
+                (e, Kind::Atom)
+            } else {
+                (e, Kind::Tag)
             }
-            let kind = if !closing && VOID.contains(&name.as_str()) { Kind::Atom } else { Kind::Tag };
-            out.push(Tok { s: &s[i..e], kind });
-            i = e;
-            continue;
-        }
-        let e = s[i..].find('<').map(|p| i + p).unwrap_or(s.len());
-        if words {
-            text_tokens(&s[i..e], &mut out);
-        } else {
-            out.push(Tok { s: &s[i..e], kind: Kind::Text });
+        };
+        if !f(Tok { s: &s[i..e], kind }) {
+            return false;
         }
         i = e;
     }
-    out
+    true
 }
 
 /// Text between tags: entities whole, the rest by UAX #29 word boundaries.
-fn text_tokens<'a>(t: &'a str, out: &mut Vec<Tok<'a>>) {
+fn text_tokens<'a>(t: &'a str, f: &mut dyn FnMut(Tok<'a>) -> bool) -> bool {
     let mut rest = t;
     while !rest.is_empty() {
-        let amp = rest.find('&');
-        let (plain, tail) = match amp {
+        let (plain, tail) = match rest.find('&') {
             Some(p) => rest.split_at(p),
             None => (rest, ""),
         };
-        out.extend(plain.split_word_bounds().map(|w| Tok { s: w, kind: Kind::Text }));
+        if !plain.split_word_bounds().all(|w| f(Tok { s: w, kind: Kind::Text })) {
+            return false;
+        }
         if tail.is_empty() {
             break;
         }
@@ -575,15 +618,25 @@ fn text_tokens<'a>(t: &'a str, out: &mut Vec<Tok<'a>>) {
             .filter(|(_, c)| *c == ';')
             .map(|(k, _)| k + 2);
         let n = ent.unwrap_or(1);
-        out.push(Tok { s: &tail[..n], kind: Kind::Text });
+        if !f(Tok { s: &tail[..n], kind: Kind::Text }) {
+            return false;
+        }
         rest = &tail[n..];
     }
+    true
 }
 
-/// The sorted bag of a node's words (and media), as 64-bit hashes: a pure function of the text,
-/// and a collision only nudges whether two blocks are shown as one changed block.
-fn bag(n: &Node) -> Vec<u64> {
-    let mut v: Vec<u64> = tokens(outer(n)).iter().filter(|t| t.is_word()).map(|t| fnv1a(t.key().as_bytes())).collect();
+/// The sorted bag of a node's words (and media), as hashes: a pure function of the text, and a
+/// collision only nudges whether two blocks are shown as one changed block.
+fn bag(n: &Node) -> Vec<u32> {
+    let mut v = Vec::new();
+    for_each_token(outer(n), true, &mut |t| {
+        if t.is_word() {
+            let h = fnv1a(t.key().as_bytes());
+            v.push((h ^ (h >> 32)) as u32);
+        }
+        true
+    });
     v.sort_unstable();
     v
 }
@@ -594,23 +647,11 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 
 /// `2 · common / (a + b)` over two sorted bags of word hashes (1 when both are empty): an upper bound
 /// of the ordered similarity, in linear time, so pairing never runs a diff per pair.
-fn similarity(a: &[u64], b: &[u64]) -> f64 {
+fn similarity(a: &[u32], b: &[u32]) -> f64 {
     if a.is_empty() && b.is_empty() {
         return 1.0;
     }
-    let (mut i, mut j, mut common) = (0, 0, 0usize);
-    while i < a.len() && j < b.len() {
-        match a[i].cmp(&b[j]) {
-            std::cmp::Ordering::Less => i += 1,
-            std::cmp::Ordering::Greater => j += 1,
-            std::cmp::Ordering::Equal => {
-                common += 1;
-                i += 1;
-                j += 1;
-            }
-        }
-    }
-    2.0 * common as f64 / (a.len() + b.len()) as f64
+    2.0 * common_sorted(a, b) as f64 / (a.len() + b.len()) as f64
 }
 
 /// Could two bags of these sizes reach `threshold` at all?
@@ -653,10 +694,18 @@ fn runs(os: &[&str], ns: &[&str]) -> Vec<(usize, usize, usize)> {
 // ---------------------------------------------------------------------------------------------
 // The diff
 
-/// One emitted top-level piece: its HTML and whether it is unchanged (foldable).
-struct Piece {
-    html: String,
+/// One emitted piece: its HTML (an unchanged block is borrowed from the input, never copied) and
+/// whether it is unchanged (foldable).
+struct Piece<'a> {
+    html: Cow<'a, str>,
     equal: bool,
+}
+
+/// One step of a changed run, decided before anything is emitted.
+enum Step {
+    Pair(u32, u32),
+    Del(u32),
+    Add(u32),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -701,7 +750,10 @@ impl Cx {
     }
 
     /// Diff two sibling sequences; `parent` is their element (`None` = the top level).
-    fn seq(&mut self, old: &[Node], new: &[Node], parent: Option<&str>) -> Vec<Piece> {
+    fn seq<'a>(&mut self, old: &[Node<'a>], new: &[Node<'a>], parent: Option<&str>) -> Vec<Piece<'a>> {
+        if parent == Some("tr") && old.len() == new.len() {
+            return self.row(old, new);
+        }
         let bytes: usize = old.iter().chain(new).map(|n| outer(n).len()).sum();
         let mut out = Vec::new();
         let mut e = Emit { top: parent.is_none(), last: None };
@@ -728,18 +780,36 @@ impl Cx {
             self.hunk(&old[oi..ro], &new[ni..rn], parent, &mut out);
             for n in &new[rn..rn + len] {
                 self.open = false;
-                out.push(Piece { html: outer(n).to_string(), equal: true });
+                out.push(Piece { html: Cow::Borrowed(outer(n)), equal: true });
             }
             (oi, ni) = (ro + len, rn + len);
         }
         out
     }
 
-    /// A run of changed siblings: pair what is similar (order kept), mark the rest whole. Cells
-    /// of a row pair by position when the row kept its width (a column is a position). At the
+    /// The cells of a row that kept its width, by position (a column is a position), with no diff
+    /// to pay for or run out of budget on: past the budget a cell is shown whole, but a row is
+    /// never a row of removed cells beside a row of added ones.
+    fn row<'a>(&mut self, old: &[Node<'a>], new: &[Node<'a>]) -> Vec<Piece<'a>> {
+        let bytes: usize = old.iter().chain(new).map(|n| outer(n).len()).sum();
+        let _ = self.charge(bytes as u64 * KEY_COST);
+        let mut out = Vec::with_capacity(new.len());
+        let mut e = Emit { top: false, last: None };
+        for (o, n) in old.iter().zip(new) {
+            if key(o) == key(n) {
+                self.open = false;
+                out.push(Piece { html: Cow::Borrowed(outer(n)), equal: true });
+            } else {
+                self.emit_pair(o, n, &mut e, &mut out);
+            }
+        }
+        out
+    }
+
+    /// A run of changed siblings: pair what is similar (order kept), mark the rest whole. At the
     /// top level every changed block is a change point of its own, except that removed blocks
     /// followed by added ones (a replacement) are one.
-    fn hunk(&mut self, old: &[Node], new: &[Node], parent: Option<&str>, out: &mut Vec<Piece>) {
+    fn hunk<'a>(&mut self, old: &[Node<'a>], new: &[Node<'a>], parent: Option<&str>, out: &mut Vec<Piece<'a>>) {
         let (m, n) = (old.len(), new.len());
         if m == 0 && n == 0 {
             return;
@@ -754,32 +824,17 @@ impl Cx {
         if m * n > MAX_PAIRING {
             self.stats.shown_whole = true;
         }
-        let pair = if m * n <= MAX_PAIRING && m * n > 0 { self.pairs(old, new) } else { None };
-        let Some(pair) = pair else {
+        // The matrices are gone before any recursion: only the steps live across it.
+        let pairs = if m * n <= MAX_PAIRING && m * n > 0 { self.pairs(old, new) } else { None };
+        let Some(steps) = pairs.map(|pair| plan(&pair, m, n)) else {
             self.whole(old, new, &mut e, out);
             return;
         };
-        // LCS over the pairs, removals before additions between them (flat: `(m + 1) × (n + 1)`).
-        let at = |i: usize, j: usize| i * (n + 1) + j;
-        let mut dp = vec![0u32; (m + 1) * (n + 1)];
-        for i in (0..m).rev() {
-            for j in (0..n).rev() {
-                dp[at(i, j)] =
-                    if pair[i * n + j] { dp[at(i + 1, j + 1)] + 1 } else { dp[at(i + 1, j)].max(dp[at(i, j + 1)]) };
-            }
-        }
-        let (mut i, mut j) = (0, 0);
-        while i < m || j < n {
-            if i < m && j < n && pair[i * n + j] && dp[at(i, j)] == dp[at(i + 1, j + 1)] + 1 {
-                self.emit_pair(&old[i], &new[j], &mut e, out);
-                i += 1;
-                j += 1;
-            } else if i < m && (j == n || dp[at(i + 1, j)] >= dp[at(i, j + 1)]) {
-                self.emit_mark(&old[i], Mark::Del, &mut e, out);
-                i += 1;
-            } else {
-                self.emit_mark(&new[j], Mark::Add, &mut e, out);
-                j += 1;
+        for step in steps {
+            match step {
+                Step::Pair(i, j) => self.emit_pair(&old[i as usize], &new[j as usize], &mut e, out),
+                Step::Del(i) => self.emit_mark(&old[i as usize], Mark::Del, &mut e, out),
+                Step::Add(j) => self.emit_mark(&new[j as usize], Mark::Add, &mut e, out),
             }
         }
     }
@@ -813,7 +868,7 @@ impl Cx {
         if !self.charge((to_read(old, &read_old) + to_read(new, &read_new)).saturating_mul(BAG_COST)) {
             return None;
         }
-        let bags = |nodes: &[Node], read: &[bool]| -> Vec<Vec<u64>> {
+        let bags = |nodes: &[Node], read: &[bool]| -> Vec<Vec<u32>> {
             nodes.iter().zip(read).map(|(n, r)| if *r { bag(n) } else { Vec::new() }).collect()
         };
         let ob = bags(old, &read_old);
@@ -837,7 +892,7 @@ impl Cx {
     }
 
     /// Every old node removed, then every new one added: linear, no matrices.
-    fn whole(&mut self, old: &[Node], new: &[Node], e: &mut Emit, out: &mut Vec<Piece>) {
+    fn whole<'a>(&mut self, old: &[Node<'a>], new: &[Node<'a>], e: &mut Emit, out: &mut Vec<Piece<'a>>) {
         for o in old {
             self.emit_mark(o, Mark::Del, e, out);
         }
@@ -846,16 +901,16 @@ impl Cx {
         }
     }
 
-    fn emit_pair(&mut self, old: &Node, new: &Node, e: &mut Emit, out: &mut Vec<Piece>) {
+    fn emit_pair<'a>(&mut self, old: &Node<'a>, new: &Node<'a>, e: &mut Emit, out: &mut Vec<Piece<'a>>) {
         if e.top {
             self.open = false;
         }
         e.last = None;
         let html = self.pair(old, new);
-        out.push(Piece { html, equal: false });
+        out.push(Piece { html: Cow::Owned(html), equal: false });
     }
 
-    fn emit_mark(&mut self, node: &Node, mark: Mark, e: &mut Emit, out: &mut Vec<Piece>) {
+    fn emit_mark<'a>(&mut self, node: &Node<'a>, mark: Mark, e: &mut Emit, out: &mut Vec<Piece<'a>>) {
         if matches!(node, Node::Text(t) if t.trim().is_empty()) {
             return; // layout between blocks, on a side that has no blocks to separate
         }
@@ -864,7 +919,7 @@ impl Cx {
         }
         e.last = Some(mark);
         let html = self.mark(node, mark);
-        out.push(Piece { html, equal: false });
+        out.push(Piece { html: Cow::Owned(html), equal: false });
     }
 
     /// A node marked whole as added or removed.
@@ -910,7 +965,9 @@ impl Cx {
             (Node::El(o), Node::El(n)) if RESTRICTED.contains(&n.name.as_str()) || o.has_blocks() || n.has_blocks() => {
                 let kids = self.seq(&o.kids, &n.kids, Some(&n.name));
                 let sep = if n.has_blocks() { "\n" } else { "" };
-                let mut s = String::from(n.open);
+                let size: usize = kids.iter().map(|p| p.html.len() + sep.len()).sum();
+                let mut s = String::with_capacity(n.open.len() + sep.len() + size + n.close.len());
+                s.push_str(n.open);
                 s.push_str(sep);
                 for p in kids {
                     s.push_str(&p.html);
@@ -957,8 +1014,10 @@ impl Cx {
         if !self.charge((old.len() + new.len()) as u64 * TOKEN_COST) {
             return whole_words(old, new);
         }
-        let ot = tokens(old);
-        let nt = tokens(new);
+        let (Some(ot), Some(nt)) = (tokens(old, MAX_WORD_TOKENS), tokens(new, MAX_WORD_TOKENS)) else {
+            self.stats.shown_whole = true;
+            return whole_words(old, new);
+        };
         let n = ot.len() + nt.len();
         if n > MAX_WORD_TOKENS {
             self.stats.shown_whole = true;
@@ -973,15 +1032,57 @@ impl Cx {
 
 /// Both inline fragments whole: the older side's words struck, the newer side as it is.
 fn whole_words(old: &str, new: &str) -> (String, bool) {
-    let (ot, nt) = (coarse_tokens(old), coarse_tokens(new));
     let mut out = String::new();
-    if ot.iter().any(Tok::visible) {
-        out.push_str(&format!("<del class=\"cd-del\">{}</del>", text_only(&ot)));
+    let struck = shown_text(old);
+    if !struck.trim().is_empty() {
+        out.push_str(&format!("<del class=\"cd-del\">{struck}</del>"));
     }
-    if nt.iter().any(Tok::visible) {
+    if !for_each_token(new, false, &mut |t| !t.visible()) {
         out.push_str(&format!("<ins class=\"cd-ins\">{new}</ins>"));
     }
     (out, old != new)
+}
+
+/// An inline fragment without its tags: its text and whole media.
+fn shown_text(s: &str) -> String {
+    let mut out = String::new();
+    for_each_token(s, false, &mut |t| {
+        match t.kind {
+            Kind::Tag => {}
+            Kind::Text => out.push_str(t.s),
+            Kind::Atom => out.push_str(&strip_attrs(t.s)),
+        }
+        true
+    });
+    out
+}
+
+/// The steps of a changed run: an LCS over the pairs, removals before additions between them.
+fn plan(pair: &[bool], m: usize, n: usize) -> Vec<Step> {
+    let at = |i: usize, j: usize| i * (n + 1) + j;
+    let mut dp = vec![0u32; (m + 1) * (n + 1)];
+    for i in (0..m).rev() {
+        for j in (0..n).rev() {
+            dp[at(i, j)] =
+                if pair[i * n + j] { dp[at(i + 1, j + 1)] + 1 } else { dp[at(i + 1, j)].max(dp[at(i, j + 1)]) };
+        }
+    }
+    let mut steps = Vec::with_capacity(m + n);
+    let (mut i, mut j) = (0, 0);
+    while i < m || j < n {
+        if i < m && j < n && pair[i * n + j] && dp[at(i, j)] == dp[at(i + 1, j + 1)] + 1 {
+            steps.push(Step::Pair(i as u32, j as u32));
+            i += 1;
+            j += 1;
+        } else if i < m && (j == n || dp[at(i + 1, j)] >= dp[at(i, j + 1)]) {
+            steps.push(Step::Del(i as u32));
+            i += 1;
+        } else {
+            steps.push(Step::Add(j as u32));
+            j += 1;
+        }
+    }
+    steps
 }
 
 /// The element-similarity threshold for an old and a new node, `None` when they may never pair:
@@ -1131,12 +1232,8 @@ fn words_merge(new: &str, ot: &[Tok], nt: &[Tok]) -> (String, bool) {
     (out, changed)
 }
 
-fn text_only(t: &[Tok]) -> String {
-    t.iter().filter(|t| t.kind != Kind::Tag).map(|t| strip_attrs(t.s)).collect()
-}
-
 /// Fold long runs of unchanged top-level pieces.
-fn fold(pieces: Vec<Piece>) -> String {
+fn fold(pieces: Vec<Piece<'_>>) -> String {
     let mut out = String::with_capacity(pieces.iter().map(|p| p.html.len() + 1).sum::<usize>() + pieces.len() / 8);
     let mut i = 0;
     let n = pieces.len();

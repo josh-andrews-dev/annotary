@@ -18,8 +18,8 @@ fn paragraphs(count: usize, words: usize, step: usize) -> String {
 // spec: S40-09
 #[test]
 fn the_worst_inputs_stay_inside_the_budget_and_say_when_they_run_out() {
-    // (paragraphs, words each): too many to pair, 200 × 200, and few huge ones.
-    for (count, words) in [(40_000, 3), (200, 250), (20, 2_000), (2_000, 900)] {
+    // (paragraphs, words each), under the limits: too many to pair, 200 × 200, and few huge ones.
+    for (count, words) in [(20_000, 3), (200, 250), (20, 2_000), (1_000, 900)] {
         let (a, b) = (paragraphs(count, words, 7), paragraphs(count, words, 11));
         let t = Instant::now();
         let d = rendered_diff("", "", &a, &b);
