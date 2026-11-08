@@ -271,3 +271,46 @@ public repo, so it records the maintainer's GitHub noreply address, which is alr
 
 This corrects the 2026-11-02 entry above: since the upgrade to v0.14.0 the template does not require `conduct_email`, so
 `.agents/standard.yml` no longer records it. Deleting the Code of Conduct still stands.
+
+## 2026-11-07: embed mode — the pages in an embedder's sandboxed frame (M3 of the Hermes plan)
+
+The Hermes plugin can show web content only in a sandboxed frame with an opaque origin (no cookies, no storage,
+nothing it can load by URL), and on remote surfaces only the plugin's backend reaches this server. So the list and
+the Document view render for an embedder and carry every request, navigation and event over `postMessage`
+(`server/embed.rs`, `ui/embed.js`; the protocol is in `docs/dev/web-document-view.md`, "Embed mode").
+
+- **A header marks the request, not a query flag.** Chose `X-Annotary-Embed: 1`, which the embedder's backend adds;
+  rejected `?embed=1` because a query flag can be put in an `<iframe src>` on any site, and an embed page trusts its
+  parent's messages, while a browser cannot add a header to a navigation or a frame (and a cross-site `fetch` with it
+  needs a CORS preflight this server never grants). The embed page also only takes the embedder's path when its
+  origin is opaque, and carries `Content-Security-Policy: sandbox allow-scripts`.
+- **The server serves the shell.** Hermes's plugin validator refuses `<script` in a plugin's `plugin.js`, so the
+  bootstrap page is `GET /embed/shell`, which the plugin fetches and turns into a `data:` URL. It writes whatever its
+  parent sends into itself, so it carries the sandbox CSP too: loaded from this origin by a browser, it still runs in
+  an opaque one. Rejected a JSON route holding the shell because the plugin would build the same page anyway.
+- **Pages are written into the frame (`document.write`), not remounted.** The embedder may send `annotary-init` with
+  a new path at any time without a new frame, so the frame navigates itself and tells the embedder with
+  `annotary-nav`. Each page brings its own copy of the transport, and a generation counter makes the old one's
+  listeners and timers stand down. Rejected swapping only the body and re-running `app.js`, because `app.js` binds
+  document and window listeners once and is not built to start twice in one document.
+- **No message over about 1 MB.** Hermes's gateway stalls on large messages, so an embedded GET whose answer is over
+  `embed::PART_MAX` (384 KiB, leaving room for JSON escaping and base64) answers 206 in numbered parts with an etag,
+  which the transport joins; parts end on character boundaries. Rejected splitting the Document into lazily loaded
+  pages because Threads are spliced server-side for a final first paint, and parts keep that page whole. Images over
+  `embed::IMAGE_MAX` (2 MiB), video, audio and PDF are an "open" button (`annotary-open-external`).
+- **Live changes are a poll.** The plugin cannot relay events on every Hermes profile yet, so the embedded feed polls
+  `GET /api/v1/events` (the same URL and filters as the browser's SSE, from the page's `seq`) every 4 s while the page
+  is visible, and an `annotary-event` only makes it look at once. Rejected trusting relayed payloads, because the poll
+  already applies the same filters and access checks the server does.
+- **Preferences without cookies.** The zone and hour cycle travel as `X-Annotary-Tz` / `X-Annotary-Hc` on every
+  embedded request; everything else is already a Member Setting. Owner screens and Settings are not linked (plan D1).
+
+## 2026-11-07: `serve --setup-only --json`, and attested release tarballs
+
+A program that sets up a server (the Hermes plugin) needs the owner's first Token without parsing the transcript.
+Chose `--json` on `serve --setup-only`: the transcript moves to stderr and stdout is one object (`created`, `handle`,
+`name`, `token`, `vault`, `store`); rejected a `--token-file PATH` as well, because one machine-readable result is
+enough and a file of a secret is one more thing to clean up. `serve --json` without `--setup-only` is a usage error
+(a running server has no result to print). The release job attests each tarball's build provenance with
+`actions/attest-build-provenance`, so a catalog reviewer or an installer can check a download with
+`gh attestation verify`; only the job that makes the release gets `id-token` and `attestations` write.
