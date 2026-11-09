@@ -120,7 +120,7 @@ fn failures_across_many_remote_clients_lock_the_account_but_never_loopback() {
     // 20 wrong guesses, 4 each from 5 clients: no client reaches its own limit.
     for c in 0..5 {
         for _ in 0..4 {
-            assert_eq!(api_login(&app, &format!("192.168.1.{}:40000", 20 + c), "nope").status, 401);
+            assert_eq!(api_login(&app, &format!("192.0.2.{}:40000", 20 + c), "nope").status, 401);
         }
     }
     // A fresh remote client with the right password is locked out by the account limit.
