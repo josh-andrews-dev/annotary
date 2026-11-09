@@ -282,7 +282,7 @@ CODE_SPAN = re.compile(r"`([^`\n]+)`")
 EXTERNAL = re.compile(r"^[a-z][a-z0-9+.-]*:", re.I)  # http:, mailto:, t3-thread:, conversation: …
 DATED_ROW = re.compile(r"^\s*(?:\|\s*|[-*+]\s+)\**\s*20\d\d-\d\d-\d\d\b")  # a dated table row or list item
 BLOCK_START = re.compile(r"^\s*(?:[-*+]\s|\d+[.)]\s|\||#|>)")
-# A sentence that names another repo ("in the other-project repo", "the parent repository", "the
+# A sentence that names another repo ("in the widget-server repo", "the parent repository", "the
 # kit checkout's") is about that repo's paths and targets, not this one's.
 OTHER_REPO = re.compile(r"(?i)(?<![\w`'-])`?([\w.-]+)`?\s+(?:repo|repository|checkout)\b")
 NOT_A_REPO_NAME = {"this", "the", "a", "an", "our", "its", "each", "every", "your", "any", "one", "same", "own",
@@ -292,7 +292,7 @@ OTHER_REPO_WORD = re.compile(r"(?i)\b(?:parent|other|another|sibling|that)\s+(?:
 
 
 def names_other_repo(sentence, own_names):
-    """True when a sentence is about another repo's paths: "in the other-project repo", "the parent
+    """True when a sentence is about another repo's paths: "in the widget-server repo", "the parent
     repository", "the kit checkout's". The repo's own name and generic words do not count."""
     if OTHER_REPO_WORD.search(sentence):
         return True
