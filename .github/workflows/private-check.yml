@@ -1,0 +1,50 @@
+# Rendered from the repo-standard template; never edited in this repo. The job `private-check` is
+# proof for same-repo pull requests only: on a fork's it is skipped, which GitHub reports as a pass,
+# and private-check-fork holds the real result. The script reads each event's text and the
+# diff as data through the GitHub API, and no failure log ever holds the matched text. The fork
+# job is its own workflow: a job here would add a skipped `private-check` to every
+# pull_request_target run, and GitHub counts a skipped job as a pass.
+name: private-check
+
+on:
+  pull_request:
+    # `edited` rescans when only the title or body changes.
+    types: [opened, synchronize, reopened, edited]
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+  release:
+    types: [created, edited, published]
+  push:
+    branches: [main]
+
+permissions: {}
+
+# No concurrency group: a queued run for one comment would replace another's and that text would
+# go unchecked.
+
+jobs:
+  private-check:
+    name: private-check
+    # A fork's pull request gets no secrets on these events; private-check-fork.yml covers its diff.
+    # A fork's review comments stay for `make private-check` and the owner's weekly scan.
+    if: github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # A release can tag a commit from before this check existed.
+          ref: ${{ github.event_name == 'release' && github.event.repository.default_branch || '' }}
+      - name: private check
+        env:
+          PRIVATE_TERMS: ${{ secrets.PRIVATE_TERMS }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/standard/private_check.py ci

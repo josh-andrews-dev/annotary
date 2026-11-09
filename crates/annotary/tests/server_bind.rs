@@ -12,7 +12,7 @@ use common::serve::ServeGuard;
 // spec: S01-01
 #[test]
 fn non_loopback_bind_is_refused_before_touching_the_store() {
-    for bad in ["0.0.0.0", "192.168.1.10", "10.0.0.1", "::", "2001:db8::1"] {
+    for bad in ["0.0.0.0", "192.0.2.10", "192.0.2.1", "::", "2001:db8::1"] {
         let ip: IpAddr = bad.parse().unwrap();
         assert!(check_loopback(ip).is_err(), "{bad} must be refused");
         assert!(parse_bind(bad).is_err(), "{bad} must be refused");
@@ -54,14 +54,14 @@ fn lan_ip() -> Option<IpAddr> {
 #[test]
 fn allow_remote_accepts_any_ip_and_names_a_reachable_url() {
     use annotary::server::{parse_bind_ex, url_for};
-    for ip in ["0.0.0.0", "192.168.1.10", "100.64.0.7", "::", "[fd7a::1]"] {
+    for ip in ["0.0.0.0", "192.0.2.10", "203.0.113.7", "::", "[fd7a::1]"] {
         assert!(parse_bind_ex(ip, false).is_err(), "{ip} needs --allow-remote");
         assert!(parse_bind_ex(ip, true).is_ok(), "{ip} with --allow-remote");
     }
-    assert!(parse_bind_ex("studio.local", true).is_err(), "a host name is not an IP");
+    assert!(parse_bind_ex("studio.example.com", true).is_err(), "a host name is not an IP");
     assert_eq!(url_for("0.0.0.0:7377".parse().unwrap()), "http://127.0.0.1:7377");
     assert_eq!(url_for("[::]:7377".parse().unwrap()), "http://[::1]:7377");
-    assert_eq!(url_for("100.64.0.7:7377".parse().unwrap()), "http://100.64.0.7:7377");
+    assert_eq!(url_for("203.0.113.7:7377".parse().unwrap()), "http://203.0.113.7:7377");
     // A real listener on 0.0.0.0: health answers on loopback and names the loopback URL.
     let ts = TestServer::start_remote("0.0.0.0".parse().unwrap()).expect("0.0.0.0 with allow_remote");
     assert!(ts.url.starts_with("http://127.0.0.1:"), "{}", ts.url);
@@ -164,7 +164,7 @@ fn a_non_loopback_peer_is_never_signed_in_by_loopback_trust() {
     assert_eq!(status, 200);
     assert!(hs.iter().any(|(k, v)| k == "set-cookie" && v.starts_with("cd_session=")));
     // A Tailscale / LAN peer with no password set: a page ⇒ the login redirect, no cookie.
-    for peer in ["100.64.0.9:50000", "192.168.1.20:50000", "[fd7a::9]:50000"] {
+    for peer in ["203.0.113.9:50000", "192.0.2.20:50000", "[fd7a::9]:50000"] {
         let (status, hs, _) = via_peer(&ts, peer, "/", &html);
         assert_eq!(status, 303, "{peer}");
         assert!(hs.iter().any(|(k, v)| k == "location" && v.starts_with("/login")), "{peer}: {hs:?}");
@@ -180,9 +180,10 @@ fn a_non_loopback_peer_is_never_signed_in_by_loopback_trust() {
     }
     // A bearer Token from the same remote peer works on pages and the API.
     let bearer = format!("Bearer {}", ts.owner_token);
-    let (status, _, _) = via_peer(&ts, "100.64.0.9:50000", "/", &[("accept", "text/html"), ("authorization", &bearer)]);
+    let (status, _, _) =
+        via_peer(&ts, "203.0.113.9:50000", "/", &[("accept", "text/html"), ("authorization", &bearer)]);
     assert_eq!(status, 200);
-    let (status, _, body) = via_peer(&ts, "100.64.0.9:50000", "/api/v1/me", &[("authorization", &bearer)]);
+    let (status, _, body) = via_peer(&ts, "203.0.113.9:50000", "/api/v1/me", &[("authorization", &bearer)]);
     assert_eq!(status, 200, "{body}");
 }
 
@@ -229,7 +230,7 @@ fn the_no_password_login_page_tells_a_remote_browser_how_to_get_in() {
     assert!(hs.iter().any(|(k, v)| k == "set-cookie" && v.starts_with("cd_session=")));
     // A Tailscale / LAN peer (the relay's link lands here): the two ways in, no false claim.
     assert!(ts.url.starts_with("http://127.0.0.1:"), "{}", ts.url);
-    for peer in ["100.64.0.2:50000", "192.168.1.20:50000", "[fd7a::9]:50000"] {
+    for peer in ["203.0.113.2:50000", "192.0.2.20:50000", "[fd7a::9]:50000"] {
         let (status, hs, body) = via_peer(&ts, peer, "/login?next=/d/abc", &html);
         assert_eq!(status, 200, "{peer}");
         assert!(!hs.iter().any(|(k, _)| k == "set-cookie"), "{peer}: no session");
@@ -242,11 +243,11 @@ fn the_no_password_login_page_tells_a_remote_browser_how_to_get_in() {
         assert!(!body.contains("<form"), "{peer}: no password form while none is set");
     }
     // A server bound to one non-loopback address: there is no loopback URL to name.
-    let (status, _, body) = via_peer_at(&ts, "http://100.64.0.7:7377", "100.64.0.2:50000", "/login", &html);
+    let (status, _, body) = via_peer_at(&ts, "http://203.0.113.7:7377", "203.0.113.2:50000", "/login", &html);
     assert_eq!(status, 200);
-    assert!(body.contains("listens only on <code>http://100.64.0.7:7377</code>"), "{body}");
+    assert!(body.contains("listens only on <code>http://203.0.113.7:7377</code>"), "{body}");
     assert!(body.contains("<code>--bind 0.0.0.0 --allow-remote</code>"), "{body}");
-    assert!(!body.contains("open <code>http://100.64.0.7:7377</code>"), "{body}");
+    assert!(!body.contains("open <code>http://203.0.113.7:7377</code>"), "{body}");
     assert!(body.contains("run <code>annotary pair</code>") && !body.contains(old_claim), "{body}");
     // An unspecified IPv6 bind is named by `[::1]`, a loopback URL too.
     let (_, _, body) = via_peer_at(&ts, "http://[::1]:7377", "[fd7a::9]:50000", "/login", &html);

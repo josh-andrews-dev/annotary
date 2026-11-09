@@ -738,14 +738,14 @@ mod tests {
             data_dir: PathBuf::from("/opt/rowan/.annotary"),
             port: 7377,
             log: PathBuf::from("/opt/rowan/.annotary/logs/server.log"),
-            bind: Some("100.64.0.7".into()),
+            bind: Some("203.0.113.7".into()),
             allow_remote: true,
             url: Some("http://studio.example.ts.net:7377".into()),
             link_base: Some("https://cd.example.dev".into()),
         };
         let text = p.render();
         assert!(text.contains(
-            "\t\t<string>--port</string>\n\t\t<string>7377</string>\n\t\t<string>--bind</string>\n\t\t<string>100.64.0.7</string>\n\t\t<string>--allow-remote</string>\n\t\t<string>--url</string>\n\t\t<string>http://studio.example.ts.net:7377</string>\n\t\t<string>--link-base</string>\n\t\t<string>https://cd.example.dev</string>\n\t</array>"
+            "\t\t<string>--port</string>\n\t\t<string>7377</string>\n\t\t<string>--bind</string>\n\t\t<string>203.0.113.7</string>\n\t\t<string>--allow-remote</string>\n\t\t<string>--url</string>\n\t\t<string>http://studio.example.ts.net:7377</string>\n\t\t<string>--link-base</string>\n\t\t<string>https://cd.example.dev</string>\n\t</array>"
         ), "{text}");
         assert_eq!(Plist::parse(&text), Some(p.clone()));
         // `--allow-remote` alone (no value) between two valued flags parses too.

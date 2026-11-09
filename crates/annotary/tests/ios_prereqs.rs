@@ -138,7 +138,7 @@ fn daemon_install_refuses_a_remote_bind_without_allow_remote_and_bad_urls_before
     let plist = home.join("Library/LaunchAgents/com.annotary.t18.plist");
     for (args, needle) in [
         (vec!["daemon", "install", "--bind", "0.0.0.0"], "--allow-remote"),
-        (vec!["daemon", "install", "--bind", "100.64.0.7", "--allow-remote", "--url", "ftp://x"], "--url"),
+        (vec!["daemon", "install", "--bind", "203.0.113.7", "--allow-remote", "--url", "ftp://x"], "--url"),
         (vec!["daemon", "install", "--link-base", "https://x/y"], "--link-base"),
     ] {
         let out = Command::new(env!("CARGO_BIN_EXE_annotary"))
@@ -218,9 +218,9 @@ fn pairing_mints_a_device_token_and_returns_the_pair_url_and_qr() {
     assert_eq!(ts.post("/api/v1/pairing", Some(&ts.owner_token), &json!({ "member": "nobody" })).0, 404);
     assert_eq!(ts.post("/api/v1/pairing", None, &json!({})).0, 401);
     // An IP public URL names the profile by the IP.
-    ts.store.set_public_url(None, Some("http://100.64.0.7:7377")).unwrap();
+    ts.store.set_public_url(None, Some("http://203.0.113.7:7377")).unwrap();
     let (_, p) = ts.post("/api/v1/pairing", Some(&ts.owner_token), &json!({}));
-    assert_eq!(p["profile"], "rowan@100.64.0.7");
+    assert_eq!(p["profile"], "rowan@203.0.113.7");
 }
 
 // ---------------------------------------------------------------- titles
@@ -425,9 +425,9 @@ fn the_document_page_carries_a_hidden_open_in_annotary_link() {
     let (_, html) = page(&ts, &format!("/d/{id}/v/1"), Some("studio.example.ts.net:7377"));
     assert!(html.contains("server=http%3A%2F%2Fstudio.example.ts.net%3A7377&amp;doc="), "origin from Host");
     // … and the public URL wins when one is set.
-    ts.store.set_public_url(None, Some("http://100.64.0.7:7377")).unwrap();
+    ts.store.set_public_url(None, Some("http://203.0.113.7:7377")).unwrap();
     let (_, html) = page(&ts, &format!("/d/{id}"), Some("studio.example.ts.net:7377"));
-    assert!(html.contains("server=http%3A%2F%2F100.64.0.7%3A7377&amp;doc="));
+    assert!(html.contains("server=http%3A%2F%2F203.0.113.7%3A7377&amp;doc="));
     // The script knows the rule (shown on iPhone / iPad only).
     assert!(html.contains("/iPhone|iPad/") && html.contains("maxTouchPoints"));
 }

@@ -414,3 +414,9 @@ and putting one up in someone's name is not.
 
 A Member without an avatar gets a monogram on one of eight colors picked by a hash of the handle; rejected a color derived
 freely from the hash (a hue), because eight fixed colors can each be checked for contrast with white in both themes.
+
+## 2026-11-08: example addresses in tests use the documentation ranges
+
+Chose the reserved ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) for every example IP in tests; rejected keeping
+private-looking addresses and the shared-address range, because `private-check` scans added lines in this public repo and an
+example there is indistinguishable from a real one. IPv6 examples stay as they are.

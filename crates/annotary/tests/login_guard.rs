@@ -78,7 +78,7 @@ fn api_login(app: &axum::Router, peer: &str, password: &str) -> Resp {
 fn repeated_wrong_passwords_lock_that_client_out_of_the_form_and_the_api() {
     let ts = TestServer::start();
     let app = app_with_password(&ts, "hunter2");
-    let a = "100.64.0.9:50000";
+    let a = "203.0.113.9:50000";
     // Five wrong guesses, the web form and the API counting together.
     for i in 0..5 {
         let r = if i % 2 == 0 { web_login(&app, a, "nope") } else { api_login(&app, a, "nope") };
@@ -96,8 +96,8 @@ fn repeated_wrong_passwords_lock_that_client_out_of_the_form_and_the_api() {
     assert_eq!(r.json()["error"], "too_many_attempts");
     assert!(r.header("retry-after").is_some());
     // Another address from the same IPv4 host is the same client; another host is not.
-    assert_eq!(web_login(&app, "100.64.0.9:50001", "hunter2").status, 429);
-    let b = "100.64.0.10:50000";
+    assert_eq!(web_login(&app, "203.0.113.9:50001", "hunter2").status, 429);
+    let b = "203.0.113.10:50000";
     assert_eq!(web_login(&app, b, "nope").status, 401);
     let r = web_login(&app, b, "hunter2");
     assert_eq!(r.status, 303, "{}", r.body);
@@ -124,7 +124,7 @@ fn failures_across_many_remote_clients_lock_the_account_but_never_loopback() {
         }
     }
     // A fresh remote client with the right password is locked out by the account limit.
-    let r = web_login(&app, "100.64.0.77:50000", "hunter2");
+    let r = web_login(&app, "203.0.113.77:50000", "hunter2");
     assert_eq!(r.status, 429, "{}", r.body);
     let r = api_login(&app, "[fd7a:115c:a1e0::5]:50000", "hunter2");
     assert_eq!(r.status, 429);
@@ -139,7 +139,7 @@ fn failures_across_many_remote_clients_lock_the_account_but_never_loopback() {
 fn a_cross_site_login_or_cookie_post_is_refused_and_same_origin_bearer_and_headerless_pass() {
     let ts = TestServer::start();
     let app = app_with_password(&ts, "hunter2");
-    let peer = "100.64.0.9:50000";
+    let peer = "203.0.113.9:50000";
     let host = ("host", "studio.example:7377");
     let form = "password=hunter2&next=%2F";
     // The login form posted from another site: refused, no session.
@@ -247,10 +247,10 @@ fn a_request_a_local_proxy_forwards_is_not_signed_in_as_the_owner() {
     assert_eq!(r.status, 303);
     // The same peer speaking for someone else, by each header a proxy adds.
     for fwd in [
-        ("x-forwarded-for", "100.64.0.2"),
+        ("x-forwarded-for", "203.0.113.2"),
         ("x-forwarded-for", "127.0.0.1"),
-        ("forwarded", "for=100.64.0.2;proto=https"),
-        ("x-real-ip", "100.64.0.2"),
+        ("forwarded", "for=203.0.113.2;proto=https"),
+        ("x-real-ip", "203.0.113.2"),
         ("tailscale-user-login", "someone@example.com"),
     ] {
         let r = get_from(&app, local, "/", &[html, fwd]);
@@ -265,7 +265,7 @@ fn a_request_a_local_proxy_forwards_is_not_signed_in_as_the_owner() {
         assert!(r.body.contains("This server has no local password yet"), "{fwd:?}: {}", r.body);
     }
     // A remote peer's own forwarding headers change nothing (still not loopback).
-    let r = get_from(&app, "100.64.0.2:50000", "/", &[html, ("x-forwarded-for", "127.0.0.1")]);
+    let r = get_from(&app, "203.0.113.2:50000", "/", &[html, ("x-forwarded-for", "127.0.0.1")]);
     assert_eq!(r.status, 303);
     assert!(r.header("set-cookie").is_none());
 }
@@ -288,21 +288,21 @@ fn wrong_passwords_a_local_proxy_forwards_count_per_client_and_for_the_account()
     };
     // Five wrong guesses from one tailnet client lock that client, not another one.
     for _ in 0..5 {
-        assert_eq!(via("100.64.0.9", "nope").status, 401);
+        assert_eq!(via("203.0.113.9", "nope").status, 401);
     }
-    assert_eq!(via("100.64.0.9", "hunter2").status, 429);
+    assert_eq!(via("203.0.113.9", "hunter2").status, 429);
     // The last entry is the client this host's proxy saw; a spoofed first entry is ignored.
-    assert_eq!(via("10.9.9.9, 100.64.0.9", "hunter2").status, 429);
-    assert_eq!(via("100.64.0.9, 100.64.0.10", "hunter2").status, 303);
+    assert_eq!(via("198.51.100.9, 203.0.113.9", "hunter2").status, 429);
+    assert_eq!(via("203.0.113.9, 203.0.113.10", "hunter2").status, 303);
     // Fifteen more spread over clients reach the account limit of 20, which loopback is
     // exempt from but forwarded clients are not.
     for c in 0..5 {
         for _ in 0..3 {
-            let r = api_login_via(&app, proxy, &format!("100.64.1.{c}"), "nope");
+            let r = api_login_via(&app, proxy, &format!("198.51.100.{c}"), "nope");
             assert_eq!(r.status, 401, "{}", r.body);
         }
     }
-    assert_eq!(via("100.64.2.1", "hunter2").status, 429, "the account limit holds behind the proxy");
+    assert_eq!(via("198.51.100.99", "hunter2").status, 429, "the account limit holds behind the proxy");
     // A forwarded request with no usable client address is one client, 0.0.0.0, and still remote.
     assert_eq!(via("garbage", "hunter2").status, 429);
     // The machine itself, not forwarded, still signs in.
