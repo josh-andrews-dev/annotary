@@ -3,7 +3,7 @@
 # the starter files the repo deleted on purpose; always_loaded_budget and always_loaded_extra are
 # the always-loaded ratchet and extra files (scripts/standard/always_loaded.py). Set them with
 # `copier update -d` (copier.yml).
-_commit: v0.16.0
+_commit: v0.17.0
 _src_path: gh:josh-andrews-dev/repo-standard
 always_loaded_budget: 15095
 always_loaded_extra: []

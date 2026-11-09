@@ -236,7 +236,7 @@ mod tests {
             "http://studio.example.ts.net:7377"
         );
         assert_eq!(normalize_base_url(" HTTPS://cd.example.dev ").unwrap(), "https://cd.example.dev");
-        assert_eq!(normalize_base_url("http://100.64.0.7:7377").unwrap(), "http://100.64.0.7:7377");
+        assert_eq!(normalize_base_url("http://203.0.113.7:7377").unwrap(), "http://203.0.113.7:7377");
         assert_eq!(normalize_base_url("http://[fd7a::1]:7377").unwrap(), "http://[fd7a::1]:7377");
         for bad in [
             "my-host:7377",
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn pairing_profile_and_url() {
         assert_eq!(pair_profile("rowan", "http://studio.example.ts.net:7377"), "rowan@studio");
-        assert_eq!(pair_profile("rowan", "http://100.64.0.7:7377"), "rowan@100.64.0.7");
+        assert_eq!(pair_profile("rowan", "http://203.0.113.7:7377"), "rowan@203.0.113.7");
         assert_eq!(pair_profile("rowan", "https://cd.example.dev"), "rowan@cd");
         assert_eq!(pair_profile("ana", "http://[fd7a::1]:7377"), "ana@fd7a::1");
         assert_eq!(

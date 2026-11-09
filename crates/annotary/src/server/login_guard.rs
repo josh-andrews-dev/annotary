@@ -264,7 +264,7 @@ mod tests {
     fn a_client_is_locked_after_five_failures_until_the_oldest_is_a_window_old() {
         let t = LoginThrottle::default();
         let t0 = Instant::now();
-        let a = ip("100.64.0.9");
+        let a = ip("203.0.113.9");
         for i in 0..CLIENT_MAX_FAILURES as u64 {
             assert_eq!(t.check(a, t0 + Duration::from_secs(i)), Ok(()));
             t.fail(a, t0 + Duration::from_secs(i));
@@ -273,7 +273,7 @@ mod tests {
         assert!(!l.account);
         assert_eq!(l.retry_after, WINDOW - Duration::from_secs(10));
         // Another client is not affected.
-        assert_eq!(t.check(ip("100.64.0.10"), t0 + Duration::from_secs(10)), Ok(()));
+        assert_eq!(t.check(ip("203.0.113.10"), t0 + Duration::from_secs(10)), Ok(()));
         // Once the oldest failure is a window old, one more try is allowed.
         assert_eq!(t.check(a, t0 + WINDOW), Ok(()));
         // A success forgives the client's own failures.
@@ -294,9 +294,9 @@ mod tests {
         assert!(t.check(ip("fd7a:115c:a1e0:ab12::ffff"), now).is_err());
         assert_eq!(t.check(ip("fd7a:115c:a1e0:ab13::1"), now), Ok(()));
         for _ in 0..CLIENT_MAX_FAILURES {
-            t.fail(ip("::ffff:192.168.1.20"), now);
+            t.fail(ip("::ffff:192.0.2.20"), now);
         }
-        assert!(t.check(ip("192.168.1.20"), now).is_err());
+        assert!(t.check(ip("192.0.2.20"), now).is_err());
     }
 
     // spec: S19-02
@@ -305,9 +305,9 @@ mod tests {
         let t = LoginThrottle::default();
         let now = Instant::now();
         for i in 0..ACCOUNT_MAX_FAILURES {
-            t.fail(ip(&format!("100.64.{}.1", i)), now);
+            t.fail(ip(&format!("198.51.100.{}", i)), now);
         }
-        let l = t.check(ip("100.64.200.1"), now).unwrap_err();
+        let l = t.check(ip("198.51.100.200"), now).unwrap_err();
         assert!(l.account);
         assert_eq!(t.check(ip("127.0.0.1"), now), Ok(()));
         assert_eq!(t.check(ip("::1"), now), Ok(()));
@@ -316,7 +316,7 @@ mod tests {
         for _ in 0..ACCOUNT_MAX_FAILURES * 2 {
             t.fail(ip("127.0.0.1"), now);
         }
-        assert_eq!(t.check(ip("100.64.0.1"), now), Ok(()));
+        assert_eq!(t.check(ip("203.0.113.1"), now), Ok(()));
     }
 
     // spec: S19-03

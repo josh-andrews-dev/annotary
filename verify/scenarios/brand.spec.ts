@@ -8,7 +8,7 @@ import { test } from '@playwright/test';
 import { cli, cliJson, documents, expect, openDoc, shot, URL } from '../lib';
 
 /** A request nobody has signed in on: the server treats a forwarded request as remote (CMD-17). */
-const SIGNED_OUT = { 'X-Forwarded-For': '100.64.0.9', Accept: 'text/html' };
+const SIGNED_OUT = { 'X-Forwarded-For': '203.0.113.9', Accept: 'text/html' };
 
 async function signedOut(path: string) {
   const r = await fetch(`${URL}${path}`, { headers: SIGNED_OUT, redirect: 'manual' });
