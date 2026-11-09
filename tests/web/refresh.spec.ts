@@ -254,7 +254,11 @@ test('a Comment with hidden tools keeps its author line on one row', async ({ pa
   const who = page.locator('.cd-thread[data-t="t1"] .cd-who');
   await expect(who.locator('.cd-ctools .cd-link')).toHaveCount(2);
   expect((await who.boundingBox())!.height).toBeLessThanOrEqual(30);
+  // hidden tools over the row's end must not take a tap
+  await page.mouse.move(0, 0);
+  await expect(who.locator('.cd-ctools')).toHaveCSS('pointer-events', 'none');
   await who.hover();
+  await expect(who.locator('.cd-ctools')).toHaveCSS('pointer-events', 'auto');
   const tools = await who.locator('.cd-ctools').boundingBox();
   const box = await who.boundingBox();
   expect(box!.height).toBeLessThanOrEqual(30);

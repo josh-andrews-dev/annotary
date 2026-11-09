@@ -270,7 +270,7 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
   .cd-nline b.cd-mention{padding:0 5px}
   /* the chip reads "Open" here; its full text stays in the DOM for assistive technology */
   .cd-openapp{font-size:0;gap:0;flex:none}
-  .cd-openapp::before{content:"Open";font-size:12px}
+  .cd-openapp::before{content:"Open";content:"Open" / "";font-size:12px}
   .cd-nline b{color:var(--cd-fg);font-weight:600}
   .cd-hdr{padding:8px 16px}
   .cd-doc h1{font-size:1.75em}
@@ -321,9 +321,9 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
 @media (hover:hover){
   /* out of the flow while hidden, so they never wrap the author line; shown, they sit over its end */
   .cd-who{position:relative}
-  .cd-ctools{opacity:0;position:absolute;right:0;top:0;bottom:0;align-items:center;padding-left:8px;background:var(--cd-card)}
+  .cd-ctools{opacity:0;pointer-events:none;position:absolute;right:0;top:0;bottom:0;align-items:center;padding-left:8px;background:var(--cd-card)}
   details.cd-orphaned .cd-ctools{background:var(--cd-dim)}
-  .cd-c:hover .cd-ctools,.cd-c:focus-within .cd-ctools{opacity:1}
+  .cd-c:hover .cd-ctools,.cd-c:focus-within .cd-ctools{opacity:1;pointer-events:auto}
 }
 .cd-ctools{margin-left:auto;display:inline-flex;gap:4px}
 .cd-confirm{font-size:11px;color:var(--cd-warn)}

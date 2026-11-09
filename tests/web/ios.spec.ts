@@ -59,6 +59,7 @@ test.describe('Open in Annotary (iPhone)', () => {
       const name = await nameOnPhone(page, id, width);
       expect(name.width, `width ${width}`).toBeGreaterThanOrEqual(name.full);
     }
+    await expect(page.locator('#cd-openapp')).toHaveAccessibleName('Open in Annotary');
   });
 
   // spec: S43-02
