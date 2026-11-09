@@ -246,3 +246,18 @@ test('under reduced motion a live Comment paints at once and leaves no class beh
   expect(await washes(page)).toHaveLength(0);
   await ctx.close();
 });
+
+// spec: S43-03
+test('a Comment with hidden tools keeps its author line on one row', async ({ page }) => {
+  const id = seedThread('fresh-who-row', 'Mine to edit.', harness().owner);
+  await openDoc(page, id);
+  const who = page.locator('.cd-thread[data-t="t1"] .cd-who');
+  await expect(who.locator('.cd-ctools .cd-link')).toHaveCount(2);
+  expect((await who.boundingBox())!.height).toBeLessThanOrEqual(30);
+  await who.hover();
+  const tools = await who.locator('.cd-ctools').boundingBox();
+  const box = await who.boundingBox();
+  expect(box!.height).toBeLessThanOrEqual(30);
+  expect(tools!.x + tools!.width).toBeLessThanOrEqual(box!.x + box!.width + 1);
+  await expect(who.locator('.cd-ctools')).toHaveCSS('opacity', '1');
+});

@@ -198,6 +198,20 @@ test('a change far right in a wide table or a long code line does not widen the 
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+// spec: S43-01
+test('the Version selects clip their own labels at a phone width', async ({ page }) => {
+  const d = seedDoc('cmp-select-clip', V1);
+  pushVersion(d, V2, 'a very long Version message that makes the option label far wider than a phone screen');
+  await openDiff(page, diffUrl(d.id, 1, 2), 402);
+  // WebKit counts a select's overflowing label as page width; Chromium does not, so this pins the clip.
+  expect(await page.locator('.cd-dxpick').evaluate((e) => getComputedStyle(e).overflowX)).toBe('hidden');
+  expect(await page.locator('#cd-dxto').evaluate((e) => getComputedStyle(e).textOverflow)).toBe('ellipsis');
+  const box = await page.locator('#cd-dxto').boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(402);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
 // spec: S40-13
 test('a Version select works before the main script has run, and the change buttons wait for it', async ({ page }) => {
   const id = seedHistory('cmp-early');

@@ -3,7 +3,7 @@
 // `annotary link` prints selecting that Thread, and "Pair a device" on the owner Members
 // screen (a QR panel on a server with a public URL; the `no_public_url` error on one without).
 import { test, expect } from '@playwright/test';
-import { harness, spawnServer } from './harness';
+import { cli, harness, rangeOf, seedDoc, spawnServer } from './harness';
 
 const h = () => harness();
 const docUrl = () => `${h().url}/d/${h().doc.id}`;
@@ -31,6 +31,45 @@ test.describe('Open in Annotary (desktop)', () => {
 
 test.describe('Open in Annotary (iPhone)', () => {
   test.use({ userAgent: IPHONE_UA });
+
+  /** A Document with a Thread that mentions the owner, so the header carries the "@you" pill. */
+  function seedMention(name: string): string {
+    const md = `# Plan\n\nThe plan under review.\n`;
+    const d = seedDoc(name, md);
+    cli(h().agent, ['thread', 'new', d.id, rangeOf(md, 'plan under'), '-m', 'Over to @rowan.']);
+    return d.id;
+  }
+  const nameOnPhone = async (page: import('@playwright/test').Page, id: string, width: number) => {
+    await page.setViewportSize({ width, height: 874 });
+    await page.goto(`${h().url}/d/${id}`);
+    await page.waitForSelector('.cd-app.cd-ready');
+    await expect(page.locator('#cd-openapp')).toBeVisible();
+    await expect(page.locator('.cd-nline .cd-mention')).toHaveCount(1);
+    return page.locator('#cd-line .cd-name').evaluate((e) => ({
+      width: e.getBoundingClientRect().width,
+      full: e.scrollWidth,
+      ellipsis: getComputedStyle(e).textOverflow,
+    }));
+  };
+
+  // spec: S43-02
+  test('a short name shows whole beside the chip and the @you pill', async ({ page }) => {
+    const id = seedMention('rfc-tile-cache');
+    for (const width of [402, 393, 375]) {
+      const name = await nameOnPhone(page, id, width);
+      expect(name.width, `width ${width}`).toBeGreaterThanOrEqual(name.full);
+    }
+  });
+
+  // spec: S43-02
+  test('a long name stays readable and truncates with an ellipsis', async ({ page }) => {
+    const id = seedMention('quarterly-platform-review-for-the-spring-planning-cycle');
+    for (const width of [402, 320]) {
+      const name = await nameOnPhone(page, id, width);
+      expect(name.width, `width ${width}`).toBeGreaterThanOrEqual(60);
+      expect(name.ellipsis).toBe('ellipsis');
+    }
+  });
 
   // spec: S18-12
   test('is shown on an iPhone and carries the Thread of #tN', async ({ page }) => {

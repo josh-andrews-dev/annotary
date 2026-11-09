@@ -140,7 +140,8 @@ panels; cards use `--cd-shadow`, a selected card `--cd-shadow-pop` under its rin
   with their highlight by the script and pushed apart (8px gap); hidden until laid out
   (`.cd-ready`), so nothing shifts. **Narrower** (layout C), the same Thread elements sit in the
   flow under their block as one-line rows that expand in place, and the header collapses to one
-  line with the rest in a tap-to-open overlay. The same 850px splits the Settings screen (sidebar
+  line with the rest in a tap-to-open overlay: the status line gives way before the name, and on an
+  iPhone the "Open in Annotary" chip reads "Open". The same 850px splits the Settings screen (sidebar
   beside the group, or the group list as its own page). iOS uses 900pt.
 - Lists: max width 1100px (Document list), 960px (owner screens), 36rem (simple pages).
 - Radii: 999px chips, pills, Reply / Resolve and the nav; 8px buttons and fields; 6px code blocks;
@@ -163,7 +164,7 @@ panels; cards use `--cd-shadow`, a selected card `--cd-shadow-pop` under its rin
   `.cd-sm` 12px; `.cd-primary` filled `--cd-primary`; Action buttons (`.cd-actbtn`) take the intent
   colors, the positive one filled (`--cd-pos` with `--cd-bg` text, the one thing a reviewer comes to do); a count badge is `--cd-accent` with `--cd-accent-ink`. Text buttons are `.cd-link`
   (dotted underline; a Comment's edit / delete have none, and appear on hover or focus on a pointer
-  device, always on a touch screen).
+  device, over the end of the author line and out of its flow, always on a touch screen).
 - **Cards (`.cd-thread`):** in layout A, `--cd-card`, 1px `--cd-line`, 12px radius, `--cd-shadow`;
   selected = a 1.5px `--cd-fg` ring and `--cd-shadow-pop`, no movement. Row: status dot (8px; open
   filled, resolved a hollow `--cd-res` ring, orphaned gray), the frozen quote (refined adds "now:"
