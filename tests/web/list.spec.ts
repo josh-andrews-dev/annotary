@@ -8,7 +8,8 @@ const h = () => harness();
 test.describe('list', () => {
   // spec: S10-08
   test('columns, order, title and the filters of `annotary list`', async ({ page }) => {
-    await page.goto(h().url + '/');
+    // The per-test Documents of the other specs live in `web`; unfiltered, they push these off the first page.
+    await page.goto(h().url + '/?vault=notes');
     const heads = await page.locator('table.cd-list thead th').allTextContents();
     expect(heads).toEqual(['ID', 'NAME', 'VER', 'ACTION', 'OPEN', 'UPDATED']);
     const ids = await page.locator('tr.cd-docrow').evaluateAll((rows) => rows.map((r) => r.getAttribute('data-id')));
