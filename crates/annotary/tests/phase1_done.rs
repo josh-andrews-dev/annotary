@@ -103,7 +103,18 @@ fn ci_runs_on_github_hosted_runners_and_perf_is_in_no_workflow() {
         }
     }
     names.sort();
-    assert_eq!(names, ["checks.yml", "ci.yml", "lessons.yml", "publish-tap.yml", "release.yml"]);
+    assert_eq!(
+        names,
+        [
+            "checks.yml",
+            "ci.yml",
+            "lessons.yml",
+            "private-check-fork.yml",
+            "private-check.yml",
+            "publish-tap.yml",
+            "release.yml"
+        ]
+    );
 
     // Every action is pinned to a commit, with what it is in a comment: a tag or a branch can move.
     for name in &names {

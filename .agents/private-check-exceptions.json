@@ -1,0 +1,20 @@
+{
+  "about": "Deliberate exceptions to the private-check (scripts/standard/private_check.py). This file is the repo's: an upgrade leaves it alone. Each entry: {\"where\": \"<glob of a path or a finding's where>\", \"category\": \"<category>\", \"reason\": \"<why this is fine>\"}. Never write the matched word here: this file is public.",
+  "exceptions": [
+    {
+      "where": "LICENSE-*",
+      "category": "person",
+      "reason": "The license names its copyright holder."
+    },
+    {
+      "where": "crates/annotary/tests/no_personal_details.rs",
+      "category": "network",
+      "reason": "This test's own data exercises the check that refuses real tailnet addresses."
+    },
+    {
+      "where": "tests/web/document.spec.ts",
+      "category": "network",
+      "reason": "A JavaScript property access that looks like a .local host name."
+    }
+  ]
+}

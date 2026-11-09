@@ -1,0 +1,31 @@
+# Rendered from the repo-standard template; never edited in this repo. A fork's pull request gets
+# no secrets on `pull_request`, so this workflow holds the secret instead. It must never check out
+# or run anything from the pull request: it checks out the base branch, and the script reads the
+# diff and text through the GitHub API as data.
+name: private-check-fork
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+jobs:
+  private-check-fork:
+    name: private-check-fork
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: private check
+        env:
+          PRIVATE_TERMS: ${{ secrets.PRIVATE_TERMS }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/standard/private_check.py ci

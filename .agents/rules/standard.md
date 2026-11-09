@@ -106,9 +106,9 @@ vulnerability reporting (`SECURITY.md`), never a public issue. File and close is
   `docs/decisions.md`.
 - It logs to journald (`journalctl -u annotary.service`). A log file only for an HTTP access log,
   under `/var/log/annotary/` with a logrotate rule.
-- A firewall rule only when something outside the box must reach the service: from `10.0.0.0/24`
-  or on `tailscale0`, added by the install step after it checks that ufw is active. A service behind
-  a Cloudflare Tunnel needs none.
+- A firewall rule only when something outside the box must reach the service: from the LAN or on
+  `tailscale0`, added by the install step after it checks that ufw is active. A service behind a
+  Cloudflare Tunnel needs none.
 - `deploy/healthcheck.sh` is read-only and prints one JSON verdict (exit 0, 1 or 2, with
   `problems[]`). Each playbook in `docs/ops-health-check.md` ends at the word **stop**.
 - A pull request that changes how production behaves or is watched says "Monitoring changes:"

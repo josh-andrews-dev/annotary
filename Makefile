@@ -13,7 +13,7 @@ include project.mk
 # here, after project.mk, so the series always follow the repo's kinds.
 DEPLOY_TAG_PREFIX := v
 
-.PHONY: help build test lint ci standard-lint deploy server-health
+.PHONY: help build test lint ci standard-lint private-check deploy server-health
 
 help: ## List the commands
 	@grep -hE '^[a-z][a-z0-9-]*:.*## ' $(MAKEFILE_LIST) | sort -u | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
@@ -30,6 +30,9 @@ standard-lint: ## Check the repo against the standard's file rules, its always-l
 	@python3 scripts/standard/lint.py
 	@python3 scripts/standard/always_loaded.py
 	@python3 scripts/standard/en_us.py
+
+private-check: ## List private names in this repo's files, history and GitHub text (prints the exact words; needs the private list)
+	@python3 scripts/standard/private_check.py local
 
 deploy: ## Deploy origin/main, check health, then tag and release it  [BUMP=minor|major]
 	@scripts/standard/require_main.sh

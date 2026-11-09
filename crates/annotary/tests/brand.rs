@@ -27,7 +27,7 @@ fn committed_brand_files_are_a_fresh_render() {
 }
 
 /// Headers a Tailscale Serve request carries: never loopback-trusted (CMD-17).
-const FORWARDED: (&str, &str) = ("X-Forwarded-For", "100.64.0.9");
+const FORWARDED: (&str, &str) = ("X-Forwarded-For", "203.0.113.9");
 
 /// A GET with no credential, forwarded by a local proxy, following no redirect.
 fn anon(ts: &TestServer, path: &str) -> (u16, Vec<(String, String)>, Vec<u8>) {
