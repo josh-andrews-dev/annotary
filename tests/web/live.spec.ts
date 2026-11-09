@@ -137,6 +137,7 @@ test.describe('live updates', () => {
     await expect(t1.locator('.cd-c[data-c="t1.1"] .cd-cbody')).toContainText('first live reply');
     await expect(t1).not.toHaveAttribute('data-stale', /./);
     // An unchanged edit box survives too; saving it re-draws the card with the edit and the reply.
+    await t1.locator('.cd-c[data-c="t1"] .cd-who').hover();
     await t1.locator('.cd-c[data-c="t1"] [data-act="edit"]').click();
     const edit = t1.locator('.cd-c[data-c="t1"] .cd-editor-edit textarea');
     await expect(edit).toHaveValue('Alpha? @rowan');

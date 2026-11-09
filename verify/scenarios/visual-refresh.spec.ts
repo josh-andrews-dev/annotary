@@ -6,13 +6,16 @@
 import { test, type Page } from '@playwright/test';
 import { cliJson, expect, openDoc, shot } from '../lib';
 
-interface Row { id: string; name: string; open?: number }
+interface Row { id: string; name: string; open?: number; version?: number }
 
 const busiest = (): Row[] =>
   (cliJson<Row[]>(['list', '--limit', '200']) ?? [])
     .filter((d) => (d.open ?? 0) > 0)
     .sort((a, b) => (b.open ?? 0) - (a.open ?? 0))
     .slice(0, 5);
+
+const IPHONE_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
 
 function trackErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -69,4 +72,25 @@ test('real Documents: one header row, a tied selection, nothing sideways on a ph
     if (i === 0) await shot(page, 'refresh-doc-phone-light');
   }
   expect(errors).toEqual([]);
+});
+
+test.describe('on an iPhone', () => {
+  test.use({ userAgent: IPHONE_UA });
+
+  test('a real Document keeps its name beside the chip, and Compare clips its selects', async ({ page }) => {
+    const docs = busiest();
+    test.skip(docs.length === 0, 'the copy has no open Threads');
+    for (const d of docs) {
+      await openDoc(page, d.id, 402);
+      await expect(page.locator('#cd-openapp')).toBeVisible();
+      const name = await page.locator('#cd-line .cd-name').evaluate((e) => ({ width: e.getBoundingClientRect().width, full: e.scrollWidth }));
+      expect(name.width, `${d.name}: the name collapsed`).toBeGreaterThanOrEqual(Math.min(60, name.full));
+    }
+    const multi = (cliJson<Row[]>(['list', '--limit', '200']) ?? []).find((d) => (d.version ?? 0) > 1);
+    test.skip(!multi, 'the copy has no Document with two Versions');
+    await page.goto(`/d/${multi!.id}/diff`);
+    await page.waitForSelector('.cd-app.cd-diffpage.cd-ready');
+    expect(await page.locator('.cd-dxpick').evaluate((e) => getComputedStyle(e).overflowX)).toBe('hidden');
+    expect(await scrollsSideways(page)).toBe(false);
+  });
 });

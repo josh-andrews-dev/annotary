@@ -474,6 +474,7 @@ test.describe('replies, resolve, edit, delete', () => {
     await expect.poll(() => JSON.parse(cli(h().owner, ['thread', 'show', doc.id, 't1', '--json']))[0].resolved ?? null).toBeNull();
     // Edit my own reply; the agent's root shows edit/delete too (I am an owner).
     const reply = t1.locator('.cd-c[data-c="t1.1"]');
+    await reply.locator('.cd-who').hover();
     await reply.locator('[data-act="edit"]').click();
     const edEd = reply.locator('.cd-editor-edit textarea');
     await expect(edEd).toHaveValue('Yes — see the glossary.');
@@ -483,6 +484,7 @@ test.describe('replies, resolve, edit, delete', () => {
     await expect(reply.locator('.cd-who')).toContainText('edited');
     expect(JSON.parse(cli(h().owner, ['thread', 'show', doc.id, 't1', '--json']))[0].replies[0].body).toBe('Yes — see the **glossary**.');
     // Delete the reply: an inline confirm, then a tombstone.
+    await reply.locator('.cd-who').hover();
     await reply.locator('[data-act="delete"]').click();
     await reply.locator('[data-act="delete-yes"]').click();
     await expect(reply.locator('.cd-tomb')).toHaveText('(deleted)');

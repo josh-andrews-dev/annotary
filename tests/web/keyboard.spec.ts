@@ -181,6 +181,7 @@ test.describe('keyboard', () => {
     await expect(t1.locator('.cd-editor-reply')).toHaveCount(0);
     await expect(ask).toHaveCount(0);
     // The edit box: unchanged closes immediately; changed asks, and keep keeps the change.
+    await t1.locator('.cd-who').first().hover();
     await t1.locator('.cd-ctools [data-act="edit"]').click();
     const edit = t1.locator('.cd-editor-edit textarea');
     await expect(edit).toHaveValue('my comment');
@@ -189,6 +190,7 @@ test.describe('keyboard', () => {
     await expect(t1.locator('.cd-editor-edit')).toHaveCount(0);
     await expect(ask).toHaveCount(0);
     await expect(t1.locator('.cd-c[data-c="t1"] .cd-cbody')).toHaveText('my comment');
+    await t1.locator('.cd-who').first().hover();
     await t1.locator('.cd-ctools [data-act="edit"]').click();
     await expect(edit).toBeFocused();
     await edit.pressSequentially(', revised');

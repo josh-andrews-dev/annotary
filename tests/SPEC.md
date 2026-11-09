@@ -601,6 +601,12 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S42-11 — a strip holding several Threads aligns with its first visible Thread, and the tie still connects when the highlight is below the card.
 - S42-12 — a live Comment's wash plays once: reopening its card does not replay it, and under reduced motion it never plays and leaves no class behind.
 
+## iPhone Safari, before v0.5.0
+
+- S43-01 — a Compare page's Version selects cannot widen the page: the row that holds them clips their labels.
+- S43-02 — on an iPhone (the "Open in Annotary" chip showing) the Document name in the one-line header stays readable: the status line gives way first, and a long name truncates with an ellipsis.
+- S43-03 — a Comment's hidden edit and delete links take no room on a pointer device, so its author line stays one row in a margin card.
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–174)
@@ -777,11 +783,11 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07, S37-10
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
-- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13
+- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13, S43-01
 
 - 172 — a Member's avatar (an animated SVG with a static fallback, or a picture) next to their name → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07, S41-08, S41-09, S41-10
 - 173 — an owner clears any Member's avatar → S41-04, S41-10
-- 174 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S42-01, S42-02, S42-03, S42-04, S42-05, S42-06, S42-07, S42-08, S42-09, S42-10, S42-11, S42-12
+- 174 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S42-01, S42-02, S42-03, S42-04, S42-05, S42-06, S42-07, S42-08, S42-09, S42-10, S42-11, S42-12, S43-02, S43-03
 
 ## Deferred
 

@@ -263,8 +263,14 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
 @container cd (max-width: 849.98px){
   .cd-hdr{flex-wrap:nowrap}
   .cd-line{flex:1;flex-wrap:nowrap;cursor:pointer;overflow:hidden}
-  .cd-name{overflow:hidden;text-overflow:ellipsis}
-  .cd-nline{display:inline;color:var(--cd-muted);font-size:13px;white-space:nowrap}
+  .cd-line{gap:6px}
+  .cd-name{overflow:hidden;text-overflow:ellipsis;min-width:3em}
+  /* the status line gives way before the name, down to its version and open count */
+  .cd-nline{display:inline;color:var(--cd-muted);font-size:13px;white-space:nowrap;flex:0 9999 auto;min-width:5.5em;overflow:hidden;text-overflow:ellipsis}
+  .cd-nline b.cd-mention{padding:0 5px}
+  /* the chip reads "Open" here; its full text stays in the DOM for assistive technology */
+  .cd-openapp{font-size:0;gap:0;flex:none}
+  .cd-openapp::before{content:"Open";content:"Open" / "";font-size:12px}
   .cd-nline b{color:var(--cd-fg);font-weight:600}
   .cd-hdr{padding:8px 16px}
   .cd-doc h1{font-size:1.75em}
@@ -312,7 +318,13 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
 .cd-link:hover{color:var(--cd-fg)}
 .cd-ctools .cd-link{text-decoration:none}.cd-ctools .cd-link:hover{text-decoration:underline}
 /* a pointer device shows a Comment's edit / delete on hover or focus; a touch screen always */
-@media (hover:hover){.cd-ctools{opacity:0}.cd-c:hover .cd-ctools,.cd-c:focus-within .cd-ctools{opacity:1}}
+@media (hover:hover){
+  /* out of the flow while hidden, so they never wrap the author line; shown, they sit over its end */
+  .cd-who{position:relative}
+  .cd-ctools{opacity:0;pointer-events:none;position:absolute;right:0;top:0;bottom:0;align-items:center;padding-left:8px;background:var(--cd-card)}
+  details.cd-orphaned .cd-ctools{background:var(--cd-dim)}
+  .cd-c:hover .cd-ctools,.cd-c:focus-within .cd-ctools{opacity:1;pointer-events:auto}
+}
 .cd-ctools{margin-left:auto;display:inline-flex;gap:4px}
 .cd-confirm{font-size:11px;color:var(--cd-warn)}
 .cd-discard{margin:4px 0 0;font-size:12px;color:var(--cd-warn)}
@@ -513,7 +525,9 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
   .cd-dxhdr .cd-line{flex:1 1 100%;cursor:default;overflow:hidden}
   .cd-dxbar{flex:1 1 100%;gap:6px 10px}
   .cd-dxform{flex:1 1 100%}
-  .cd-dxpick{flex:1 1 100%}
+  /* WebKit counts a select's overflowing label as page width: this row clips it (Chromium ignores
+     overflow on a drop-down select, so the clip is here). The padding keeps the focus ring inside. */
+  .cd-dxpick{flex:1 1 100%;overflow:hidden;padding:2px;margin:-2px}
   .cd-dxpick select{flex:1 1 0;max-width:none;width:0}
   .cd-dxsum{flex:1 1 100%}
   .cd-dxnav{margin-left:auto}
