@@ -34,11 +34,11 @@ pub use assets::{Asset, Kind};
 pub use html::{Options, Rendered, render};
 
 /// Renderer version recorded on every Version (`renderer` field). Bump on any output change.
-pub const RENDERER_VERSION: &str = "1.0.0";
+pub const RENDERER_VERSION: &str = "1.1.0";
 
 /// The oldest recorded renderer whose HTML the server serves as-is; anything older (or missing,
 /// or unparsable) is re-rendered by the server with this crate on first read and cached.
-pub const MIN_RENDERER_VERSION: &str = "1.0.0";
+pub const MIN_RENDERER_VERSION: &str = "1.1.0";
 
 /// `render` with a manifest and embeds on — the Document render.
 pub fn render_html(md: &str, assets: &[Asset]) -> String {

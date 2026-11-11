@@ -607,6 +607,14 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S43-02 — on an iPhone (the "Open in Annotary" chip showing) the Document name in the one-line header stays readable: the status line gives way first, and a long name truncates with an ellipsis.
 - S43-03 — a Comment's hidden edit and delete links take no room on a pointer device, so its author line stays one row in a margin card.
 
+## Dollar amounts are not math
+
+- S44-01 — a closing `$` immediately followed by a digit does not close inline math (Pandoc's rule): dollar amounts in prose (`$1.00–1.25 … ~$120`; `$4 for a 3-pack, $5 for two` stays text too) render as text, in Document and Comment bodies alike.
+- S44-02 — real math still renders: `$x^2$`, `$2^n$` at the start of a sentence, `($a$)`, `$$…$$` display math and `math` fences; `$` in code spans, code blocks, autolinks and raw HTML stays as written.
+- S44-03 — the rule moves no source line (`data-l` stays right) and its re-parses are capped, so crafted nested `$` cannot make a render loop long.
+- S44-04 — the renderer and the oldest renderer served as-is are 1.1.0: a Version rendered by 1.0.0 re-renders on read.
+- S44-05 — the push-time Asset scan applies the same rule, so an Asset written between two dollar amounts gets its manifest entry and renders.
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–174)
@@ -754,7 +762,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 139 — sparse history rule shared by CLI and server → S07-08
 - 140 — YAML/JSONL/minified rejected → S02-25
 - 141 — W3C Web Annotation export = a backlog mapping → S02-33
-- 142 — edge render → viewer-agnostic HTML blob + renderer version → S09-02, S09-03, S09-04, S09-06, S09-07, S09-08
+- 142 — edge render → viewer-agnostic HTML blob + renderer version → S09-02, S09-03, S09-04, S09-06, S09-07, S09-08, S44-01, S44-02, S44-03, S44-04, S44-05
 - 143 — server fallback renderer + `rerender` → S09-09, S09-10, S09-11
 - 144 — CLI submits `placements[]`, server spot-verifies → S07-06, S07-07, S07-16, S09-08
 - 145 — renderer/diff/sidecar crates build to WASM → S07-15, S09-12
