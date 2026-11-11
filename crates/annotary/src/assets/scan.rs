@@ -8,6 +8,7 @@
 //! the scanner sees is what gets rendered — the options, classification and normalization are
 //! one definition in `annotary_renderer::refs`, re-exported here.
 
+use annotary_renderer::html::escape_currency_math;
 use pulldown_cmark::{Event, LinkType, Parser, Tag};
 
 // ---- ticket 09: these definitions moved to the renderer crate (single source of truth) ----
@@ -37,7 +38,7 @@ pub struct RawRef {
 /// Every reference in `md`, in document order (code spans and fenced code are not references;
 /// autolinks are URLs and come out as such).
 pub fn references(md: &str) -> Vec<RawRef> {
-    references_at(md).into_iter().map(|(_, r)| r).collect()
+    references_at(&escape_currency_math(md)).into_iter().map(|(_, r)| r).collect()
 }
 
 // ---- ticket 07 ----
@@ -46,6 +47,7 @@ pub fn references(md: &str) -> Vec<RawRef> {
 /// "referencing line" of an Asset Thread. Recursive Assets (referenced from another Asset) are
 /// not in this list.
 pub fn reference_lines(md: &str) -> Vec<(String, u32)> {
+    let md = &*escape_currency_math(md);
     let mut out: Vec<(String, u32)> = Vec::new();
     for (offset, raw) in references_at(md) {
         let Classified::Relative(rel) = classify(&raw.target) else { continue };
@@ -60,8 +62,9 @@ pub fn reference_lines(md: &str) -> Vec<(String, u32)> {
 }
 // ---- end ticket 07 ----
 
-/// [`references`] with the byte offset each reference was written at.
-pub fn references_at(md: &str) -> Vec<(usize, RawRef)> {
+/// [`references`] with the byte offset each reference was written at. `md` has been through
+/// `escape_currency_math`, as the renderer's input has, or a dollar amount hides a reference.
+fn references_at(md: &str) -> Vec<(usize, RawRef)> {
     let mut found: Vec<(usize, RawRef)> = Vec::new();
     let parser = Parser::new_ext(md, MARKDOWN_OPTIONS);
     // Reference definitions are not events; take them from the parser's table (with spans).

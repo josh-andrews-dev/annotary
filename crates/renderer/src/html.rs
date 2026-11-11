@@ -3,6 +3,7 @@
 //! lines of the block's content), rewriting local Asset references through the manifest,
 //! collecting footnote definitions for the end, and sanitizing raw HTML.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
@@ -42,6 +43,7 @@ pub struct Rendered {
 
 /// Render `md` with `opts`. Pure and deterministic: the same input gives the same bytes.
 pub fn render(md: &str, opts: &Options<'_>) -> Rendered {
+    let md = &*escape_currency_math(md);
     let events = collect(md);
     let mut w = Writer::new(md, opts);
     w.prescan(&events);
@@ -50,6 +52,49 @@ pub fn render(md: &str, opts: &Options<'_>) -> Rendered {
     }
     w.finish()
 }
+
+/// Pandoc's rule for inline math, which pulldown-cmark lacks: a closing `$` must not be followed
+/// by a digit, so `$4 for a 3-pack, $5 for two` stays prose. Each `$…$` span that breaks it gets
+/// both `$` backslash-escaped, and the text is parsed again until none is left (at most
+/// [`CURRENCY_PASSES`] times). Positions come from the parser, so code, HTML and autolinks are
+/// never touched, and no line moves (`data-l`). The Writer must slice this text, not the input.
+pub fn escape_currency_math(md: &str) -> Cow<'_, str> {
+    if !md.contains('$') {
+        return Cow::Borrowed(md);
+    }
+    let mut text = Cow::Borrowed(md);
+    for _ in 0..CURRENCY_PASSES {
+        let bytes = text.as_bytes();
+        let mut dollars = Vec::new();
+        for (ev, range) in Parser::new_ext(&text, MARKDOWN_OPTIONS).into_offset_iter() {
+            if let Event::InlineMath(_) = ev
+                && bytes.get(range.end).is_some_and(u8::is_ascii_digit)
+                && bytes[range.start] == b'$'
+                && bytes[range.end - 1] == b'$'
+            {
+                dollars.push(range.start);
+                dollars.push(range.end - 1);
+            }
+        }
+        if dollars.is_empty() {
+            return text;
+        }
+        let mut next = String::with_capacity(text.len() + dollars.len());
+        let mut from = 0;
+        for at in dollars {
+            next.push_str(&text[from..at]);
+            next.push('\\');
+            from = at;
+        }
+        next.push_str(&text[from..]);
+        text = Cow::Owned(next);
+    }
+    text
+}
+
+/// Prose needs one or two passes. Crafted `{`-nested `$` can reveal one new span per pass (one
+/// per nesting level), so the passes are capped to keep a render linear; past it, math stays.
+pub const CURRENCY_PASSES: usize = 8;
 
 /// The event stream with offsets; adjacent `Text` events merged (pulldown splits text around
 /// unmatched delimiters, which would cut bare URLs).

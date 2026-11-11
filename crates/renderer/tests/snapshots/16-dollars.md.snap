@@ -1,0 +1,21 @@
+---
+source: crates/renderer/tests/corpus.rs
+---
+<h1 data-l="1-1" id="dollar-amounts">Dollar amounts</h1>
+<p data-l="3-3">Your ingredient cost per pack is maybe $1.00–1.25 (a 24-pack batch is 72 cookies out of a ~$120 shop), so...</p>
+<p data-l="5-5">$4 for a 3-pack, $5 for two, and $10 a dozen.</p>
+<table data-l="7-9">
+<thead data-l="7-7">
+<tr data-l="7-7"><th data-l="7-7">Pack</th><th data-l="7-7">Price</th></tr>
+</thead>
+<tbody data-l="9-9">
+<tr data-l="9-9"><td data-l="9-9">3</td><td data-l="9-9">$4 or $5 each</td></tr>
+</tbody>
+</table>
+<ul data-l="11-13">
+<li data-l="11-11">Still math: <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><msup><mi>x</mi><mn>2</mn></msup></math>, (<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mi>a</mi></math>), and <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mi>i</mi></math>.</li>
+<li data-l="12-12"><math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><msup><mn>2</mn><mi>n</mi></msup></math> at the start of an item.</li>
+<li data-l="13-13">Code keeps its dollars: <code>$4 x$5</code>.</li>
+</ul>
+<pre data-l="15-17"><code>echo &quot;$4 x$5&quot;
+</code></pre>

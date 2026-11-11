@@ -420,3 +420,16 @@ freely from the hash (a hue), because eight fixed colors can each be checked for
 Chose the reserved ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) for every example IP in tests; rejected keeping
 private-looking addresses and the shared-address range, because `private-check` scans added lines in this public repo and an
 example there is indistinguishable from a real one. IPv6 examples stay as they are.
+
+## 2026-11-11: a closing `$` before a digit does not close inline math
+
+pulldown-cmark pairs a `$` with the next one that can close, so prose with two dollar amounts
+(`$4 for a 3-pack, $5 for two`) rendered the text between them as MathML. Chose Pandoc's rule,
+that a closing `$` must not be followed by a digit, applied as a pre-pass in `render()`: it
+backslash-escapes both `$` of each offending span at the positions the parser reports and parses
+again, so code, HTML and autolinks are never touched and no source line moves. Rejected turning
+math off because Documents use `$x^2$` and `$$…$$`; rejected escaping every `$` before a digit
+because `$2^n$` at the start of a sentence is math, and because a blind byte rewrite would reach
+into code spans and blocks. The re-parse is capped at 8 passes: crafted `{`-nested input can
+reveal one new span per pass, and prose needs one or two. `RENDERER_VERSION` and
+`MIN_RENDERER_VERSION` went to 1.1.0, so Versions rendered before re-render on read.
