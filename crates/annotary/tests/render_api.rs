@@ -353,13 +353,19 @@ fn server_fallback_render_equals_the_client_render_for_the_corpus_with_assets() 
 // spec: S44-05
 #[test]
 fn the_asset_scan_sees_a_reference_between_dollar_amounts() {
-    let md = "Intro\n\n$4 for ![a cookie](cookie.png) a 3-pack, $5 for two\n";
-    let refs = annotary::assets::scan::references(md);
-    assert_eq!(refs.iter().map(|r| r.target.as_str()).collect::<Vec<_>>(), ["cookie.png"]);
-    assert_eq!(annotary::assets::scan::reference_lines(md), [("cookie.png".to_string(), 3)]);
     let hash = "a".repeat(64);
     let assets = Asset::from_manifest(&json!([{ "ref": "cookie.png", "hash": hash, "type": "image/png" }]));
-    let html = render_html(md, &assets);
-    assert!(html.contains(&format!("<img src=\"/a/{hash}\"")), "{html}");
-    assert!(!html.contains("<math"), "{html}");
+    // `~$5`: a closing `$` pulldown alone would take, hiding the image in "math". The form with a
+    // space before `$5` never paired, and stays a guard.
+    for md in [
+        "Intro\n\n$4 for ![a cookie](cookie.png) a 3-pack, ~$5 for two\n",
+        "Intro\n\n$4 for ![a cookie](cookie.png) a 3-pack, $5 for two\n",
+    ] {
+        let refs = annotary::assets::scan::references(md);
+        assert_eq!(refs.iter().map(|r| r.target.as_str()).collect::<Vec<_>>(), ["cookie.png"], "{md}");
+        assert_eq!(annotary::assets::scan::reference_lines(md), [("cookie.png".to_string(), 3)], "{md}");
+        let html = render_html(md, &assets);
+        assert!(html.contains(&format!("<img src=\"/a/{hash}\"")), "{html}");
+        assert!(!html.contains("<math"), "{html}");
+    }
 }

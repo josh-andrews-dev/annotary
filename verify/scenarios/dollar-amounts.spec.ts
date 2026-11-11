@@ -7,10 +7,10 @@ import { test, type Page } from '@playwright/test';
 import { cli, cliJson, documents, expect, openDoc, shot } from '../lib';
 
 // An opening `$` before a digit, then a closing `$` after a non-space and before a digit: what
-// pulldown-cmark alone pairs as math. Lines with inline markup or escapes are left out, so the
-// match is also the text the page shows.
+// pulldown-cmark alone pairs as math. Lines with inline markup, escapes or table pipes are left
+// out, so the match is also the text the page shows in one block.
 const PAIR = /\$\d[^$\n]*?\S\$\d[\d.,]*/;
-const MARKUP = /[*_`[\]<>\\{}^]/;
+const MARKUP = /[*_`[\]<>\\{}^|]/;
 
 const SENTENCE =
   'Your ingredient cost per pack is maybe $1.00–1.25 (a 24-pack batch is 72 cookies out of a ~$120 shop), so...';
@@ -51,12 +51,15 @@ test('dollar amounts in real Documents and Comments render as text', async ({ pa
     // Front matter is never rendered: start after it.
     const body = lines[0]?.trim() === '---' ? lines.findIndex((l, i) => i > 0 && /^(---|\.\.\.)\s*$/.test(l)) + 1 : 0;
     let fence = false;
-    lines.forEach((l, i) => {
-      if (i < body) return;
+    let html = false; // a raw HTML block runs from a line opening with `<` to a blank line
+    for (let i = body; i < lines.length && hits.length < 20; i++) {
+      const l = lines[i];
       if (/^\s*(```|~~~)/.test(l)) fence = !fence;
+      if (!fence && /^ {0,3}</.test(l)) html = true;
+      if (l.trim() === '') html = false;
       const m = PAIR.exec(l);
-      if (!fence && m && !MARKUP.test(l) && !/^\s*(\$\$|    )/.test(l)) hits.push({ id: d.id, line: i + 1, text: m[0] });
-    });
+      if (!fence && !html && m && !MARKUP.test(l) && !/^\s*(\$\$|    )/.test(l)) hits.push({ id: d.id, line: i + 1, text: m[0] });
+    }
   }
   let shown = false;
   for (const h of hits) {
@@ -94,6 +97,7 @@ test('dollar amounts in real Documents and Comments render as text', async ({ pa
   await card.scrollIntoViewIfNeeded();
   await shot(page, 'dollar-amounts-comment');
 
+  // The copy may hold no such line; the data line says so, and the posted Comment still checks.
   const data = `${hits.length} Document lines with dollar pairs; ${comments} existing Comment; posted ${posted} on ${d.id}`;
   test.info().annotations.push({ type: 'data', description: data });
   console.log(`S44-01 data: ${data}`); // the report is deleted with the copy; the log keeps this

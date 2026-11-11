@@ -54,7 +54,7 @@ pub fn render(md: &str, opts: &Options<'_>) -> Rendered {
 }
 
 /// Pandoc's rule for inline math, which pulldown-cmark lacks: a closing `$` must not be followed
-/// by a digit, so `$4 for a 3-pack, $5 for two` stays prose. Each `$…$` span that breaks it gets
+/// by a digit, so `$1.00–1.25 (… a ~$120 shop)` stays prose. Each `$…$` span that breaks it gets
 /// both `$` backslash-escaped, and the text is parsed again until none is left (at most
 /// [`CURRENCY_PASSES`] times). Positions come from the parser, so code, HTML and autolinks are
 /// never touched, and no line moves (`data-l`). The Writer must slice this text, not the input.

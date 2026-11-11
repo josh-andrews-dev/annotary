@@ -609,7 +609,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 
 ## Dollar amounts are not math
 
-- S44-01 — a closing `$` immediately followed by a digit does not close inline math (Pandoc's rule): dollar amounts in prose (`$1.00–1.25 … ~$120`, `$4 for a 3-pack, $5 for two`) render as text, in Document and Comment bodies alike.
+- S44-01 — a closing `$` immediately followed by a digit does not close inline math (Pandoc's rule): dollar amounts in prose (`$1.00–1.25 … ~$120`; `$4 for a 3-pack, $5 for two` stays text too) render as text, in Document and Comment bodies alike.
 - S44-02 — real math still renders: `$x^2$`, `$2^n$` at the start of a sentence, `($a$)`, `$$…$$` display math and `math` fences; `$` in code spans, code blocks, autolinks and raw HTML stays as written.
 - S44-03 — the rule moves no source line (`data-l` stays right) and its re-parses are capped, so crafted nested `$` cannot make a render loop long.
 - S44-04 — the renderer and the oldest renderer served as-is are 1.1.0: a Version rendered by 1.0.0 re-renders on read.

@@ -423,8 +423,9 @@ example there is indistinguishable from a real one. IPv6 examples stay as they a
 
 ## 2026-11-11: a closing `$` before a digit does not close inline math
 
-pulldown-cmark pairs a `$` with the next one that can close, so prose with two dollar amounts
-(`$4 for a 3-pack, $5 for two`) rendered the text between them as MathML. Chose Pandoc's rule,
+pulldown-cmark pairs a `$` with the next one that can close (not after whitespace), so prose with
+two dollar amounts (`maybe $1.00–1.25 (… out of a ~$120 shop)`) rendered the text between them as
+MathML. Chose Pandoc's rule,
 that a closing `$` must not be followed by a digit, applied as a pre-pass in `render()`: it
 backslash-escapes both `$` of each offending span at the positions the parser reports and parses
 again, so code, HTML and autolinks are never touched and no source line moves. Rejected turning
