@@ -6,12 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## The size report
-
-- S45-01 — the size report: the generated perf fixture (full scale, seed 1) seeded through the real binary against an in-process server, and deterministic counts of what the server sends for it, never times: the Document view, a Version page and the Document list (bytes split into inline script, page data, inline style, Document HTML, Thread cards and the rest; elements; requests before first paint; database statements to compose it), the API as the app reads it (the Document list, a Version's HTML, its Threads: bytes and statements), embed mode (the shell's bytes, the Document view's bytes and parts) and one reply (the card fragment's bytes and the live event's bytes); the server's address and the text of relative times are normalized first, and the committed `perf/size-report.json` equals what was measured, on Linux and macOS and from run to run (story 128)
-- S45-02 — the size ceilings live in `perf/BUDGETS.md` ("Size ceilings") and are copied into the report; the size test fails when a number is above its ceiling or a ceiling names no measured number (story 128)
-
-## Stories` section at the end maps every numbered story of the spec (1–174) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–174) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -619,6 +614,11 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S44-03 — the rule moves no source line (`data-l` stays right) and its re-parses are capped, so crafted nested `$` cannot make a render loop long.
 - S44-04 — the renderer and the oldest renderer served as-is are 1.1.0: a Version rendered by 1.0.0 re-renders on read.
 - S44-05 — the push-time Asset scan applies the same rule, so an Asset written between two dollar amounts gets its manifest entry and renders.
+
+## The size report
+
+- S45-01 — the size report: the generated perf fixture (full scale, seed 1) seeded through the real binary against an in-process server, and deterministic counts of what the server sends for it, never times: the Document view, a Version page and the Document list (bytes split into inline script, page data, inline style, Document HTML, Thread cards and the rest; elements; requests before first paint; database statements to compose it), the API as the app reads it (the Document list, a Version's HTML, its Threads: bytes and statements), embed mode (the shell's bytes, the Document view's bytes and parts) and one reply (the card fragment's bytes and the live event's bytes); the server's address and the text of relative times are normalized first, and the committed `perf/size-report.json` equals what was measured, on Linux and macOS and from run to run (story 128)
+- S45-02 — the size ceilings live in `perf/BUDGETS.md` ("Size ceilings") and are copied into the report; the size test fails when a number is above its ceiling or a ceiling names no measured number (story 128)
 
 ## Stories
 

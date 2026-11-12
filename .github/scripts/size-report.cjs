@@ -100,7 +100,7 @@ function proseLines(body) {
 /** The reason on the body's `Size growth:` line, or null when there is none. */
 function growthReason(body) {
   for (const line of proseLines(body)) {
-    const m = /^\s{0,3}(?:[-*+]\s+)?(?:\*\*|__)?size growth:(?:\*\*|__)?\s*(.*)$/i.exec(line);
+    const m = /^\s{0,3}(?:[-*+]\s+)?(?:\*\*|__)?size growth(?:\*\*|__)?\s*:(?:\*\*|__)?\s*(.*)$/i.exec(line);
     if (m && /[A-Za-z0-9].*[A-Za-z0-9]/.test(m[1].replace(/[*_`]/g, ""))) return m[1].trim();
   }
   return null;
@@ -114,9 +114,18 @@ function compare(base, head) {
     const was = b ? b.value : null;
     const over = m.ceiling !== null && m.value > m.ceiling;
     const grew = was !== null && m.value > was;
-    const ceilingRaised = b !== undefined && m.ceiling !== null && (b.ceiling === null || m.ceiling > b.ceiling);
+    // Dropping a ceiling raises it to nothing: it needs a reason like any raise.
+    const ceilingRaised =
+      b !== undefined && b.ceiling !== null && (m.ceiling === null || m.ceiling > b.ceiling);
     return { id: m.id, label: m.label, unit: m.unit, was, now: m.value, ceiling: m.ceiling, over, grew, ceilingRaised };
   });
+}
+
+/** Base metrics the head no longer reports (removed or renamed): unguarded from now on. */
+function removed(base, head) {
+  if (!base) return [];
+  const ids = new Set(head.metrics.map((m) => m.id));
+  return base.metrics.filter((m) => !ids.has(m.id));
 }
 
 /** The `size` check's verdict: `{ ok, lines }` (lines go to the log and the job summary). */
@@ -126,26 +135,28 @@ function verdict({ base, head, body }) {
   const lines = [];
   const over = rows.filter((r) => r.over);
   const grown = rows.filter((r) => r.grew || r.ceilingRaised);
+  const gone = removed(base, head);
   for (const r of over) lines.push(`above its ceiling: ${r.label} (${r.id}) ${fmt(r.now)} > ${fmt(r.ceiling)}`);
   for (const r of grown) {
     lines.push(
       r.grew
         ? `grew: ${r.label} (${r.id}) ${fmt(r.was)} -> ${fmt(r.now)} (${change(r.was, r.now)})`
-        : `ceiling raised: ${r.label} (${r.id}) to ${fmt(r.ceiling)}`,
+        : `ceiling ${r.ceiling === null ? "removed" : "raised"}: ${r.label} (${r.id}) to ${fmt(r.ceiling)}`,
     );
   }
+  for (const m of gone) lines.push(`no longer reported: ${m.label} (${m.id}), ${fmt(m.value)} on the base`);
   if (!base) lines.push("The base branch has no size report yet: only the ceilings apply.");
   let ok = over.length === 0;
   if (over.length) lines.push("A number above its ceiling always fails: make it smaller, or raise the ceiling by the budget-raise rule in perf/BUDGETS.md.");
-  if (grown.length) {
+  if (grown.length || gone.length) {
     if (reason) lines.push(`Growth accepted by the body's "Size growth:" line.`);
     else {
       ok = false;
-      lines.push('Growth needs a "Size growth:" line in the pull request body saying why; edit the body and the check runs again.');
+      lines.push('Growth, a raised or removed ceiling, or a number no longer reported needs a "Size growth:" line in the pull request body saying why; edit the body and the check runs again.');
     }
   }
-  if (ok && !over.length && !grown.length) lines.push("No number grew, and none is above its ceiling.");
-  return { ok, lines, rows, reason };
+  if (ok && !over.length && !grown.length && !gone.length) lines.push("No number grew, and none is above its ceiling.");
+  return { ok, lines, rows, reason, gone };
 }
 
 function fmt(n) {
@@ -178,7 +189,7 @@ function renderComment({ base, head, baseSha, headSha, body, problem }) {
   }
   const v = verdict({ base, head, body });
   const over = v.rows.filter((r) => r.over).length;
-  const grown = v.rows.filter((r) => r.grew || r.ceilingRaised).length;
+  const grown = v.rows.filter((r) => r.grew || r.ceilingRaised).length + v.gone.length;
   if (over) out.push(`❌ ${over} number${over > 1 ? "s are" : " is"} above the ceiling: the \`size\` check fails.`);
   else if (grown && v.reason) out.push(`⚠️ ${grown} number${grown > 1 ? "s" : ""} grew; the body's \`Size growth:\` line gives the reason.`);
   else if (grown) out.push(`❌ ${grown} number${grown > 1 ? "s" : ""} grew with no \`Size growth:\` line in the body: the \`size\` check fails.`);
@@ -192,6 +203,9 @@ function renderComment({ base, head, baseSha, headSha, body, problem }) {
   const shown = v.rows.filter((r) => r.ceiling !== null || r.grew || r.over || (r.was !== null && r.was !== r.now));
   const rest = v.rows.filter((r) => !shown.includes(r));
   out.push("", ...header, ...shown.map(row));
+  if (v.gone.length) {
+    out.push("", "No longer reported (on main, not in this pull request):", "", ...v.gone.map((m) => `- ${m.label}: ${fmt(m.value)}${m.ceiling === null ? "" : `, ceiling ${fmt(m.ceiling)}`}`));
+  }
   if (rest.length) {
     out.push("", "<details>", `<summary>${rest.length} unchanged numbers without a ceiling</summary>`, "", ...header, ...rest.map(row), "", "</details>");
   }
@@ -281,6 +295,7 @@ module.exports = {
   check,
   compare,
   fetchReport,
+  removed,
   growthReason,
   parseReport,
   proseLines,

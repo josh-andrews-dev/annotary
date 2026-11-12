@@ -129,8 +129,9 @@ machine, so CI checks them on every pull request. `docs/dev/perf-suite.md` says 
   `BUDGETS.md`; `make size-report` rewrites it. Commit the new file with the change that moved the
   numbers, and read its diff.
 - The `size` check (`.github/workflows/size.yml`) compares the file at the base and at the head of a
-  pull request. It fails when any number is larger, unless the pull request body has a line
-  `Size growth: <why>`, and it always fails above a ceiling. Editing the body runs it again.
+  pull request. It fails when any number is larger, a ceiling is raised or removed, or a number is no
+  longer reported, unless the pull request body has a line `Size growth: <why>`; it always fails
+  above a ceiling. Editing the body runs it again.
 - A comment on the pull request (`.github/workflows/size-comment.yml`) shows each number on `main`,
   on the pull request, the change and the ceiling, and is updated in place. It runs from the default
   branch and reads the two committed files through the API as data; it never checks out or runs the

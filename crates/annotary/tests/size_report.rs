@@ -487,8 +487,16 @@ fn measure() -> (Value, Vec<Metric>) {
         }
     }
     let whole = Answer { status: 200, headers: Vec::new(), body: whole };
-    r.add("embed.view.bytes", "Embed Document view: bytes", "bytes", norm(&whole).len() as u64);
-    r.add("embed.view.parts", "Embed Document view: parts", "count", parts);
+    let whole = norm(&whole);
+    r.add("embed.view.bytes", "Embed Document view: bytes", "bytes", whole.len() as u64);
+    // The server cut the raw body; the same cuts of the normalized body are what this run's address
+    // and clock cannot move.
+    let normalized_parts = annotary::server::embed::cuts(whole.as_bytes(), annotary::server::embed::PART_MAX).len();
+    assert!(
+        normalized_parts.abs_diff(parts as usize) <= 1,
+        "{parts} parts from the server, {normalized_parts} normalized"
+    );
+    r.add("embed.view.parts", "Embed Document view: parts", "count", normalized_parts.max(1) as u64);
 
     // One reply: the card fragment the page swaps in, and the live event that announces it.
     let threads = c.get(&format!("/api/v1/docs/{id}/threads"), &api);

@@ -24,7 +24,7 @@ dev-dependencies), `.github/scripts/size-report.cjs` with its test, `.github/wor
   embed mode with the owner's Bearer Token.
 - **What is counted:** the Document view (`/d/{id}`), the previous Version (`/d/{id}/v/{head-1}`) and the
   list (`/`); `GET /api/v1/docs`, `…/versions/{head}/html`, `…/threads?status=all`; `GET /embed/shell` and
-  the embedded Document view (every part fetched; `parts` is the server's `X-Annotary-Parts`); then one
+  the embedded Document view (every part fetched and joined; `parts` is `embed::cuts` of the normalized body at `PART_MAX`, which the test checks is within one of the server's `X-Annotary-Parts`, so this run's address and clock cannot move it); then one
   reply to the first open anchored Thread, the card fragment `GET /d/{id}/t/{tid}` and the SSE frame of
   its `thread.replied` event (`id:`, `event:`, `data:`, the blank line). Bytes are the body, uncompressed,
   without headers.

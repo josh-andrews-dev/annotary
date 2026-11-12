@@ -68,6 +68,7 @@ test("a report is validated strictly as data", () => {
 test("the Size growth line is read from the prose only", () => {
   assert.equal(sr.growthReason("## Summary\n\nSize growth: the avatars add a picture per card"), "the avatars add a picture per card");
   assert.equal(sr.growthReason("- **Size growth:** one more button"), "one more button");
+  assert.equal(sr.growthReason("**Size growth**: one more button"), "one more button");
   assert.equal(sr.growthReason("<!-- Size growth: a hint in the template -->"), null);
   assert.equal(sr.growthReason("```\nSize growth: inside code\n```"), null);
   assert.equal(sr.growthReason("Size growth:"), null);
@@ -89,6 +90,18 @@ test("growth fails without a reason and passes with one; a ceiling always fails"
   const raised = report({}, { "view.bytes": 1200 });
   assert.equal(sr.verdict({ base, head: raised, body: "" }).ok, false, "a raised ceiling counts as growth");
   assert.equal(sr.verdict({ base, head: raised, body: "Size growth: raised by the rule" }).ok, true);
+  const dropped = report({}, { "view.bytes": null });
+  assert.equal(sr.verdict({ base, head: dropped, body: "" }).ok, false, "a removed ceiling counts as raised");
+  assert.equal(sr.verdict({ base, head: dropped, body: "Size growth: the row moved" }).ok, true);
+  const renamed = report({ "view.bytes": 5000 });
+  renamed.metrics[0].id = "view.total_bytes";
+  renamed.metrics[0].ceiling = null;
+  const v = sr.verdict({ base, head: renamed, body: "" });
+  assert.equal(v.ok, false, "a renamed metric is a number no longer reported");
+  assert.ok(v.lines.some((l) => /no longer reported: Document view: bytes/.test(l)), v.lines.join("\n"));
+  assert.equal(sr.verdict({ base: null, head: renamed, body: "" }).ok, true, "the first report has nothing to lose");
+  const md = sr.renderComment({ base, head: renamed, baseSha: "a".repeat(40), headSha: "b".repeat(40), body: "" });
+  assert.match(md, /No longer reported \(on main, not in this pull request\):\n\n- Document view: bytes: 1,000, ceiling 1,100/);
 });
 
 test("the change is absolute and in percent", () => {
