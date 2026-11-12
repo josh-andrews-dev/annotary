@@ -156,6 +156,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/docs/{id}/purge", post(docs::purge))
         .route("/api/v1/docs/{id}/versions", get(docs::versions).post(docs::push))
         .route("/api/v1/docs/{id}/versions/{n}", get(docs::version))
+        .route("/api/v1/docs/{id}/diff", get(compare::api))
         .route("/api/v1/docs/{id}/status", get(docs::status))
         .route("/api/v1/docs/{id}/sidecar", get(docs::sidecar))
         // ticket 04: Threads / Comments / mentions (`threads.rs` has the table)
