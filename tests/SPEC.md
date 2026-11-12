@@ -234,6 +234,7 @@ markers in implementation code — only in tests.
 - S10-09 — Comment bodies are rendered with the Document superset minus embeds (images / files as plain links, never asset-scanned), no `data-l` (story 77)
 - S10-10 — the Playwright (TypeScript) harness runs against a real spawned `annotary serve` on an ephemeral port with a store seeded through the real CLI (the sidecar-prototype scenario + list Documents) and a second password-protected server; it is part of `make e2e` / `make check`; `// spec:` markers in `.ts` count (Testing seam 4)
 - S10-11 — a span Thread's highlight (on load, after a reload, on a live re-draw) lands on the occurrence the Thread is anchored to when its quote occurs more than once in the searched blocks (two items of one list, twice on one line): each hit's source line = its innermost `data-l` block's first line + the soft breaks before it, and `#cd-data`'s `occ` (earlier starts of the text on that source line) picks the hit on the Thread's line; the first hit only when the position cannot be used (story 117; tracker CMD-7)
+- S10-12 — a span Thread's mark is the smallest rendered block that holds its anchored lines when the quote is not in the rendered text: a quote carrying inline Markdown syntax (code spans, emphasis, strikethrough, link text, backslash escapes) is found in its plain form, and a quote that cannot be made plain (an image, raw HTML), or whose plain form occurs more than once on its line, marks the innermost unambiguous block (`li`, `p`, `td`, or the `tr` when a row's cells share its lines) — never the whole list, table or block quote — so a comment inside one list item marks that item (or the quoted words in it) and its card aligns with it (story 117)
 <!-- ---- end ticket 10 ---- -->
 
 <!-- ---- ticket 11 ---- -->
@@ -747,7 +748,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 114 — `wait` without DOC covers every readable Document → S08-09
 - 115 — SSE on the events endpoint → S08-10, S11-07, S25-01
 - 116 — in-app what's new → S08-10, S11-07
-- 117 — Document view: margin cards ≥ 850 px, inline below → S10-01, S10-03, S10-11, S28-01, S31-05
+- 117 — Document view: margin cards ≥ 850 px, inline below → S10-01, S10-03, S10-11, S10-12, S28-01, S31-05
 - 118 — narrow header line + overlay, no bottom bar → S10-04, S31-05
 - 119 — select → pill → composer (head only) → S11-01, S27-01, S36-01
 - 120 — media → pill → whole-Asset Thread → S11-02, S27-01, S36-01

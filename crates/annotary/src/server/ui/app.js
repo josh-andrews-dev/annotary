@@ -330,13 +330,14 @@ function main() {
   /* ---------- the rendered Document: blocks by source line ---------- */
   var blocks = [];   // every [data-l] block of the Document, document order (= non-decreasing `a`)
   var tops = [];     // the blocks with no enclosing block, in order (siblings never overlap)
+  var kidsOf = new Map(); // block element → its direct child blocks, in order
   var parentOf = null; // WeakMap: block element → its nearest enclosing block element (or null)
   function parseL(el) {
     var m = /^(\d+)-(\d+)$/.exec(el.getAttribute('data-l') || '');
     return m ? { a: +m[1], b: +m[2] } : null;
   }
   function indexBlocks() {
-    blocks = []; tops = [];
+    blocks = []; tops = []; kidsOf = new Map();
     parentOf = new WeakMap();
     if (!docEl) return;
     $$('[data-l]', docEl).forEach(function (el) {
@@ -350,6 +351,8 @@ function main() {
       var b = { el: el, a: r.a, b: r.b };
       blocks.push(b);
       if (!p) tops.push(b);
+      else if (kidsOf.has(p)) kidsOf.get(p).push(b);
+      else kidsOf.set(p, [b]);
     });
   }
   /* The nearest enclosing Document block (never inside a strip); indexed, so O(1) after indexBlocks. */
@@ -374,6 +377,20 @@ function main() {
     while (lo < hi) { var mid = (lo + hi) >> 1; if (tops[mid].a <= line) lo = mid + 1; else hi = mid; }
     return lo > 0 ? tops[lo - 1] : null;
   }
+  /* The innermost block that holds every anchored line (a `li`, a `td`, a `p` inside a
+     `blockquote`), so a Thread inside one list item never marks the whole list. At most one child
+     may hold the range; when several do, the block itself is the smallest unambiguous one — table
+     cells share their row's lines (`html.rs`), so a multi-cell row marks the `tr`. */
+  function smallestBlock(b, a, z) {
+    for (;;) {
+      var next = null, holding = 0;
+      (kidsOf.get(b.el) || []).forEach(function (c) {
+        if (c.a <= a && z <= c.b) { next = c; holding++; }
+      });
+      if (holding !== 1) return b;
+      b = next;
+    }
+  }
   function textNodes(el, out) {
     var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
@@ -389,8 +406,10 @@ function main() {
   }
   /* Whitespace-insensitive search of `quote` in the text of `nodes`: returns [{node, off}] for
      the first and last character, or null. With several hits, `t` (the Thread's `line` and `occ`)
-     picks the one the Thread is anchored to (CMD-7, `pickHit`), not simply the first. */
-  function findQuote(nodes, quote, t) {
+     picks the one the Thread is anchored to (CMD-7, `pickHit`), not simply the first. `unique`
+     accepts a hit only when it is the only one on the Thread's line: a plain form has no `occ`
+     counted for it, so a short word cannot pick among several occurrences safely. */
+  function findQuote(nodes, quote, t, unique) {
     var q = quote.replace(/\s+/g, ' ').trim();
     if (!q) return null;
     var chars = [];
@@ -418,16 +437,20 @@ function main() {
       if (map[k] && map[k + q.length - 1]) hits.push({ start: map[k], end: map[k + q.length - 1] });
     }
     if (!hits.length) return null;
+    if (unique) {
+      if (!t || !t.line) return hits.length === 1 ? hits[0] : null;
+      hitLines(nodes, hits);
+      var only = hits.filter(function (h) { return h.line === t.line; });
+      return only.length === 1 ? only[0] : null;
+    }
     if (hits.length === 1 || !t || !t.line) return hits[0];
     return pickHit(nodes, hits, t);
   }
   /* CMD-7: the same text can occur more than once in the searched blocks (two items of one list,
      a phrase twice on a line). Each hit's source line = the first line of its innermost `[data-l]`
      block + the soft breaks (`\n`, which the renderer keeps inside blocks) in that block's own text
-     before it; the hits on the Thread's start line are taken in order and the server's `occ` (how
-     many times the text starts earlier on that source line) picks one. No hit on the line ⇒ the
-     nearest line; no usable line ⇒ the first hit. */
-  function pickHit(nodes, hits, t) {
+     before it. */
+  function hitLines(nodes, hits) {
     var seen = new Map(); // block element → soft breaks counted in its own text so far
     var at = new Map();   // text node → its hits
     hits.forEach(function (h) { var l = at.get(h.start.node); if (l) l.push(h); else at.set(h.start.node, [h]); });
@@ -442,6 +465,13 @@ function main() {
       (at.get(n) || []).forEach(function (h) { h.line = r ? r.a + before + nl(n.nodeValue.slice(0, h.start.off)) : null; });
       if (blk) seen.set(blk, before + nl(n.nodeValue));
     });
+    return hits;
+  }
+  /* The hits on the Thread's start line are taken in order and the server's `occ` (how many times
+     the text starts earlier on that source line) picks one. No hit on the line ⇒ the nearest line;
+     no usable line ⇒ the first hit. */
+  function pickHit(nodes, hits, t) {
+    hitLines(nodes, hits);
     var onLine = hits.filter(function (h) { return h.line === t.line; });
     if (!onLine.length) {
       var best = null;
@@ -450,6 +480,41 @@ function main() {
     }
     var i = typeof t.occ === 'number' && t.occ > 0 ? t.occ : 0;
     return onLine[Math.min(i, onLine.length - 1)];
+  }
+  /* A quote taken from the Markdown source can carry inline syntax the rendered text does not
+     have: code spans, emphasis and strikethrough markers, link text, backslash escapes. This is
+     the plain text the renderer leaves for it, searched only after the quote itself is not
+     found. Returns null for a quote whose rendered text cannot be derived reliably (an image
+     renders no text of its own; an unmatched code span or link is not a complete quote). */
+  function plainQuote(q) {
+    if (q.indexOf('![') >= 0) return null;
+    var codes = [];
+    var s = q.replace(/`+([^`]*)`+/g, function (_, body) {
+      codes.push(body);
+      return '\u0000' + (codes.length - 1) + '\u0000';
+    });
+    if (s.indexOf('`') >= 0) return null;
+    // Hold each `\X` so the emphasis pass cannot see the escaped marker as syntax, then restore
+    // the character alone. A code span's content is already held, so its backslashes stay literal.
+    var escaped = [];
+    s = s.replace(/\\([\\`*_{}\[\]()#+\-.!~|>])/g, function (_, ch) {
+      escaped.push(ch);
+      return '\u0001' + (escaped.length - 1) + '\u0001';
+    });
+    s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1');
+    // Only a balanced pair is a marker; a lone `*` or `_` is the literal character.
+    var emphasis = function (t) {
+      return t
+        .replace(/\*\*(\S(?:[\s\S]*?\S)?)\*\*/g, '$1')
+        .replace(/__(\S(?:[\s\S]*?\S)?)__/g, '$1')
+        .replace(/~~(\S(?:[\s\S]*?\S)?)~~/g, '$1')
+        .replace(/\*(\S(?:[\s\S]*?\S)?)\*/g, '$1')
+        .replace(/_(\S(?:[\s\S]*?\S)?)_/g, '$1');
+    };
+    s = emphasis(emphasis(s));
+    s = s.replace(/\u0001(\d+)\u0001/g, function (_, n) { return escaped[+n]; });
+    s = s.replace(/\u0000(\d+)\u0000/g, function (_, n) { return codes[+n]; });
+    return s;
   }
   function wrap(nodes, hit, cls, tid) {
     var si = nodes.indexOf(hit.start.node), ei = nodes.indexOf(hit.end.node);
@@ -522,11 +587,17 @@ function main() {
       outer.forEach(function (b, i) { if (i) nodes.push(null); textNodes(b.el, nodes); });
       var quote = t.now || t.quote || '';
       var hit = quote ? findQuote(nodes, quote, t) : null;
+      if (!hit && quote) {
+        // The quote came from the Markdown source and carries syntax the rendered text does not
+        // have: search its plain form (inline code, emphasis, link text).
+        var plain = plainQuote(quote);
+        if (plain && plain !== quote) hit = findQuote(nodes, plain, t, true);
+      }
       var cls = 'cd-hl cd-st-' + t.status + (t.resolved ? ' cd-res' : '');
       if (hit && wrap(nodes, hit, cls, t.id)) return;
-      // The quote is not findable in the rendered text (Markdown syntax inside it, a table
-      // cell…): mark the block instead.
-      var blk = outer[0] || blockBefore(t.line);
+      // The quote is not findable in the rendered text (an image, raw HTML, a table cell…):
+      // mark the smallest block that holds the anchored lines, never the whole list.
+      var blk = outer.length ? smallestBlock(outer[0], t.line, t.end || t.line) : blockBefore(t.line);
       if (blk) { blk.el.classList.add('cd-hl-block'); if (t.resolved) blk.el.classList.add('cd-res'); if (!blk.el.hasAttribute('data-t')) blk.el.setAttribute('data-t', t.id); indexMark(t.id, blk.el); }
     } else if (t.subject === 'asset') {
       var el = null;
