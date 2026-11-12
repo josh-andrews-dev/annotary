@@ -532,3 +532,6 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
   .cd-dxsum{flex:1 1 100%}
   .cd-dxnav{margin-left:auto}
 }
+
+/* THROWAWAY: padding that adds bytes to every page, to prove the size check. Never merge this. */
+.cd-throwaway-padding{display:none}
