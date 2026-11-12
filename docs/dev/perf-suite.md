@@ -46,6 +46,10 @@ dev-dependencies), `.github/scripts/size-report.cjs` with its test, `.github/wor
 - **Decisions to keep:** counts, never times; the full fixture, not the smoke one, so the numbers are the
   perf suite's page; the report is committed (the change shows in the diff, and a fork's pull request
   needs no artifact); ceilings live in `BUDGETS.md` and are copied into the report, so the comment and the
-  `size` check read one file.
+  `size` check read one file. The `size` and `perf` checks load their scripts from the pull request's base
+  (`ref: base.sha`), never its head, so a pull request cannot loosen a check in the change it is checked
+  on; `make test` runs the pull request's own copy's tests. The comment loads its script from the default
+  branch. A missing base report means "no base"; an invalid one is named, and an API failure fails the run
+  and leaves the last comment as it was.
 <!-- ---- end ticket 15 ---- -->
 <!-- ---- ticket 16 ---- -->
