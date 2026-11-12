@@ -27,7 +27,8 @@ session loads only `AGENTS.md` and reads the file for the area it is about to to
 | [web-settings.md](web-settings.md) | CMD-23: the Settings screen for every Member (sidebar, Applying to, Mixed, the chain, Copy from another device, Profile, Devices) |
 | [daemon-export-housekeeping.md](daemon-export-housekeeping.md) | ticket 13: `daemon`, `export`, housekeeping |
 | [skill-help-golden-flows.md](skill-help-golden-flows.md) | ticket 14: the agent skill, `--help`, the golden flows |
-| [perf-suite.md](perf-suite.md) | ticket 15: the perf suite and budgets |
+| [perf-suite.md](perf-suite.md) | ticket 15: the perf suite and budgets; the size report |
+| [surfaces.md](surfaces.md) | Hit every surface: the web page, embed mode, the API, the app, the Hermes page, the CLI, reverse states, docs; the `## Surfaces` section |
 | [phase1-closure.md](phase1-closure.md) | ticket 16: the definition of done, traceability, CI |
 | [concurrent-edits.md](concurrent-edits.md) | ticket 17: concurrent edits by content |
 | [ios-prerequisites.md](ios-prerequisites.md) | ticket 18: remote bind, links, pairing, titles |

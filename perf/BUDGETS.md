@@ -24,6 +24,38 @@ Reported, not budgeted: server TTFB (`responseStart − requestStart`) of the Do
 Version page and the list; DOMContentLoaded; the page's byte size; the same metrics of the
 Document view in layout C (600 px wide).
 
+## Size ceilings
+
+Deterministic counts, never times: what the server sends for the same generated fixture, measured
+by `crates/annotary/tests/size_report.rs` in `perf/size-report.json` (`make size-check`; how each
+number is counted: `docs/dev/perf-suite.md`, "The size report"). The test fails when a number is
+above its ceiling here, and so does the pull request's `size` check, which also fails on any
+growth over the base branch without a `Size growth:` line in the body (`perf/README.md`). Each
+ceiling was set on 2026-11-11 about 10% above the first measurement, rounded up to two significant
+figures (a count of 1 stays 1). A ceiling is raised only by the budget-raise rule below, like a
+timed budget. The other numbers of the report have no ceiling and are guarded by the growth check
+alone.
+
+| id | metric | ceiling | unit | first measured |
+|---|---|---:|---|---:|
+| `view.bytes` | Document view: bytes | 2,200,000 | bytes | 1,990,307 |
+| `view.elements` | Document view: elements | 36,000 | count | 32,444 |
+| `view.requests_before_paint` | Document view: requests before first paint | 1 | count | 1 |
+| `view.db_statements` | Document view: database statements | 47 | count | 42 |
+| `version.bytes` | Version page: bytes | 1,900,000 | bytes | 1,707,967 |
+| `version.db_statements` | Version page: database statements | 50 | count | 45 |
+| `list.bytes` | Document list: bytes | 200,000 | bytes | 179,560 |
+| `list.requests_before_paint` | Document list: requests before first paint | 1 | count | 1 |
+| `list.db_statements` | Document list: database statements | 200 | count | 177 |
+| `api.docs.bytes` | API Document list: bytes | 27,000 | bytes | 24,286 |
+| `api.docs.db_statements` | API Document list: database statements | 170 | count | 153 |
+| `api.html.bytes` | API Version HTML: bytes | 590,000 | bytes | 534,939 |
+| `api.threads.bytes` | API Threads: bytes | 570,000 | bytes | 514,908 |
+| `embed.shell.bytes` | Embed shell: bytes | 13,000 | bytes | 11,420 |
+| `embed.view.parts` | Embed Document view: parts | 7 | count | 6 |
+| `reply.fragment.bytes` | Reply: card fragment bytes | 2,700 | bytes | 2,439 |
+| `reply.event.bytes` | Reply: live event bytes | 380 | bytes | 338 |
+
 ## Measured (dev Mac, Apple M4 Pro, release build, 2026-08-19)
 
 See `target/perf/results.md` after a run; the table `make perf` prints is the record of the last

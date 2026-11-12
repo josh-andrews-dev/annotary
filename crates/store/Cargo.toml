@@ -11,6 +11,9 @@ license.workspace = true
 # Enables `fail` crate failpoints inside mutation paths (tests only; the `annotary` crate turns
 # this on through its dev-dependencies, so release builds never carry it).
 failpoints = ["fail/failpoints"]
+# Counts the SQL statements the store's connection runs ([`stmt_count`]), for the size report
+# (`crates/annotary/tests/size_report.rs`); tests only, turned on the same way as `failpoints`.
+stmt-count = ["rusqlite/trace"]
 
 [dependencies]
 annotary-sidecar = { workspace = true }

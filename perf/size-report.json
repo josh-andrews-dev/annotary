@@ -1,0 +1,287 @@
+{
+  "schema": 1,
+  "fixture": {
+    "scale": "full",
+    "seed": 1,
+    "lines": 5206,
+    "versions": 5,
+    "threads": 524,
+    "replies": 661,
+    "list_documents": 60
+  },
+  "metrics": [
+    {
+      "id": "view.bytes",
+      "label": "Document view: bytes",
+      "unit": "bytes",
+      "value": 1990307,
+      "ceiling": 2200000
+    },
+    {
+      "id": "view.script_bytes",
+      "label": "Document view: inline script",
+      "unit": "bytes",
+      "value": 110960,
+      "ceiling": null
+    },
+    {
+      "id": "view.data_bytes",
+      "label": "Document view: page data (JSON)",
+      "unit": "bytes",
+      "value": 95526,
+      "ceiling": null
+    },
+    {
+      "id": "view.style_bytes",
+      "label": "Document view: inline style",
+      "unit": "bytes",
+      "value": 41008,
+      "ceiling": null
+    },
+    {
+      "id": "view.document_bytes",
+      "label": "Document view: Document HTML",
+      "unit": "bytes",
+      "value": 534985,
+      "ceiling": null
+    },
+    {
+      "id": "view.cards_bytes",
+      "label": "Document view: Thread cards",
+      "unit": "bytes",
+      "value": 1202754,
+      "ceiling": null
+    },
+    {
+      "id": "view.other_bytes",
+      "label": "Document view: the rest",
+      "unit": "bytes",
+      "value": 5074,
+      "ceiling": null
+    },
+    {
+      "id": "view.elements",
+      "label": "Document view: elements",
+      "unit": "count",
+      "value": 32444,
+      "ceiling": 36000
+    },
+    {
+      "id": "view.requests_before_paint",
+      "label": "Document view: requests before first paint",
+      "unit": "count",
+      "value": 1,
+      "ceiling": 1
+    },
+    {
+      "id": "view.db_statements",
+      "label": "Document view: database statements",
+      "unit": "count",
+      "value": 42,
+      "ceiling": 47
+    },
+    {
+      "id": "version.bytes",
+      "label": "Version page: bytes",
+      "unit": "bytes",
+      "value": 1707967,
+      "ceiling": 1900000
+    },
+    {
+      "id": "version.script_bytes",
+      "label": "Version page: inline script",
+      "unit": "bytes",
+      "value": 110960,
+      "ceiling": null
+    },
+    {
+      "id": "version.data_bytes",
+      "label": "Version page: page data (JSON)",
+      "unit": "bytes",
+      "value": 88899,
+      "ceiling": null
+    },
+    {
+      "id": "version.style_bytes",
+      "label": "Version page: inline style",
+      "unit": "bytes",
+      "value": 41008,
+      "ceiling": null
+    },
+    {
+      "id": "version.document_bytes",
+      "label": "Version page: Document HTML",
+      "unit": "bytes",
+      "value": 536933,
+      "ceiling": null
+    },
+    {
+      "id": "version.cards_bytes",
+      "label": "Version page: Thread cards",
+      "unit": "bytes",
+      "value": 924919,
+      "ceiling": null
+    },
+    {
+      "id": "version.other_bytes",
+      "label": "Version page: the rest",
+      "unit": "bytes",
+      "value": 5248,
+      "ceiling": null
+    },
+    {
+      "id": "version.elements",
+      "label": "Version page: elements",
+      "unit": "count",
+      "value": 26823,
+      "ceiling": null
+    },
+    {
+      "id": "version.requests_before_paint",
+      "label": "Version page: requests before first paint",
+      "unit": "count",
+      "value": 1,
+      "ceiling": null
+    },
+    {
+      "id": "version.db_statements",
+      "label": "Version page: database statements",
+      "unit": "count",
+      "value": 45,
+      "ceiling": 50
+    },
+    {
+      "id": "list.bytes",
+      "label": "Document list: bytes",
+      "unit": "bytes",
+      "value": 179560,
+      "ceiling": 200000
+    },
+    {
+      "id": "list.script_bytes",
+      "label": "Document list: inline script",
+      "unit": "bytes",
+      "value": 110960,
+      "ceiling": null
+    },
+    {
+      "id": "list.data_bytes",
+      "label": "Document list: page data (JSON)",
+      "unit": "bytes",
+      "value": 0,
+      "ceiling": null
+    },
+    {
+      "id": "list.style_bytes",
+      "label": "Document list: inline style",
+      "unit": "bytes",
+      "value": 41008,
+      "ceiling": null
+    },
+    {
+      "id": "list.other_bytes",
+      "label": "Document list: the rest",
+      "unit": "bytes",
+      "value": 27592,
+      "ceiling": null
+    },
+    {
+      "id": "list.elements",
+      "label": "Document list: elements",
+      "unit": "count",
+      "value": 673,
+      "ceiling": null
+    },
+    {
+      "id": "list.requests_before_paint",
+      "label": "Document list: requests before first paint",
+      "unit": "count",
+      "value": 1,
+      "ceiling": 1
+    },
+    {
+      "id": "list.db_statements",
+      "label": "Document list: database statements",
+      "unit": "count",
+      "value": 177,
+      "ceiling": 200
+    },
+    {
+      "id": "api.docs.bytes",
+      "label": "API Document list: bytes",
+      "unit": "bytes",
+      "value": 24286,
+      "ceiling": 27000
+    },
+    {
+      "id": "api.docs.db_statements",
+      "label": "API Document list: database statements",
+      "unit": "count",
+      "value": 153,
+      "ceiling": 170
+    },
+    {
+      "id": "api.html.bytes",
+      "label": "API Version HTML: bytes",
+      "unit": "bytes",
+      "value": 534939,
+      "ceiling": 590000
+    },
+    {
+      "id": "api.html.db_statements",
+      "label": "API Version HTML: database statements",
+      "unit": "count",
+      "value": 8,
+      "ceiling": null
+    },
+    {
+      "id": "api.threads.bytes",
+      "label": "API Threads: bytes",
+      "unit": "bytes",
+      "value": 514908,
+      "ceiling": 570000
+    },
+    {
+      "id": "api.threads.db_statements",
+      "label": "API Threads: database statements",
+      "unit": "count",
+      "value": 14,
+      "ceiling": null
+    },
+    {
+      "id": "embed.shell.bytes",
+      "label": "Embed shell: bytes",
+      "unit": "bytes",
+      "value": 11420,
+      "ceiling": 13000
+    },
+    {
+      "id": "embed.view.bytes",
+      "label": "Embed Document view: bytes",
+      "unit": "bytes",
+      "value": 2001542,
+      "ceiling": null
+    },
+    {
+      "id": "embed.view.parts",
+      "label": "Embed Document view: parts",
+      "unit": "count",
+      "value": 6,
+      "ceiling": 7
+    },
+    {
+      "id": "reply.fragment.bytes",
+      "label": "Reply: card fragment bytes",
+      "unit": "bytes",
+      "value": 2439,
+      "ceiling": 2700
+    },
+    {
+      "id": "reply.event.bytes",
+      "label": "Reply: live event bytes",
+      "unit": "bytes",
+      "value": 338,
+      "ceiling": 380
+    }
+  ]
+}

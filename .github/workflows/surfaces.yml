@@ -1,0 +1,87 @@
+# The `surfaces` check (AGENTS.md, "Hit every surface"; CONTRIBUTING.md), a required status check:
+# a pull request titled feat, fix or perf needs a `## Surfaces` section in its body with one line
+# for each of Web, Hermes page, App, CLI and Agents, saying `changed`, `not affected: <why>` or
+# `follows: <reason>`, where the reason is one of three: the surface needs a design answer from
+# the maintainer, the pull request is an outside contributor's, or it is an urgent fix to a live
+# server. Other titles skip it. It reads only the event's title and body: no checkout, no token.
+# The script below is tested by .github/scripts/surfaces.test.cjs, which runs it from this file.
+name: surfaces
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: surfaces-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  surfaces:
+    name: surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const SURFACES = ['Web', 'Hermes page', 'App', 'CLI', 'Agents'];
+            const pr = context.payload.pull_request || {};
+            const title = String(pr.title || '');
+            if (!/^(feat|fix|perf)(\([^)]*\))?!?:/.test(title)) {
+              core.info('Not a feat, fix or perf pull request: no ## Surfaces section needed.');
+              return;
+            }
+            // The prose: HTML comments (the template's hints) and fenced code are not text.
+            const text = String(pr.body || '').replace(/\r/g, '').replace(/<!--[\s\S]*?(-->|$)/g, '');
+            const section = [];
+            let inside = false;
+            let fence = null;
+            for (const line of text.split('\n')) {
+              const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+              if (fence) {
+                if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+                continue;
+              }
+              if (f) { fence = f[1]; continue; }
+              const h = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+              if (h && h[1].length <= 2) { inside = h[1].length === 2 && h[2].toLowerCase() === 'surfaces'; continue; }
+              if (inside) section.push(line);
+            }
+            const how = 'Add a "## Surfaces" section with one line per surface, e.g. "- Web: changed", ' +
+              '"- App: not affected: no screen shows this", "- Hermes page: follows: urgent fix to a live server" ' +
+              '(AGENTS.md, "Hit every surface").';
+            if (!section.some((l) => l.trim())) {
+              core.setFailed(`A ${title.split(/[(:!]/)[0]} pull request needs a ## Surfaces section. ${how}`);
+              return;
+            }
+            const problems = [];
+            const strip = (s) => s.replace(/[*_`]/g, '').trim();
+            for (const name of SURFACES) {
+              const key = new RegExp('^\\s{0,3}(?:[-*+]\\s+)?(?:\\*\\*|__)?' + name.replace(' ', '\\s+') + '(?:\\*\\*|__)?\\s*:(?:\\*\\*|__)?\\s*(.*)$', 'i');
+              const hits = section.map((l) => key.exec(l)).filter(Boolean);
+              if (hits.length !== 1) {
+                problems.push(hits.length ? `${name}: say it once, not ${hits.length} times` : `${name}: missing`);
+                continue;
+              }
+              const value = strip(hits[0][1]);
+              let m;
+              if (/^changed\b/i.test(value)) continue;
+              if ((m = /^not affected\s*:\s*(.*)$/i.exec(value))) {
+                if (!/[A-Za-z0-9].*[A-Za-z0-9]/.test(m[1])) problems.push(`${name}: "not affected:" needs the reason why`);
+                continue;
+              }
+              if ((m = /^follows\s*:\s*(.*)$/i.exec(value))) {
+                if (!/\b(design|contributor|urgent)/i.test(m[1])) {
+                  problems.push(`${name}: "follows:" is allowed only for a design answer from the maintainer, an outside contributor's pull request, or an urgent fix to a live server; say which`);
+                }
+                continue;
+              }
+              problems.push(`${name}: say "changed", "not affected: <why>" or "follows: <reason>"`);
+            }
+            if (problems.length) {
+              core.setFailed(`## Surfaces:\n- ${problems.join('\n- ')}\n${how}`);
+              return;
+            }
+            core.info('Every surface is accounted for.');

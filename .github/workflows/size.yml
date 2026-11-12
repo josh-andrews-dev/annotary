@@ -1,0 +1,34 @@
+# The `size` check (perf/README.md, "The size report"), a required status check: it compares
+# perf/size-report.json at the pull request's base and head, and fails when any number is larger
+# unless the body has a `Size growth: <why>` line, and always when a number is above its ceiling.
+# The `cargo test` jobs (checks.yml) hold the committed file equal to what the server sends.
+# Read-only token; the two reports are fetched through the API and validated as data. Editing the
+# body runs it again. GitHub-hosted runner: the repo is public.
+name: size
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: size-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  size:
+    name: size
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await require('./.github/scripts/size-report.cjs').check({ github, context, core });

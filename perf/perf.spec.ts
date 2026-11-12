@@ -17,6 +17,7 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { STATE_FILE, type PerfHarness } from './global-setup';
 import { BUDGET_IDS, loadBudgets, type Budget, type BudgetId } from './budgets';
 
@@ -25,6 +26,18 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(REPO_ROOT, 'target', 'perf');
 
 let H: PerfHarness;
+
+/** The commit this run measured (`commit: SHA`, `(dirty: …)` with uncommitted changes), which the
+ *  `perf` check looks for in a pull request's `## Perf` section (perf/README.md). */
+function commitLine(): string {
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
+  try {
+    const dirty = git('status', '--porcelain', '--untracked-files=no') !== '';
+    return `commit: ${git('rev-parse', 'HEAD')}${dirty ? ' (dirty: uncommitted changes)' : ''}`;
+  } catch {
+    return 'commit: unknown (not a git checkout)';
+  }
+}
 const budgets = loadBudgets();
 
 /** Every number collected, by metric id (the budgeted ones and the reported ones). */
@@ -266,11 +279,11 @@ test('budgets: the table, then the assertions (perf/BUDGETS.md is the only sourc
   const table = [head, '-'.repeat(head.length), ...lines].join('\n');
   const intro = `perf: ${H.seeded.name} ${H.seeded.doc_id} — ${H.seeded.stats['lines_head']} lines / ${H.seeded.stats['words_head']} words / ${H.seeded.threads} Threads (${H.seeded.statuses.anchored} anchored, ${H.seeded.statuses.refined} refined, ${H.seeded.statuses.orphaned} orphaned) on v${H.seeded.head}; release binary ${H.bin}; ${RUNS} cold runs each, median asserted (units: ms unless noted)`;
   // eslint-disable-next-line no-console
-  console.log(`\n${intro}\n\n${table}\n`);
+  console.log(`\n${intro}\n${commitLine()}\n\n${table}\n`);
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, 'results.json'), JSON.stringify(json, null, 2));
   const md = [
-    `# Perf results (${new Date().toISOString()})`, '', intro, '',
+    `# Perf results (${new Date().toISOString()})`, '', intro, '', commitLine(), '',
     '| metric | budget | median | min | max | result |', '|---|---|---|---|---|---|',
     ...rows.map((r) => `| ${r.metric} | ${r.budget} | ${r.median} | ${r.min} | ${r.max} | ${r.result} |`), '',
   ].join('\n');

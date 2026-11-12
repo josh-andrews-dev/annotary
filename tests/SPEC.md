@@ -615,6 +615,11 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S44-04 — the renderer and the oldest renderer served as-is are 1.1.0: a Version rendered by 1.0.0 re-renders on read.
 - S44-05 — the push-time Asset scan applies the same rule, so an Asset written between two dollar amounts gets its manifest entry and renders.
 
+## The size report
+
+- S45-01 — the size report: the generated perf fixture (full scale, seed 1) seeded through the real binary against an in-process server, and deterministic counts of what the server sends for it, never times: the Document view, a Version page and the Document list (bytes split into inline script, page data, inline style, Document HTML, Thread cards and the rest; elements; requests before first paint; database statements to compose it), the API as the app reads it (the Document list, a Version's HTML, its Threads: bytes and statements), embed mode (the shell's bytes, the Document view's bytes and parts) and one reply (the card fragment's bytes and the live event's bytes); the server's address and the text of relative times are normalized first, and the committed `perf/size-report.json` equals what was measured, on Linux and macOS and from run to run (story 128)
+- S45-02 — the size ceilings live in `perf/BUDGETS.md` ("Size ceilings") and are copied into the report; the size test fails when a number is above its ceiling or a ceiling names no measured number (story 128)
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–174)
@@ -748,7 +753,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 125 — Action buttons head-only, chips per Version → S10-06, S11-04
 - 126 — keyboard map and nothing more → S11-01, S11-06, S11-10, S27-01
 - 127 — optimistic mutations < 50 ms with rollback → S11-05, S11-10, S15-02, S25-01, S27-01
-- 128 — speed budgets incl. the ≥ 5,000-line fixture → S10-01, S15-01, S15-02, S15-06
+- 128 — speed budgets incl. the ≥ 5,000-line fixture → S10-01, S15-01, S15-02, S15-06, S45-01, S45-02
 - 129 — inline media, derivatives, missing placeholder, same-content note → S03-08, S09-06, S10-07
 - 130 — Members by name + auth glyph, never a bot badge → S10-05, S12-01
 - 131 — login page only when a password is set → S06-10, S10-02, S12-06, S19-03, S22-01, S31-03, S31-04

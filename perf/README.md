@@ -37,11 +37,34 @@ npx playwright test -c perf/playwright.config.ts   # after `cargo build --releas
 A run takes about 25 s on a recent Mac (≈ 2 s of it seeding). The table `make perf` prints is
 the record of the run; `target/perf/results.md` keeps it.
 
-`make perf` is part of `make check` (ticket 16) — the definition of done
-(`docs/PHASE1-DONE.md`) — so it runs before anything merges from a developer machine; `PERF=0
-make check` / `make check-ci` leave it out where the release toolchain / Chromium is not. It is not
-part of this repo's CI, so run `make perf` on your own machine before merging anything that touches the web view (`server/view.rs`, `splice.rs`, `ui.rs`,
-`ui/app.js`, `ui/app.css`), the renderer, the read path of the store or the perf suite itself.
+`make perf` is part of `make check` (ticket 16), the definition of done
+(`docs/PHASE1-DONE.md`); `PERF=0 make check` / `make check-ci` leave it out where the release
+toolchain / Chromium is not. It is not part of this repo's CI (see "Where it runs").
+
+The table ends with the commit it ran on (`commit: SHA`, with `(dirty: …)` when the checkout had
+uncommitted changes), so a pull request can show which code it measured.
+
+## The web view paths
+
+A change to any of these is a web view change: its pull request needs a `make perf` table (below).
+The `perf` check reads this list from the base branch; keep it between the two markers.
+
+<!-- web-view-paths -->
+- `crates/annotary/src/server/view.rs`
+- `crates/annotary/src/server/splice.rs`
+- `crates/annotary/src/server/listing.rs`
+- `crates/annotary/src/server/ui.rs`
+- `crates/annotary/src/server/prefs.rs`
+- `crates/annotary/src/server/render.rs`
+- `crates/annotary/src/server/ui/app.js`
+- `crates/annotary/src/server/ui/app.css`
+- `crates/renderer/**`
+- `crates/store/src/docs.rs`
+- `crates/store/src/threads.rs`
+- `crates/store/src/render.rs`
+- `crates/perfgen/**`
+- `perf/*.ts`
+<!-- /web-view-paths -->
 
 ## Budgets and the budget-raise rule
 
@@ -58,13 +81,27 @@ runner mean nothing, so no workflow in this repo runs `make perf`. Nor does a pu
 run it anywhere: this repo has no self-hosted runner, because one would run a stranger's code on
 someone's machine.
 
-Instead a dedicated Mac the maintainer keeps runs it nightly against `main`, from a job outside this
-repo, and files an issue here when a budget fails. A regression is therefore caught within a day
-rather than on its pull request. That Mac also does other work, so a run can be slower than on a
+**The budgets are Mac numbers.** They were set on an Apple-silicon Mac, and they hold there. A Linux
+host does not reproduce them: on 2026-11-11 one at `3075baa`, on unchanged code, measured Document
+view interactive at 250 ms against the 200 ms budget (176 to 358 ms over five runs) and first paint
+exactly at the 100 ms budget. A run on Linux is useful for finding a regression, never as the
+record.
+
+**Before a web view change merges** (a path in the list above), the maintainer's session runs `make
+perf` on a Mac, at a commit of the pull request, from a clean checkout, one run at a time on that
+machine, and pastes the table it prints under a `## Perf` heading in the pull request body. The
+`perf` check (`.github/workflows/perf-table.yml`) fails such a pull request until that section holds
+a table with no `FAIL` row whose `commit:` line names a commit of the pull request. A miss on a busy
+machine is usually the machine: run it once more before looking for a regression. **A fork's pull
+request is exempt**: the maintainer runs `make perf` on it before deploying, as with `make
+verify-live`.
+
+**The nightly run.** A dedicated Mac the maintainer keeps runs it against `main` every night, from a
+job outside this repo, and files an issue here when a budget fails. That Mac also does other work, so a run can be slower than on a
 developer's Mac; check that first when a budget fails there.
 
-What the job needs and does, which is all you need to run it on your own Mac: rustup stable and Node
-22 for the user, nothing system-wide; then, from a clean checkout of `main`:
+What a run needs, which is all you need to run it on your own Mac: rustup stable and Node 22 for the
+user, nothing system-wide; then, from a clean checkout:
 
 ```sh
 npm ci --no-fund --no-audit
@@ -76,6 +113,31 @@ make perf
 own server on an ephemeral port and cleans up after itself; nothing persists between runs except the
 rustup, cargo, npm and Playwright caches. Only one run at a time on a machine: a concurrent run would
 skew the numbers.
+
+## The size report
+
+Times need a quiet Mac; sizes do not. `crates/annotary/tests/size_report.rs` seeds the same
+generated fixture into an in-process server and counts what the server sends: bytes (split into
+inline script, page data, inline style, Document HTML and Thread cards), elements, requests before
+first paint and database statements for the Document view, a Version page and the list; bytes and
+statements for the API the iPhone and iPad app reads; the embed shell and the parts a Document
+arrives in; and the card fragment and live event of one reply. The counts are the same on every
+machine, so CI checks them on every pull request. `docs/dev/perf-suite.md` says how each is counted.
+
+- `perf/size-report.json` is committed. `make size-check` (and the `cargo test` jobs on Linux and
+  macOS) fails when it differs from a fresh measurement or a number is above its ceiling in
+  `BUDGETS.md`; `make size-report` rewrites it. Commit the new file with the change that moved the
+  numbers, and read its diff.
+- The `size` check (`.github/workflows/size.yml`) compares the file at the base and at the head of a
+  pull request. It fails when any number is larger, a ceiling is raised or removed, or a number is no
+  longer reported, unless the pull request body has a line `Size growth: <why>`; it always fails
+  above a ceiling. Editing the body runs it again.
+- A comment on the pull request (`.github/workflows/size-comment.yml`) shows each number on `main`,
+  on the pull request, the change and the ceiling, and is updated in place. It runs from the default
+  branch and reads the two committed files through the API as data; it never checks out or runs the
+  pull request's code, so a fork's pull request gets it too.
+- Two open pull requests that both move a number conflict in `perf/size-report.json`; the later one
+  runs `make size-report` again after merging `main`.
 
 ## Reading a failure
 
