@@ -130,7 +130,8 @@ Why each choice: `docs/decisions.md`, 2026-11-12.
 - **Card Copy link:** `.cd-acts` ends with `button.cd-link.cd-copylink[data-act=link]` for every reader of a
   live Document; a reader without `comment` gets `.cd-acts` with only that button.
 - **Mentions (`/mentions`):** `mentions_page::hits` = `Store::mentions_for` over the readable Vaults (the API's
-  query), sorted by the Thread's `updated_at`, newest first. Each `li.cd-mrow[data-doc][data-t]` links
+  query and order: the Thread's `updated_at`, newest first). Below 850 px the menu opens rightward from the
+  overlay's left edge, and an item that leaves it closes the overlay. Each `li.cd-mrow[data-doc][data-t]` links
   `/d/{id}#tN` (the page selects it, turning Show resolved on only for a resolved one, as before).
 - **Tests:** `tests/web_document_additions.rs` (S48-01…04, server markup per viewer, Version and embed),
   `tests/web/document-additions.spec.ts` (the clipboard, the fallback, the composer, Mentions, Delete and

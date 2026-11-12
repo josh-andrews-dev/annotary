@@ -1,9 +1,8 @@
 //! The Mentions page: `GET /mentions` — every open Thread that mentions the viewer, across the
 //! Documents they can read, newest activity first; each row opens the Document at that Thread
 //! (`/d/{id}#tN`). The hits are `GET /api/v1/mentions`'s (`Store::mentions_for` over the same
-//! readable Vaults), so the page and the API cannot disagree on which Threads count; only the
-//! order is the page's (the API keeps Document, then Thread order). Web auth via the `web_pages`
-//! router, like the list.
+//! readable Vaults, newest activity first), so the page and the API cannot disagree. Web auth via
+//! the `web_pages` router, like the list.
 
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -25,12 +24,10 @@ pub async fn index(State(st): State<AppState>, auth: Auth, headers: HeaderMap) -
     }
 }
 
-/// The open Threads mentioning the viewer, newest activity first (ties: Document, then Thread).
+/// The open Threads mentioning the viewer, newest activity first (`Store::mentions_for`'s order).
 pub fn hits(st: &AppState, auth: &Auth) -> Result<Vec<MentionHit>, ApiError> {
     let (vault_ids, _) = scoped_vault_ids(st, auth, &ProfileVaultHeader::none(), None)?;
-    let mut hits = st.store.mentions_for(&auth.0.member_id, Some(&vault_ids), None)?;
-    hits.sort_by(|a, b| b.thread.updated_at.cmp(&a.thread.updated_at));
-    Ok(hits)
+    Ok(st.store.mentions_for(&auth.0.member_id, Some(&vault_ids), None)?)
 }
 
 fn label(h: &MentionHit) -> String {

@@ -14,14 +14,14 @@
       "id": "view.bytes",
       "label": "Document view: bytes",
       "unit": "bytes",
-      "value": 2052021,
+      "value": 2052442,
       "ceiling": 2200000
     },
     {
       "id": "view.script_bytes",
       "label": "Document view: inline script",
       "unit": "bytes",
-      "value": 124452,
+      "value": 124659,
       "ceiling": null
     },
     {
@@ -35,7 +35,7 @@
       "id": "view.style_bytes",
       "label": "Document view: inline style",
       "unit": "bytes",
-      "value": 44270,
+      "value": 44484,
       "ceiling": null
     },
     {
@@ -84,14 +84,14 @@
       "id": "version.bytes",
       "label": "Version page: bytes",
       "unit": "bytes",
-      "value": 1766812,
+      "value": 1767233,
       "ceiling": 1900000
     },
     {
       "id": "version.script_bytes",
       "label": "Version page: inline script",
       "unit": "bytes",
-      "value": 124452,
+      "value": 124659,
       "ceiling": null
     },
     {
@@ -105,7 +105,7 @@
       "id": "version.style_bytes",
       "label": "Version page: inline style",
       "unit": "bytes",
-      "value": 44270,
+      "value": 44484,
       "ceiling": null
     },
     {
@@ -154,14 +154,14 @@
       "id": "list.bytes",
       "label": "Document list: bytes",
       "unit": "bytes",
-      "value": 196386,
+      "value": 196807,
       "ceiling": 200000
     },
     {
       "id": "list.script_bytes",
       "label": "Document list: inline script",
       "unit": "bytes",
-      "value": 124452,
+      "value": 124659,
       "ceiling": null
     },
     {
@@ -175,7 +175,7 @@
       "id": "list.style_bytes",
       "label": "Document list: inline style",
       "unit": "bytes",
-      "value": 44270,
+      "value": 44484,
       "ceiling": null
     },
     {
@@ -259,7 +259,7 @@
       "id": "embed.view.bytes",
       "label": "Embed Document view: bytes",
       "unit": "bytes",
-      "value": 2062830,
+      "value": 2063251,
       "ceiling": null
     },
     {

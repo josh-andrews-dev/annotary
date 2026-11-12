@@ -2230,6 +2230,8 @@ function main() {
       var b = e.target.closest('[data-doc-act]');
       if (!b) return;
       var act = b.getAttribute('data-doc-act');
+      // An item that leaves the menu also closes the narrow header's overlay, which would cover it.
+      if (act === 'link' || act === 'comment' || act === 'help') app.classList.remove('cd-overlay-open');
       if (act === 'link') { showMore(false); if (D.link) copyLink(D.link, 'Document link'); }
       else if (act === 'comment') { showMore(false); openComposer({ kind: 'document' }); }
       else if (act === 'delete') { b.hidden = true; var c = $('#cd-delconfirm', more); c.hidden = false; $('[data-doc-act="delete-no"]', c).focus(); }

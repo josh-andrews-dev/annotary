@@ -376,6 +376,10 @@ mark.cd-hl.cd-pending-hl,.cd-asset-hl.cd-pending-hl{background:var(--cd-hl-sel);
 @container cd (max-width: 849.98px){
   .cd-toast{top:48px;right:8px}
   .cd-actbtns{margin-left:0}
+  /* the overlay puts the tools at its left edge: the menu opens rightward from there */
+  .cd-tools{position:relative}
+  .cd-docmenuwrap{position:static}
+  .cd-menu{left:0;right:auto;max-width:calc(100vw - 32px)}
 }
 
 /* ---------- ticket 12: the shared top bar's nav (list page + owner screens; admin.css has the rest) ---------- */

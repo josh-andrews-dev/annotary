@@ -485,8 +485,8 @@ three more header buttons, and a narrower Version select, because the header mus
 850 px and the select was already cut short. A long Document name now gives way with an ellipsis
 from 850 to 1800 px (the full name is its `title`): a real Name wrapped the header on `main`. Delete asks first, in the menu, and Restore is one
 click on the list's Deleted filter and on the deleted page; both need `write`. Chose a Mentions page
-rendered on the server (`/mentions`) from `Store::mentions_for`, the API's query, sorted newest
-first; rejected a script that fetches `/api/v1/mentions` because the pages paint final from one
+rendered on the server (`/mentions`) from `Store::mentions_for`, the API's query and order (newest
+first); rejected a script that fetches `/api/v1/mentions` because the pages paint final from one
 response.
 <a id="embed-no-delete"></a>**An embed render has no Delete or Restore.** The Hermes page keeps
 the review loop (read, comment, act); deleting or restoring a Document stays on the web page, the

@@ -117,6 +117,33 @@ test.describe('comment on the whole document', () => {
   });
 });
 
+test.describe('on a phone', () => {
+  // spec: S48-02, S48-04
+  test('the menu opens inside the screen from the header overlay, and an item closes the overlay', async ({ page }) => {
+    const doc = seedDoc('web-add-narrow', MD);
+    await openDoc(page, doc.id, { width: 390 });
+    await page.locator('#cd-line').click();
+    await expect(page.locator('.cd-app')).toHaveClass(/cd-overlay-open/);
+    await page.locator('#cd-docmenubtn').click();
+    const menu = page.locator('#cd-docmenu');
+    await expect(menu).toBeVisible();
+    const inside = async () => {
+      const b = (await menu.boundingBox())!;
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(390);
+    };
+    await inside();
+    await menu.locator('[data-doc-act="delete"]').click();
+    await expect(page.locator('#cd-delconfirm [data-doc-act="delete-yes"]')).toBeVisible();
+    await inside();
+    await menu.locator('[data-doc-act="delete-no"]').click();
+    await page.locator('#cd-docmenubtn').click();
+    await menu.locator('[data-doc-act="comment"]').click();
+    await expect(page.locator('.cd-app')).not.toHaveClass(/cd-overlay-open/);
+    await expect(page.locator('.cd-strip-doc .cd-composer textarea')).toBeFocused();
+  });
+});
+
 test.describe('mentions', () => {
   // spec: S48-03
   test('the Mentions page lists the Thread and opens the Document at it', async ({ page }) => {
