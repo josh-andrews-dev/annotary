@@ -20,10 +20,17 @@ function listItems(doc: { id: string }): Item[] {
   cli(['pull', doc.id, '--out', dir]);
   const md = fs.readdirSync(dir).find((f) => f.endsWith('.md'))!;
   const lines = fs.readFileSync(path.join(dir, md), 'utf8').split('\n');
+  // Leading YAML front matter is not the body: a `- tag` line in it renders no list item.
+  let start = 0;
+  if (lines[0] === '---') {
+    const close = lines.indexOf('---', 1);
+    if (close > 0) start = close + 1;
+  }
   const items: Item[] = [];
   // A `-` line inside a fenced code block renders as code, not as a list item.
   let fence: string | null = null;
-  lines.forEach((line, i) => {
+  lines.slice(start).forEach((line, k) => {
+    const i = k + start;
     const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
     if (fence) {
       if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
@@ -45,10 +52,13 @@ function anchor(item: Item, startCol: number): string {
 async function expectItemMarked(page: import('@playwright/test').Page, item: Item, tid: string) {
   const li = page.locator(`.cd-doc li[data-l^="${item.n}-"]`).first();
   await expect(li).toHaveCount(1);
-  const mark = li.locator(`mark.cd-hl[data-t="${tid}"]`).first();
-  const block = await li.evaluate((e, t) => e.classList.contains('cd-hl-block') && e.getAttribute('data-t') === t, tid);
-  if (block) await expect(li).toHaveClass(/cd-hl-block/);
-  else await expect(mark).toHaveCount(1);
+  // A tight or nested item marks its `li`; a loose item's paragraph is a child block, so accept
+  // either the item itself or a mark or block inside it.
+  const marked = await li.evaluate((e, t) => {
+    if (e.getAttribute('data-t') === t && e.classList.contains('cd-hl-block')) return true;
+    return !!e.querySelector(`mark.cd-hl[data-t="${t}"], .cd-hl-block[data-t="${t}"]`);
+  }, tid);
+  expect(marked, 'the item or a mark inside it carries this Thread').toBe(true);
   // No list around it carries this Thread: no bar beside every bullet, no list-wide block mark.
   const lists = page.locator('.cd-doc ul, .cd-doc ol');
   expect(await lists.evaluateAll((els, t) => els.filter((e) => e.getAttribute('data-t') === t).length, tid)).toBe(0);
@@ -81,12 +91,15 @@ test('a comment inside one list item marks that item on the real data, never the
     await expectItemMarked(page, syntax, tid);
   }
 
-  // The bullet marker never renders, so this quote cannot be found and the smallest block decides.
+  // The bullet marker never renders, so this quote cannot be found and the smallest block decides:
+  // the item itself, or a child block of a loose item.
   const forced = items[0];
   const forcedTid = anchor(forced, 0);
   await openDoc(page, forced.id);
   const li = page.locator(`.cd-doc li[data-l^="${forced.n}-"]`).first();
-  await expect(li).toHaveClass(/cd-hl-block/);
-  await expect(li).toHaveAttribute('data-t', forcedTid);
+  const block = await li.evaluate((e, t) => (
+    e.getAttribute('data-t') === t ? e.classList.contains('cd-hl-block') : !!e.querySelector(`.cd-hl-block[data-t="${t}"]`)
+  ), forcedTid);
+  expect(block, 'the whole-item range marks a block at the item').toBe(true);
   await expectItemMarked(page, forced, forcedTid);
 });

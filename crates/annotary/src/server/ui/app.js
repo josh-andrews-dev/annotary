@@ -494,6 +494,13 @@ function main() {
       return '\u0000' + (codes.length - 1) + '\u0000';
     });
     if (s.indexOf('`') >= 0) return null;
+    // Hold each `\X` so the emphasis pass cannot see the escaped marker as syntax, then restore
+    // the character alone. A code span's content is already held, so its backslashes stay literal.
+    var escaped = [];
+    s = s.replace(/\\([\\`*_{}\[\]()#+\-.!~|>])/g, function (_, ch) {
+      escaped.push(ch);
+      return '\u0001' + (escaped.length - 1) + '\u0001';
+    });
     s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1');
     // Only a balanced pair is a marker; a lone `*` or `_` is the literal character.
     var emphasis = function (t) {
@@ -505,9 +512,7 @@ function main() {
         .replace(/_(\S(?:[\s\S]*?\S)?)_/g, '$1');
     };
     s = emphasis(emphasis(s));
-    // Escapes first: inside a code span a backslash is the literal character, so a restored span
-    // must not be unescaped.
-    s = s.replace(/\\([\\`*_{}\[\]()#+\-.!~|>])/g, '$1');
+    s = s.replace(/\u0001(\d+)\u0001/g, function (_, n) { return escaped[+n]; });
     s = s.replace(/\u0000(\d+)\u0000/g, function (_, n) { return codes[+n]; });
     return s;
   }

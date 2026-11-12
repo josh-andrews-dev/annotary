@@ -16,6 +16,12 @@ const LIST = `# Anchors
 - Third item
 `;
 
+const ESCAPES = `# Escapes
+
+- Code span with \`a\\*b\` inside.
+- Literal a \\*b\\* c marks.
+`;
+
 const REPEATED = `# Repeated
 
 - **Same** text here
@@ -178,6 +184,20 @@ test('a plain form that occurs more than once on its line falls back to the bloc
   await expect(p).toHaveClass(/cd-hl-block/);
   await expect(p).toHaveAttribute('data-t', 't1');
   await expect(page.locator('.cd-doc mark.cd-hl[data-t="t1"]')).toHaveCount(0);
+});
+
+// spec: S10-12
+test('a quote with backslashes is found: inside a code span and around an escaped marker', async ({ page }) => {
+  const doc = seedDoc('web-hl-escapes', ESCAPES);
+  cli(h().owner, ['thread', 'new', doc.id, rangeOf(ESCAPES, '`a\\*b`'), '-m', 'A code span with a backslash.']);
+  cli(h().owner, ['thread', 'new', doc.id, rangeOf(ESCAPES, 'a \\*b\\* c'), '-m', 'Escaped markers.']);
+  await openDoc(page, doc.id);
+
+  // Inside a code span a backslash is literal: the plain form keeps it.
+  await expect(page.locator('.cd-doc mark.cd-hl[data-t="t1"]')).toHaveText('a\\*b');
+  // An escaped marker is the character alone: the emphasis pass must not eat it as syntax.
+  await expect(page.locator('.cd-doc mark.cd-hl[data-t="t2"]')).toHaveText('a *b* c');
+  expect(await page.locator('.cd-doc .cd-hl-block').count()).toBe(0);
 });
 
 // spec: S10-12
