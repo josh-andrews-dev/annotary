@@ -92,7 +92,7 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     use super::{
         access, actions, admin, assets, avatars, blobs, compare, docs, events, housekeeping, listing, me_settings,
-        members, pairing, render, settings_page, threads, vaults, view, web,
+        members, mentions_page, pairing, render, settings_page, threads, vaults, view, web,
     };
     // ---- ticket 06: web pages sit behind the loopback-trust / login-redirect middleware ----
     let web_pages = Router::new()
@@ -103,6 +103,8 @@ pub fn router(state: AppState) -> Router {
         // ---- end ticket 10 ----
         // Compare Versions: one Version against another, inline (`compare.rs`)
         .route("/d/{id}/diff", get(compare::page))
+        // Every open Thread that mentions the viewer (`mentions_page.rs`)
+        .route("/mentions", get(mentions_page::index))
         // ---- ticket 11: one Thread's card as JSON (`view::fragment`) for live updates / confirmations ----
         .route("/d/{id}/t/{tid}", get(view::fragment))
         // ---- end ticket 11 ----

@@ -105,6 +105,38 @@ over, three times at most). Parts end on UTF-8 character boundaries, so a backen
   the Webapp on a phone is WebKit, which the suite does not run.
 <!-- ---- end M3 (Hermes plan) ---- -->
 
+<!-- ---- Document additions ---- -->
+## Copy link, the whole-Document comment, Mentions, Delete and Restore
+
+Why each choice: `docs/decisions.md`, 2026-11-12.
+
+- **Files:** `view.rs` (`share_link`, `more_menu`, `COPY_LINK_BTN`, `Viewer.link`, the Restore button beside the
+  deleted chip, `#cd-data.link` / `can_write`), `mentions_page.rs` (`/mentions`), `listing.rs` (the Deleted
+  filter's Restore), `ui::top_nav` (the Mentions link, in embed renders too), the "More menu" and "Mentions"
+  rules in `app.css`, and in `app.js` `copyLink`, `showMore`, `lifecycle`, the `document` branch of
+  `openComposer` / `postComposer` and the list's Restore handler.
+- **The link:** `share_link` is `annotary_store::doc_link(public_url, link_base, id)` (what `annotary link`
+  prints), else `origin/d/{id}`; null on a deleted Document, which has no Copy link anywhere. A Thread's link is
+  that plus `#tN`. `copyLink` tries `navigator.clipboard`, then a hidden textarea and `execCommand('copy')`,
+  then puts the link, selected, in `#cd-toast` (`.cd-toast-ok`; a click in the field keeps it open).
+- **The More menu (`#cd-docmenubtn` → `#cd-docmenu`):** Copy link (live), "Comment on the whole document" (head,
+  `comment`, live; hidden by `hideHeadOnly` once the head moves), "Delete Document…" (`write`, live, not embed),
+  which shows `#cd-delconfirm` first, and always "Keyboard shortcuts" (`#cd-helpbtn`, the help that had
+  its own `?` button: the header keeps one row). It closes on an outside click and on Escape.
+- **Delete / Restore:** `DELETE /api/v1/docs/{id}` and `POST …/restore`, then the page loads again
+  (`transport.navigate('/d/{id}')`), so the server draws the deleted or live state; an error is a toast. The
+  list's `button.cd-restore[data-restore]` (Deleted filter, `write` on the row's Vault, not embed) restores in
+  place: the row stays and says "restored". Neither exists in an embed render.
+- **Card Copy link:** `.cd-acts` ends with `button.cd-link.cd-copylink[data-act=link]` for every reader of a
+  live Document; a reader without `comment` gets `.cd-acts` with only that button.
+- **Mentions (`/mentions`):** `mentions_page::hits` = `Store::mentions_for` over the readable Vaults (the API's
+  query), sorted by the Thread's `updated_at`, newest first. Each `li.cd-mrow[data-doc][data-t]` links
+  `/d/{id}#tN` (the page selects it, turning Show resolved on only for a resolved one, as before).
+- **Tests:** `tests/web_document_additions.rs` (S48-01…04, server markup per viewer, Version and embed),
+  `tests/web/document-additions.spec.ts` (the clipboard, the fallback, the composer, Mentions, Delete and
+  Restore), `tests/web/embed.spec.ts` (the four in the frame), `verify/scenarios/document-additions.spec.ts`.
+<!-- ---- end Document additions ---- -->
+
 <!-- ---- compare Versions ---- -->
 ## Compare Versions
 

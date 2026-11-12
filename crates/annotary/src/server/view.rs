@@ -215,6 +215,8 @@ struct Viewer<'a> {
     times: &'a Times,
     /// An embed render: avatars keep their URLs for `app.js` to fetch through the embedder.
     embed: bool,
+    /// The card offers Copy link (a live Document: `annotary link` refuses a deleted one).
+    link: bool,
 }
 
 impl Viewer<'_> {
@@ -266,6 +268,8 @@ fn render_page(
     let live = !doc.is_deleted();
     let can_comment = live && auth.0.has_right(&doc.vault_name, Right::Comment);
     let can_act = live && auth.0.has_right(&doc.vault_name, Right::Action);
+    // Delete and Restore: `write`, never in an embed render (the Hermes page keeps the review loop).
+    let can_write = auth.0.has_right(&doc.vault_name, Right::Write);
     let (available, _inherited) = st.store.available_actions(&doc)?;
     // ---- CMD-23: the viewer's Web settings, read in the same response (the first paint is final) ----
     let prefs = WebPrefs::load(st, auth, headers)?;
@@ -277,7 +281,10 @@ fn render_page(
         can_comment,
         times: &times,
         embed: prefs.embed,
+        link: live,
     };
+    let manage = can_write && !prefs.embed;
+    let link = if live { Some(share_link(st, origin, &doc.id)?) } else { None };
     // ---- end ticket 11 ----
 
     let member = |handle: &str| viewer.member(handle);
@@ -415,7 +422,14 @@ fn render_page(
     } else {
         String::new()
     };
-    let deleted_chip = if doc.is_deleted() { "<span class=\"cd-chip cd-warn\">deleted</span>" } else { "" };
+    let deleted_chip = match (doc.is_deleted(), manage) {
+        (false, _) => "",
+        (true, false) => "<span class=\"cd-chip cd-warn\">deleted</span>",
+        (true, true) => {
+            "<span class=\"cd-chip cd-warn\">deleted</span><button type=\"button\" class=\"cd-btn cd-sm\" id=\"cd-restore\">Restore</button>"
+        }
+    };
+    let more = more_menu(live, number == head && can_comment, live && manage);
 
     let header = format!(
         "<header class=\"cd-hdr\">\
@@ -426,7 +440,7 @@ fn render_page(
              <span class=\"cd-grow\"></span>{status_html}\
              <label class=\"cd-chip\"><input type=\"checkbox\" id=\"cd-resolved\"{resolved_checked}><span>resolved (<span class=\"cd-res-n\">{resolved}</span>)</span></label>\
              <span class=\"cd-tools\">{compare}<button type=\"button\" class=\"cd-btn\" id=\"cd-whatsnew\">History</button>\
-             <button type=\"button\" class=\"cd-btn cd-helpbtn\" id=\"cd-helpbtn\" title=\"keyboard shortcuts (?)\">?</button></span>\
+             {more}</span>\
              <span class=\"cd-actions\" id=\"cd-actions\">{action_area}{action_buttons}</span>\
            </div>\
          </header>{banner}<div class=\"cd-panel\" id=\"cd-news\" hidden></div>{help}{toast}{pill}",
@@ -490,6 +504,8 @@ fn render_page(
         "can_comment": can_comment,
         "can_act": can_act,
         "deleted": doc.is_deleted(),
+        "can_write": manage,
+        "link": link,
         "md_hash": doc.head.md_hash,
         "assets": assets,
         "actions": available.iter().map(|d| json!({ "id": d.id, "label": d.label, "intent": d.intent })).collect::<Vec<_>>(),
@@ -508,6 +524,31 @@ fn render_page(
     let title =
         if number == head { format!("{} — annotary", v.name) } else { format!("{} v{number} — annotary", v.name) };
     Ok(ui::page_for(&prefs, &title, &body))
+}
+
+/// The header's More menu (`#cd-docmenubtn` opens `#cd-docmenu`): Copy link (a live Document), Comment
+/// on the whole Document (head, `comment`), Delete (`write`, not in an embed render; it asks
+/// first) and, always, the keyboard help (`#cd-helpbtn`), so the header keeps one row from 850 px.
+fn more_menu(link: bool, comment: bool, delete: bool) -> String {
+    let mut items = String::new();
+    if link {
+        items.push_str("<button type=\"button\" class=\"cd-mi\" data-doc-act=\"link\">Copy link</button>");
+    }
+    if comment {
+        items.push_str(
+            "<button type=\"button\" class=\"cd-mi\" data-doc-act=\"comment\">Comment on the whole document</button>",
+        );
+    }
+    if delete {
+        items.push_str("<button type=\"button\" class=\"cd-mi cd-mi-warn\" data-doc-act=\"delete\">Delete Document\u{2026}</button>\
+            <div class=\"cd-mconfirm\" id=\"cd-delconfirm\" hidden><p>Delete this Document? It moves to the list's Deleted filter, where Restore brings it back.</p>\
+            <button type=\"button\" class=\"cd-btn cd-sm cd-danger\" data-doc-act=\"delete-yes\">Delete</button><button type=\"button\" class=\"cd-btn cd-sm\" data-doc-act=\"delete-no\">Cancel</button></div>");
+    }
+    items.push_str("<button type=\"button\" class=\"cd-mi\" id=\"cd-helpbtn\" data-doc-act=\"help\">Keyboard shortcuts<kbd>?</kbd></button>");
+    format!(
+        "<span class=\"cd-docmenuwrap\"><button type=\"button\" class=\"cd-btn cd-docmenubtn\" id=\"cd-docmenubtn\" aria-haspopup=\"true\" aria-expanded=\"false\" aria-controls=\"cd-docmenu\" title=\"More\">\u{22EF}</button>\
+         <div class=\"cd-menu\" id=\"cd-docmenu\" role=\"menu\" hidden>{items}</div></span>"
+    )
 }
 
 /// The keyboard help overlay (`?`): the map of story 126 and nothing more. CMD-23: the
@@ -616,7 +657,7 @@ fn comment_html(c: &CommentView, viewer: &Viewer) -> String {
 }
 
 /// A short plain-text snippet of a body for the narrow row.
-fn snippet(body: &str) -> String {
+pub(super) fn snippet(body: &str) -> String {
     let flat: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
     // The row shows plain text: Markdown's emphasis and code markers are not what the author wrote to be read.
     let flat = flat.replace("**", "").replace("__", "").replace("~~", "").replace('`', "");
@@ -625,6 +666,19 @@ fn snippet(body: &str) -> String {
         out.push('\u{2026}');
     }
     out
+}
+
+/// A card's Copy link button (`.cd-acts`; quiet, after Reply and Resolve).
+const COPY_LINK_BTN: &str =
+    "<button type=\"button\" class=\"cd-link cd-copylink\" data-act=\"link\">Copy link</button>";
+
+/// The link `annotary link DOC` prints (`annotary_store::doc_link`: the public URL, through the
+/// link relay when set), else this page's own origin, as the CLI falls back to its server's URL.
+fn share_link(st: &AppState, origin: &str, doc_id: &str) -> Result<String, ApiError> {
+    let public = st.store.public_url()?;
+    let relay = st.store.link_base()?;
+    Ok(annotary_store::doc_link(public.as_deref(), relay.as_deref(), doc_id, None)
+        .unwrap_or_else(|| format!("{origin}/d/{doc_id}")))
 }
 
 /// The Thread element — a card in layout A, a one-line row (expanding in place) in layout C.
@@ -669,12 +723,16 @@ fn thread_card(it: &Item, viewer: &Viewer, version: u32) -> String {
         ));
     }
     // ---- ticket 11: reply / resolve / reopen (anyone with `comment`, from any Version view) ----
+    // Copy link is for every reader of a live Document (`app.js` copies `#cd-data.link` + `#tN`).
+    let copy = if viewer.link { COPY_LINK_BTN } else { "" };
     if viewer.can_comment {
         body.push_str(&format!(
-            "<div class=\"cd-acts\"><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"reply\">Reply</button><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"{}\">{}</button></div>",
+            "<div class=\"cd-acts\"><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"reply\">Reply</button><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"{}\">{}</button>{copy}</div>",
             if it.resolved { "reopen" } else { "resolve" },
             if it.resolved { "Reopen" } else { "Resolve" }
         ));
+    } else if viewer.link {
+        body.push_str(&format!("<div class=\"cd-acts\">{copy}</div>"));
     }
     // ---- end ticket 11 ----
     format!(
@@ -754,6 +812,7 @@ pub async fn fragment(
         can_comment: live && auth.0.has_right(&doc.vault_name, Right::Comment),
         times: &times,
         embed: prefs.embed,
+        link: live,
     };
     let mut item = [item_of(&t, &auth.0.member_id)];
     set_occ(&st, &mut item, &md_hash)?;

@@ -31,6 +31,8 @@ pub mod housekeeping;
 // ---- end ticket 13 ----
 pub mod me_settings;
 pub mod members;
+// The Mentions page (`/mentions`): open Threads that mention the viewer.
+pub mod mentions_page;
 // ---- ticket 18 ----
 pub mod pairing;
 pub mod prefs;

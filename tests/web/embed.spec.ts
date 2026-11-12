@@ -459,3 +459,44 @@ test('avatars arrive through the bridge, each URL once, the still under reduced 
   await expect.poll(async () => (await e.msgs()).some((m) => m.type === 'annotary-req' && m.path === avatar.static_url)).toBe(true);
   await expect.poll(() => e.fl.locator('.cd-av-pic img').first().evaluate((x) => (x as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
 });
+
+// spec: S48-01, S48-02, S48-03, S48-04
+test('the Document additions in the frame: Copy link (by hand when the clipboard is refused), a whole-Document comment, Mentions; no Delete or Restore', async ({ page }) => {
+  const doc = seed('emb-additions', PLAN);
+  const e = await embed(page, `/d/${doc.id}`);
+  const fl = e.fl;
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
+  await expect(fl.locator('#cd-docmenu [data-doc-act="delete"]')).toHaveCount(0);
+  // Copy link: the sandboxed frame is not allowed the clipboard, so the link is shown to copy.
+  await fl.locator('#cd-docmenubtn').click();
+  await fl.locator('#cd-docmenu [data-doc-act="link"]').click();
+  const toast = fl.locator('#cd-toast');
+  await expect(toast).toBeVisible();
+  const link = await fl.locator('#cd-app').evaluate(() => (window as any).cd.data().link);
+  const shown = await toast.evaluate((t) => t.textContent + '|' + ((t.querySelector('input') as HTMLInputElement | null)?.value ?? ''));
+  expect(['Document link copied|', `Copy this link:|${link}`]).toContain(shown);
+  // A whole-Document comment posts through the bridge.
+  await fl.locator('#cd-docmenubtn').click();
+  await fl.locator('#cd-docmenu [data-doc-act="comment"]').click();
+  await fl.locator('.cd-strip-doc .cd-composer textarea').fill('Whole thing, @rowan.');
+  await page.keyboard.press('Control+Enter');
+  await expect(fl.locator('.cd-strip-doc .cd-thread[data-t="t1"]:not(.cd-pending)')).toBeVisible();
+  expect((await api(`/api/v1/docs/${doc.id}/threads/t1`)).subject).toBe('document');
+  // Mentions is in the frame's top bar and opens the Document at the Thread, in place.
+  await toFrame(page, { type: 'annotary-init', path: '/' });
+  await expect(fl.locator('.cd-app.cd-listpage')).toBeVisible();
+  await fl.locator('#cd-nav-mentions').click();
+  const row = fl.locator(`.cd-mrow[data-doc="${doc.id}"]`);
+  await expect(row).toHaveCount(1);
+  await row.locator('a').click();
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
+  await expect(fl.locator('.cd-thread[data-t="t1"]')).toHaveClass(/cd-selected/);
+  // A deleted Document in the frame: no Restore, here or in the list's Deleted filter.
+  cliAs(['delete', doc.id]);
+  await toFrame(page, { type: 'annotary-init', path: `/d/${doc.id}` });
+  await expect(fl.locator('.cd-hdr .cd-chip.cd-warn')).toHaveText('deleted');
+  await expect(fl.locator('#cd-restore')).toHaveCount(0);
+  await toFrame(page, { type: 'annotary-init', path: '/?deleted=1' });
+  await expect(fl.locator(`tr.cd-docrow[data-id="${doc.id}"]`)).toHaveCount(1);
+  await expect(fl.locator('button.cd-restore')).toHaveCount(0);
+});

@@ -140,11 +140,12 @@ fn thread_card_fragment_renders_the_card_with_the_viewer_s_controls_and_the_time
     assert!(html.contains("data-act=\"reply\""));
     assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["item"]["mine"], false);
 
-    // ---- a read-only Member: no controls at all ----
+    // ---- a read-only Member: no controls but Copy link (S48-01) ----
     let (status, body) = get(&ts, &reader, &format!("/d/{id}/t/{t1}"));
     assert_eq!(status, 200);
     let html = serde_json::from_str::<Value>(&body).unwrap()["html"].as_str().unwrap().to_string();
-    assert!(!html.contains("data-act="), "{html}");
+    assert_eq!(html.matches("data-act=").count(), 1, "{html}");
+    assert!(html.contains("<div class=\"cd-acts\"><button type=\"button\" class=\"cd-link cd-copylink\" data-act=\"link\">Copy link</button></div>"), "{html}");
 
     // ---- resolved state / document-level ----
     let (status, _) = ts.post(&format!("/api/v1/docs/{id}/threads/{t2}/resolve"), Some(&owner), &json!({}));
@@ -238,7 +239,7 @@ fn head_page_carries_pill_help_action_buttons_and_the_script_s_data() {
     assert!(html.contains("id=\"cd-helpbtn\""));
     assert!(html.contains("<span class=\"cd-actbtns\" id=\"cd-actbtns\"><button type=\"button\" class=\"cd-btn cd-actbtn cd-pos\" data-action=\"approve\" data-label=\"Approve\" data-intent=\"positive\" data-version=\"1\">Approve</button><button type=\"button\" class=\"cd-btn cd-actbtn cd-neu\" data-action=\"send-back\" data-label=\"Send back\" data-intent=\"neutral\" data-version=\"1\">Send back</button></span>"), "{html}");
     let c = card(&html, "t1");
-    assert!(c.contains("<div class=\"cd-acts\"><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"reply\">Reply</button><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"resolve\">Resolve</button></div>"), "{c}");
+    assert!(c.contains("<div class=\"cd-acts\"><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"reply\">Reply</button><button type=\"button\" class=\"cd-btn cd-sm\" data-act=\"resolve\">Resolve</button><button type=\"button\" class=\"cd-link cd-copylink\" data-act=\"link\">Copy link</button></div>"), "{c}");
     assert!(c.contains("<span class=\"cd-ctools\"><button type=\"button\" class=\"cd-link\" data-act=\"edit\">edit</button><button type=\"button\" class=\"cd-link\" data-act=\"delete\">delete</button></span>"));
     let data = cd_data(&html);
     assert_eq!(data["me"], "rowan");
@@ -268,11 +269,13 @@ fn head_page_carries_pill_help_action_buttons_and_the_script_s_data() {
     assert_eq!(data["can_act"], false);
     assert_eq!(data["owner"], false);
 
-    // ---- a reader: nothing to press ----
+    // ---- a reader: nothing to press but Copy link (S48-01) ----
     let (_, html) = get(&ts, &reader, &format!("/d/{id}"));
     assert!(!html.contains("id=\"cd-pill\""));
     assert!(!html.contains("id=\"cd-actbtns\""));
-    assert!(!card(&html, "t1").contains("data-act="));
+    let c = card(&html, "t1");
+    assert_eq!(c.matches("data-act=").count(), 1, "{c}");
+    assert!(c.contains("data-act=\"link\">Copy link</button>"), "{c}");
     assert_eq!(cd_data(&html)["can_comment"], false);
 
     // ---- after an Action and a push: the chip, and an older-Version view without pill / buttons ----

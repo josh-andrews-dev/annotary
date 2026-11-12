@@ -259,6 +259,11 @@ The developer wants one place where humans and agents, with equal standing, can 
 
 175. As a person reading a Document when an agent or colleague resolves the Thread I am looking at, I want that Thread and its highlight to stay on screen, marked resolved, until I move on, so that my Comment, the card I am reading and any reply I am halfway through do not vanish without a word.
 
+176. As a person reading a Document in the browser, I want to copy its link, or a Thread's, the same link `annotary link` prints, so that I can send a colleague straight to it on their phone or computer.
+177. As a Member with the `comment` right, I want to comment on the whole Document from its page, not only on a passage, so that a remark about the Document as a whole has its own Thread pinned at the top.
+178. As a person mentioned in Threads across many Documents, I want one page of every open Thread that mentions me, newest first, each opening the Document at that Thread, so that I can answer what is waiting on me without opening every Document.
+179. As a Member with the `write` right, I want to delete a Document from its page after a confirm, and restore it in one click from the list's Deleted filter, so that I can tidy the list without the CLI and undo a mistake as easily; purging stays in the CLI.
+
 ## Implementation Decisions
 
 ### Runtime and process
