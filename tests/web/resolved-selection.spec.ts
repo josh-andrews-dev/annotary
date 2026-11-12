@@ -439,4 +439,83 @@ Delta paragraph for the span.
     await expect(page.locator('.cd-status')).toContainText('2 open');
     await expect(page.locator('.cd-res-n')).toHaveText('0');
   });
+
+  // spec: S47-04
+  test('re-selecting a kept card by pointer or by k does not turn Show resolved on', async ({ page }) => {
+    const doc = seedDoc('web-r15', MD);
+    await newThreads(doc.id, MD);
+    cli(h().agent, ['thread', 'resolve', doc.id, 't3']);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    // A resolved Thread that is not selected stays hidden with the toggle off.
+    const t3 = card(page, 't3');
+    await expect(t3).toBeHidden();
+    const t1 = card(page, 't1');
+    await mark(page, 't1').click();
+    await t1.locator('[data-act="reply"]').click();
+    const box = t1.locator('.cd-editor-reply textarea');
+    await box.fill('half a thought');
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(t1).toBeVisible();
+    // Another Thread selected: t1 stays on screen for its editor, but it is not the selection.
+    await mark(page, 't2').click();
+    await expect(t1).toBeVisible();
+    await expect(t1).not.toHaveClass(/cd-selected/);
+    // Pointer back onto the kept row must not turn the toggle on and reveal every resolved Thread.
+    await t1.locator('.cd-row').click();
+    await expect(t1).toHaveClass(/cd-selected/);
+    await expect(page.locator('#cd-resolved')).not.toBeChecked();
+    await expect(page.locator('.cd-app')).not.toHaveClass(/cd-show-resolved/);
+    await expect(t3).toBeHidden();
+    // The keyboard reaches it the same way: move off, then k back onto the kept card.
+    await mark(page, 't2').click();
+    await expect(t1).not.toHaveClass(/cd-selected/);
+    await page.keyboard.press('k');
+    await expect(t1).toHaveClass(/cd-selected/);
+    await expect(page.locator('#cd-resolved')).not.toBeChecked();
+    await expect(page.locator('.cd-app')).not.toHaveClass(/cd-show-resolved/);
+    await expect(t3).toBeHidden();
+    await expect(box).toBeVisible();
+    // A hidden resolved Thread reached by its link still turns the toggle on (the test below).
+    await t1.locator('.cd-editor-reply [data-act="cancel"]').click();
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(t1).toBeVisible();
+  });
+
+  // spec: S47-02, S47-05
+  test('closing a kept card editor hides the card and its strip, but a card that stays visible keeps its strip', async ({ page }) => {
+    const doc = seedDoc('web-r16', MD);
+    await newThreads(doc.id, MD);
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    await page.locator('#cd-resolved').check();
+    const t1 = card(page, 't1'), t2 = card(page, 't2');
+    await expect(t1).toBeVisible();
+    await mark(page, 't1').click();
+    await t1.locator('[data-act="reply"]').click();
+    await t1.locator('.cd-editor-reply textarea').fill('half a thought');
+    await page.locator('#cd-resolved').uncheck();
+    await expect(t1).toBeVisible();
+    await mark(page, 't2').click();
+    await expect(t1).toBeVisible();
+    await expect(t1).not.toHaveClass(/cd-selected/);
+    const strip1 = page.locator('.cd-strip', { has: page.locator('.cd-thread[data-t="t1"]') });
+    await expect(strip1).toBeVisible();
+    await t1.locator('.cd-editor-reply [data-act="cancel"]').click();
+    await expect(t1.locator('.cd-editor')).toHaveCount(0);
+    await expect(t1).toBeHidden();
+    await expect(strip1).toBeHidden();
+    await expect(strip1).toHaveClass(/cd-all-resolved/);
+    expect(await page.evaluate(() => !!document.activeElement && !!document.activeElement.closest?.('.cd-thread[data-t="t1"]'))).toBe(false);
+    // An unresolved card that loses its editor stays, with its strip.
+    const strip2 = page.locator('.cd-strip', { has: page.locator('.cd-thread[data-t="t2"]') });
+    await t2.locator('[data-act="reply"]').click();
+    await t2.locator('.cd-editor-reply textarea').fill('still here');
+    await t2.locator('.cd-editor-reply [data-act="cancel"]').click();
+    await expect(t2.locator('.cd-editor')).toHaveCount(0);
+    await expect(t2).toBeVisible();
+    await expect(strip2).toBeVisible();
+  });
 });

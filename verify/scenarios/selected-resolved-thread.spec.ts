@@ -12,8 +12,9 @@ import { test } from '@playwright/test';
 import { URL, cli, cliJson, documents, expect, openDoc, shot } from '../lib';
 
 /** The first plain paragraph of a Document (1-based line number, its text), skipping what the
- *  page does not render as a paragraph: YAML front matter, fenced code, and list items including a
- *  lazy continuation line (one that starts at the margin but belongs to the item above). */
+ *  page does not render as a paragraph of its own: YAML front matter, fenced code, an HTML block,
+ *  a setext heading, and list items including a lazy continuation line (one that starts at the
+ *  margin but belongs to the item above). */
 function firstParagraph(id: string): { n: number; text: string } | null {
   const dir = fs.mkdtempSync(path.join(process.env.VERIFY_TMP!, 'pull-'));
   cli(['pull', id, '--out', dir]);
@@ -28,6 +29,8 @@ function firstParagraph(id: string): { n: number; text: string } | null {
   }
   let fence: string | null = null;
   let inList = false;
+  // An HTML block ends at its comment close, else at the next blank line (CommonMark's block tags).
+  let html: 'blank' | 'comment' | null = null;
   for (let i = start; i < lines.length; i++) {
     const line = lines[i];
     const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
@@ -35,10 +38,16 @@ function firstParagraph(id: string): { n: number; text: string } | null {
       if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
       continue;
     }
-    if (f) { fence = f[1]; inList = false; continue; }
+    if (f) { fence = f[1]; inList = false; html = null; continue; }
+    if (html) {
+      if (html === 'comment' ? /-->/.test(line) : !line.trim()) html = null;
+      continue;
+    }
+    if (/^\s{0,3}<!--/.test(line)) { if (!/-->/.test(line)) html = 'comment'; continue; }
+    if (/^\s{0,3}</.test(line)) { html = 'blank'; continue; }
     // A blank line ends a list; a lazy continuation has none.
     if (!line.trim()) { inList = false; continue; }
-    const item = /^\s*(?:[-*+]|\d+\.)\s+\S/.test(line);
+    const item = /^\s*(?:[-*+]|\d+[.)])\s+\S/.test(line);
     if (inList) {
       // A new block (heading, quote, table, HTML, rule) ends the list; anything else is its lazy
       // continuation and is not a paragraph of its own.
@@ -47,6 +56,8 @@ function firstParagraph(id: string): { n: number; text: string } | null {
     }
     if (item) { inList = true; continue; }
     if (/^(?: {4}|\t)/.test(line)) continue; // indented code
+    // A text line followed by an underline is a setext heading, not a paragraph.
+    if (/^\s{0,3}(?:=+|-+)\s*$/.test(lines[i + 1] ?? '')) continue;
     // A plain paragraph: letters at the start, no heading, list marker, quote, code or table.
     if (/^[A-Za-z][^`*_[\]<>|#-]{19,}$/.test(line)) return { n: i + 1, text: line };
   }

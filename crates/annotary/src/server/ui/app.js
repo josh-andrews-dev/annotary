@@ -764,12 +764,16 @@ function main() {
     var prevStrip = prevCard && prevCard.closest('.cd-strip');
     var card = $('.cd-thread[data-t="' + cssEsc(tid) + '"]');
     if (!card) return;
+    // Read the card's visibility before any class changes: a resolved card already on screen (the
+    // selected one, or one kept by an editor) is not a link into a hidden Thread.
+    var onScreen = card.getClientRects().length > 0;
     if (prevCard && prevCard !== card) releaseEditor(prevCard);
     $$('.cd-selected').forEach(function (e) { e.classList.remove('cd-selected'); });
     selected = tid;
-    // A link to a resolved Thread (or History's event) shows it as it always has: by turning the
-    // toggle on. Re-selecting the one on screen must not widen that to every resolved Thread.
-    if (!wasSelected && card.classList.contains('cd-resolved') && !app.classList.contains('cd-show-resolved')) {
+    // A link to a hidden resolved Thread (or History's event) shows it as it always has: by
+    // turning the toggle on. Selecting a card that is already on screen must not widen that to
+    // every resolved Thread.
+    if (!wasSelected && !onScreen && card.classList.contains('cd-resolved') && !app.classList.contains('cd-show-resolved')) {
       var cb = $('#cd-resolved');
       if (cb) { cb.checked = true; }
       app.classList.add('cd-show-resolved');
@@ -1322,6 +1326,12 @@ function main() {
     } else if (card.getAttribute('data-stale')) {
       card.removeAttribute('data-stale');
       refreshCard(card.getAttribute('data-t'));
+    } else {
+      // Closing a kept card's editor can be what hides the card (resolved, not selected): the
+      // strip and the focus must not be left behind, and the stale path above already re-counts.
+      var cstrip = card.closest('.cd-strip');
+      if (cstrip) syncStripHidden(cstrip);
+      dropFocusIn(card);
     }
     scheduleLayout();
   }
