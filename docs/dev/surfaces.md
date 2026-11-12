@@ -33,6 +33,13 @@ below; the `surfaces` check reads it).
   goldens`) and `tests/token-report.md` (`make token-report`) change together.
 - **Reverse states.** Whatever can be done can be undone, on every surface: resolve and reopen,
   delete and restore, disable and enable a Member, set and clear an avatar.
+- **The pull request checks' copies.** annotary carries the originals of
+  `.github/scripts/size-report.cjs` (with `size-report.test.cjs`, run by `size.yml` and
+  `size-comment.yml`) and of the `surfaces` check (`.github/workflows/surfaces.yml`, with
+  `.github/scripts/surfaces.test.cjs`). annotary-hermes carries copies, and so does the iPhone and
+  iPad app's repo; each repo's checks run only its own copy, so a fix here never reaches them by
+  itself. A fix to the script or the workflow here is ported to both copies in the same run, as the
+  rule below says (`perf/README.md`, "The size report").
 - **Docs.** `docs/dev/` for the area you changed, `docs/decisions.md` for a choice, the guide
   (`docs/annotary-guide.html`) for what a person sees.
 
