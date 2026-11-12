@@ -109,12 +109,27 @@ fn ci_runs_on_github_hosted_runners_and_perf_is_in_no_workflow() {
             "checks.yml",
             "ci.yml",
             "lessons.yml",
+            "perf-table.yml",
             "private-check-fork.yml",
             "private-check.yml",
             "publish-tap.yml",
-            "release.yml"
+            "release.yml",
+            "size-comment.yml",
+            "size.yml",
+            "surfaces.yml"
         ]
     );
+
+    // The size report's comment can write to the pull request, so it never checks out or runs the
+    // pull request's code: its one checkout is the default branch. `surfaces` reads only the event.
+    let comment = read(".github/workflows/size-comment.yml");
+    assert!(comment.contains("\n  pull_request_target:\n"), "{comment}");
+    assert_eq!(comment.matches("uses: actions/checkout@").count(), 1, "{comment}");
+    assert!(comment.contains("ref: ${{ github.event.repository.default_branch }}"), "{comment}");
+    assert!(!comment.contains("github.event.pull_request.head"), "{comment}");
+    assert!(!comment.contains("make ") && !comment.contains("npm "), "{comment}");
+    let surfaces = read(".github/workflows/surfaces.yml");
+    assert!(!surfaces.contains("actions/checkout") && surfaces.contains("\npermissions: {}\n"), "{surfaces}");
 
     // Every action is pinned to a commit, with what it is in a comment: a tag or a branch can move.
     for name in &names {

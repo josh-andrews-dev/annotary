@@ -96,8 +96,8 @@ machine is usually the machine: run it once more before looking for a regression
 request is exempt**: the maintainer runs `make perf` on it before deploying, as with `make
 verify-live`.
 
-**Nightly**, a Mac the maintainer keeps runs it against `main` from a job outside this repo and files
-an issue here when a budget fails. That Mac also does other work, so a run can be slower than on a
+**The nightly run.** A dedicated Mac the maintainer keeps runs it against `main` every night, from a
+job outside this repo, and files an issue here when a budget fails. That Mac also does other work, so a run can be slower than on a
 developer's Mac; check that first when a budget fails there.
 
 What a run needs, which is all you need to run it on your own Mac: rustup stable and Node 22 for the
