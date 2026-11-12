@@ -257,6 +257,8 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
 }
 @container cd (min-width: 850px) and (max-width: 1799.98px){
   .cd-actions>.cd-chip{display:none}
+  /* a long Document name gives way (its full text is the title) rather than wrapping the row */
+  .cd-hdr:not(.cd-hdr-nav) .cd-name{max-width:16em;overflow:hidden;text-overflow:ellipsis}
 }
 /* a small laptop: tighter gaps keep Compare and the Actions on the one row */
 @container cd (min-width: 1100px) and (max-width: 1365.98px){

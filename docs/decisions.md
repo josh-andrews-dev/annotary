@@ -482,7 +482,8 @@ selected, because an embedder's sandboxed frame may refuse both. Chose one More 
 header for Copy link, Comment on the whole document and Delete, and moved the keyboard help's `?`
 button into it (the `?` key still opens the help), so the header is as wide as before; rejected
 three more header buttons, and a narrower Version select, because the header must stay one row from
-850 px and the select was already cut short. Delete asks first, in the menu, and Restore is one
+850 px and the select was already cut short. A long Document name now gives way with an ellipsis
+from 850 to 1800 px (the full name is its `title`): a real Name wrapped the header on `main`. Delete asks first, in the menu, and Restore is one
 click on the list's Deleted filter and on the deleted page; both need `write`. Chose a Mentions page
 rendered on the server (`/mentions`) from `Store::mentions_for`, the API's query, sorted newest
 first; rejected a script that fetches `/api/v1/mentions` because the pages paint final from one

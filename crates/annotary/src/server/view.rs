@@ -433,7 +433,7 @@ fn render_page(
 
     let header = format!(
         "<header class=\"cd-hdr\">\
-           <div class=\"cd-line\" id=\"cd-line\">{icon}<a class=\"cd-crumb\" href=\"/\">{vault}</a><span class=\"cd-crumb\">/</span><b class=\"cd-name\">{name}</b><code class=\"cd-docid\">{id}</code>{deleted_chip}{nline}\
+           <div class=\"cd-line\" id=\"cd-line\">{icon}<a class=\"cd-crumb\" href=\"/\">{vault}</a><span class=\"cd-crumb\">/</span><b class=\"cd-name\" title=\"{name}\">{name}</b><code class=\"cd-docid\">{id}</code>{deleted_chip}{nline}\
              {open_app}<span class=\"cd-arrows\">{older}{newer}</span></div>\
            <div class=\"cd-rest\" id=\"cd-rest\">\
              <span class=\"cd-vsw\">{older}{select}{newer}</span>{same_chip}\

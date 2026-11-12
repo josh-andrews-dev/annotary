@@ -106,6 +106,22 @@ test('with Actions and Compare the Document header stays one row at common deskt
   }
 });
 
+// spec: S42-07
+test('a very long Document name gives way with an ellipsis; the header stays one row', async ({ page }) => {
+  const name = 'release-notes-for-the-quarterly-platform-review-and-its-follow-ups';
+  const d = seedDoc(name, MD);
+  pushVersion(d, MD.replace('nobody', 'no one'), 'a small edit to make a second Version');
+  for (const width of [1280, 1440, 1600]) {
+    await openDoc(page, d.id, { width });
+    await expect(page.locator('#cd-actbtns .cd-actbtn').first()).toBeVisible();
+    const box = await page.locator('.cd-hdr').boundingBox();
+    expect(box!.height, `width ${width}`).toBeLessThanOrEqual(60);
+    const nm = page.locator('.cd-hdr .cd-name');
+    await expect(nm).toHaveAttribute('title', name);
+    expect(await nm.evaluate((e) => e.scrollWidth > e.clientWidth), `width ${width}: the name is cut`).toBe(true);
+  }
+});
+
 // spec: S42-08
 test('a long Document name does not make the list scroll sideways on a phone', async ({ page }) => {
   const name = 'release_notes_for_the_quarterly_platform_review_' + 'x'.repeat(40);
