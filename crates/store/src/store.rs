@@ -63,6 +63,8 @@ impl Store {
         std::fs::create_dir_all(dir)?;
         let lock = StoreLock::acquire(dir)?;
         let mut conn = Connection::open(dir.join(crate::DB_FILE))?;
+        #[cfg(feature = "stmt-count")]
+        crate::stmt_count::install(&conn);
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;

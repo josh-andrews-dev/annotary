@@ -6,7 +6,7 @@ keeps these true:
 
 1. **`make check` is green** — `fmt-check` + `clippy -D warnings` + `cargo test --workspace`
    (crate unit tests + in-process server integration tests + the spec-id checker, < 60 s) +
-   `make e2e` (trycmd goldens against a real spawned `serve` + the Playwright suite) +
+   `make size-check` (the size report, `perf/README.md`) + `make e2e` (trycmd goldens against a real spawned `serve` + the Playwright suite) +
    `spec-check` + `wasm-check` (renderer / diff / sidecar for `wasm32-unknown-unknown`) +
    `make perf`. `PERF=0 make check` / `make check-ci` is the same without the perf suite, for a
    machine without the release toolchain or Chromium.

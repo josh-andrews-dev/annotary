@@ -434,3 +434,21 @@ because `$2^n$` at the start of a sentence is math, and because a blind byte rew
 into code spans and blocks. The re-parse is capped at 8 passes: crafted `{`-nested input can
 reveal one new span per pass, and prose needs one or two. `RENDERER_VERSION` and
 `MIN_RENDERER_VERSION` went to 1.1.0, so Versions rendered before re-render on read.
+
+## 2026-11-11: sizes on every pull request, timed runs on a Mac, every surface in one run
+
+Speed and the surfaces drifted unseen: the fixture's Document view grew from 1.8 MB to 1.9 MB and the
+list from 123 KB to 176 KB with no pull request showing it, and the iPhone and iPad app fell four web
+features behind. Chose a committed size report (`perf/size-report.json`, deterministic counts a test
+holds equal to what the server sends) with ceilings in `perf/BUDGETS.md`, a `size` check that fails on
+any growth unless the body says `Size growth:` why, and a comment that shows main, the pull request,
+the change and the ceiling; rejected report-only, where growth of 1% at a time passes unnoticed, and
+rejected a label only the maintainer can add, which would stop agents' own pull requests. Chose a
+committed file over saved CI results because the change then shows in the diff and a fork's pull
+request needs nothing special. Chose to keep times off CI (a shared runner's numbers mean nothing)
+and to require the `make perf` table from a Mac in the body of a web view pull request (the `perf`
+check), forks exempt; rejected the nightly run alone because it finds a regression after it may have
+shipped, and rejected Linux runs as the record because unchanged code misses a budget there. Chose
+one run that changes every surface (`docs/dev/surfaces.md`, the `surfaces` check), `follows:` only
+for a design answer, an outside contributor or an urgent live fix; rejected "follow later" because
+it is how the app fell behind.

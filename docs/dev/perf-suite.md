@@ -9,5 +9,43 @@ index is [README.md](README.md)). Extend them with the code they describe.
 - **Decisions to keep:** the suite is release-only and local (a developer's or a dedicated machine; never a shared runner; the budgets are read on a Mac: on the shared Linux host `main` itself misses Document view interactive under other sessions' load, 2026-11-08); the fixture is regenerated from the seed every run (nothing generated is committed); seeding goes through the real `push` (render + re-anchor at the edge) and the real API; cold browser cache per run, median of 5, absolute budgets; the Document view keeps Threads and placements in the first HTML — viewport-first rendering is CSS over the same DOM, not a second payload; the smoke test is the rot guard for the generator, `make perf` the one for the numbers. The seeder's `/api/v1` client (`seed.rs::Http`) opens a fresh connection per request (no idle pool, `Connection: close`) and retries a transport (`io`) failure, at most 3 attempts with 50 / 100 ms backoff; an HTTP status is never retried (CMD-10: under load a kept-alive socket the server had dropped failed the next request, `io: Invalid argument (os error 22)` on macOS, because XNU's `setsockopt` returns EINVAL on a socket shut down both ways). The retry can, in principle, repeat a non-idempotent POST whose answer was lost; `perf_smoke`'s exact counts would then fail loudly rather than silently.
 - **Comparing two builds:** separate `make perf` runs on a loaded host differ by more than a CSS or script change does, in either direction; serve both builds at once and alternate cold loads of each (40 is enough) in one Playwright process, so the load falls on both.
 - **A baseline on the same host:** give the other worktree its own `node_modules`, because `make perf` runs `npm ci`, which replaces a symlinked `node_modules` and empties the folder it pointed to.
+## The size report
+
+Deterministic counts of what the server sends, checked on every pull request (`perf/README.md`, "The size
+report"). Files: `crates/annotary/tests/size_report.rs` (`#[ignore]`d; `make size-check`, `make
+size-report`), `perf/size-report.json`, the "Size ceilings" table of `perf/BUDGETS.md`,
+`crates/store/src/stmt_count.rs` (the `stmt-count` feature, on only through the `annotary` crate's
+dev-dependencies), `.github/scripts/size-report.cjs` with its test, `.github/workflows/size.yml` and
+`size-comment.yml`.
+
+- **The fixture:** `Scale::FULL`, seed 1, seeded by `perfgen::seed` through the debug binary into a
+  `TestServer` (no password). A browser's session comes from the first `GET /` on loopback; pages are
+  requested with that cookie and `Accept: text/html` and no `cd_tz` cookie (a first visit); the API and
+  embed mode with the owner's Bearer Token.
+- **What is counted:** the Document view (`/d/{id}`), the previous Version (`/d/{id}/v/{head-1}`) and the
+  list (`/`); `GET /api/v1/docs`, `…/versions/{head}/html`, `…/threads?status=all`; `GET /embed/shell` and
+  the embedded Document view (every part fetched; `parts` is the server's `X-Annotary-Parts`); then one
+  reply to the first open anchored Thread, the card fragment `GET /d/{id}/t/{tid}` and the SSE frame of
+  its `thread.replied` event (`id:`, `event:`, `data:`, the blank line). Bytes are the body, uncompressed,
+  without headers.
+- **A page's parts** (`read_page`, a small tag scanner): inline script = executable `<script>` elements,
+  page data = `<script type="application/json">` (`#cd-data`), inline style = `<style>`, Thread cards =
+  the outermost `.cd-strip` elements, Document HTML = `article#cd-doc` without the cards, the rest = the
+  header, the shell and everything else. They add up to the page. Elements = start tags (SVG children
+  included, the doctype and comments not). Requests before first paint = 1 (the page) + stylesheets +
+  classic scripts with `src` and no `async` / `defer` + CSS `@import`.
+- **Database statements:** every statement SQLite runs on the store's connection (rusqlite's
+  `trace_v2`, `BEGIN` and `COMMIT` included, triggers not). Each answer is requested once to warm the
+  caches (rendered titles), then until two requests in a row agree, so a stray request to the test
+  server cannot land in a count.
+- **Normalized before counting:** the server's address (`http://127.0.0.1:PORT`, and percent-encoded in
+  "Open in Annotary") becomes `http://127.0.0.1:7377`, and the text of every `<time class="cd-rel">`
+  becomes `now`: the seed takes seconds to minutes, and `now` turns into `1m` after a minute. Everything
+  else (ids, ULIDs, timestamps, hashes) has a fixed length. A run with a 70 s pause after seeding gave
+  the same numbers.
+- **Decisions to keep:** counts, never times; the full fixture, not the smoke one, so the numbers are the
+  perf suite's page; the report is committed (the change shows in the diff, and a fork's pull request
+  needs no artifact); ceilings live in `BUDGETS.md` and are copied into the report, so the comment and the
+  `size` check read one file.
 <!-- ---- end ticket 15 ---- -->
 <!-- ---- ticket 16 ---- -->

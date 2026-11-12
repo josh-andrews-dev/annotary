@@ -21,8 +21,11 @@ project-build: trim
 	$(CARGO) build
 
 # Crate unit tests + in-process server integration tests (< 60 s), the spec-id checker included.
-project-test: trim deploy-test trim-test
+project-test: trim deploy-test trim-test workflow-test
 	$(CARGO) test --workspace
+
+workflow-test: ## Test the pull request checks' scripts (.github/scripts: size report, perf table, surfaces)
+	@node --test .github/scripts/*.test.cjs
 
 trim-test: ## Test scripts/trim-target.sh (TRIM_TARGET_DIR, the refused folders) on a temp copy
 	@bash scripts/test_trim_target.sh
@@ -102,6 +105,15 @@ token-report: ## Regenerate tests/token-report.md; review the diff
 	TOKEN_REPORT=overwrite $(CARGO) test -p annotary --test token_report
 # ---- end ticket 14 ----
 
+# The size report (perf/README.md): deterministic counts of what the server sends for the full perf
+# fixture, held equal to perf/size-report.json and under the ceilings in perf/BUDGETS.md. Its own
+# target, not part of `make test`: seeding the full fixture in a debug build takes seconds.
+size-check: trim ## Measure what the server sends for the perf fixture against perf/size-report.json and its ceilings
+	$(CARGO) test -p annotary --test size_report -- --include-ignored
+
+size-report: trim ## Rewrite perf/size-report.json from a fresh measurement; review the diff
+	SIZE_REPORT=overwrite $(CARGO) test -p annotary --test size_report -- --include-ignored
+
 # ---- ticket 15: the perf suite. Always a *release* build (the budgets are about the product);
 # `perf/global-setup.ts` spawns it, `perfgen seed` generates + seeds the fixture through the real
 # binary, `perf/perf.spec.ts` measures with Playwright + CDP and asserts perf/BUDGETS.md. Meant for
@@ -115,9 +127,9 @@ perf: trim node_modules/.stamp ## The perf suite against perf/BUDGETS.md (releas
 
 # ---- ticket 16: `check` = everything this machine can run (the definition of done), `check-ci`
 # the same without the perf suite. ----
-check-ci: trim fmt-check clippy test e2e spec-check wasm-check ## check minus the budgets suite, for a machine without the release toolchain or Chromium
+check-ci: trim fmt-check clippy test size-check e2e spec-check wasm-check ## check minus the budgets suite, for a machine without the release toolchain or Chromium
 
-check: ## The definition of done: fmt-check, clippy, test, e2e, spec-check, wasm-check, perf (PERF=0 skips perf)
+check: ## The definition of done: fmt-check, clippy, test, size-check, e2e, spec-check, wasm-check, perf (PERF=0 skips perf)
 ifeq ($(PERF),0)
 check: check-ci
 else

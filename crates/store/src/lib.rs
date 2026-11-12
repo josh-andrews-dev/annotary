@@ -56,6 +56,8 @@ pub mod render;
 // ---- end ticket 09 ----
 // CMD-1: the server's rotating consistent snapshots under DATA_DIR/snapshots/.
 pub mod snapshots;
+#[cfg(feature = "stmt-count")]
+pub mod stmt_count;
 // CMD-23
 pub mod settings;
 mod store;

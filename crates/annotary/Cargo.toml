@@ -60,7 +60,7 @@ qrcode = { workspace = true }
 regex = "1"
 # Turns on failpoints in the store for `cargo test` only (resolver 3 keeps dev-dependency features
 # out of `cargo build`).
-annotary-store = { workspace = true, features = ["failpoints"] }
+annotary-store = { workspace = true, features = ["failpoints", "stmt-count"] }
 fail = { version = "0.5", features = ["failpoints"] }
 trycmd = "1"
 rusqlite = "0.40"

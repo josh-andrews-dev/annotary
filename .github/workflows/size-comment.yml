@@ -1,0 +1,40 @@
+# The size report's comment (perf/README.md, "The size report"): one comment per pull request,
+# updated in place, with each number on main, on the pull request, the change and the ceiling.
+# It needs a token that can write comments, so it runs as pull_request_target and never checks out
+# or runs pull request code: the script comes from the default branch (and its tests run first),
+# and the two committed perf/size-report.json files are read through the API and validated
+# strictly as data. A fork's pull request is safe. Not a required check: the `size` check is.
+name: size-comment
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: size-comment-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  comment:
+    name: size comment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout the trusted script (the default branch, never the pull request)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Test the trusted script
+        run: node --test .github/scripts/size-report.test.cjs
+        env:
+          SIZE_REPORT_TEST_NO_FILES: "1"
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await require('./.github/scripts/size-report.cjs').publish({ github, context, core });

@@ -2,7 +2,7 @@
 # GitHub-hosted runners: this repo is public, and a self-hosted runner registered to it would run a
 # fork's pull request code on someone's machine. Two jobs, per docs/PHASE1-DONE.md:
 #   test — `cargo test` (crate unit tests + in-process integration tests, the spec-id checker included)
-#          plus fmt / clippy / wasm-check, on Linux and on macOS;
+#          plus fmt / clippy / the size report / wasm-check, on Linux and on macOS;
 #   e2e  — `make e2e` (trycmd goldens against a real spawned `serve` + the Playwright suite) on Linux.
 # `make perf` is not here: its budgets are absolute and a shared runner's numbers mean nothing
 # (perf/README.md has where it runs). `make check` (= check-ci + perf) stays the definition of done on
@@ -51,6 +51,8 @@ jobs:
       - run: make clippy
       # Crate unit tests + in-process server integration tests, spec-id checker included.
       - run: make test
+      # The size report (perf/size-report.json): the same counts on Linux and on macOS.
+      - run: make size-check
       - run: make wasm-check
 
   e2e:
