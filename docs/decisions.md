@@ -467,3 +467,18 @@ rejected sending the page's note sentences because they are web text the app wor
 malformed Version is 404 `not_found`, as on the page, rather than a 400, because both are "no such
 Version" and the shared code answers the same. No CLI verb: an agent reads Markdown (`pull`, the
 Sidecar), and a terminal cannot show an HTML diff.
+
+## 2026-11-12: a fork's pull request is held by `private-check-fork`, a required check
+
+A fork's pull request gets no secrets on `pull_request`, so `private-check` skips itself there, and
+GitHub counts a skipped job as a pass: the required check passed without scanning anything, while
+the real scan, `private-check-fork` (`pull_request_target`, base code only, the diff read through
+the API as data), was not required. Chose to require `private-check-fork` in `main`'s ruleset beside
+`private-check`: each skips on the other's pull requests and runs for real on its own, so every
+pull request has exactly one real scan that must pass, and no fork code ever runs with the secret.
+Rejected one check name for both paths because both workflows then report a `private-check` on the
+same commit, one of them skipped, and a skipped run can satisfy the rule while the real one fails;
+avoiding that needs a computed job name in both workflows, which are rendered from the repo-standard
+template and never edited here. The other required checks need no secret: `ci`, `cargo test`,
+`make e2e`, `size`, `surfaces` and `lessons` run the same on a fork once the maintainer approves its
+runs, and `perf` passes a fork by rule (the maintainer runs `make perf` before deploying).
