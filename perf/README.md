@@ -131,7 +131,9 @@ machine, so CI checks them on every pull request. `docs/dev/perf-suite.md` says 
 - The `size` check (`.github/workflows/size.yml`) compares the file at the base and at the head of a
   pull request. It fails when any number is larger, a ceiling is raised or removed, or a number is no
   longer reported, unless the pull request body has a line `Size growth: <why>`; it always fails
-  above a ceiling. Editing the body runs it again.
+  above a ceiling. It runs the base branch's copy of `.github/scripts/size-report.cjs`, so a
+  pull request cannot loosen it in the same change; a change to the report's shape lands in two
+  steps, a script that accepts both shapes first. Editing the body runs it again.
 - A comment on the pull request (`.github/workflows/size-comment.yml`) shows each number on `main`,
   on the pull request, the change and the ceiling, and is updated in place. It runs from the default
   branch and reads the two committed files through the API as data; it never checks out or runs the

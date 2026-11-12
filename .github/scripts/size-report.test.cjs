@@ -98,6 +98,8 @@ test("growth fails without a reason and passes with one; a ceiling always fails"
   assert.match(mainTable, /\| Document view: bytes \| 1,000 \| 1,000 \| ±0 \(0\.0%\) \| — \| ⚠️ ceiling \|/, "a removed ceiling is in the main table");
   assert.doesNotMatch(collapsed, /Document view: bytes/, "and not in the collapsed one");
   assert.match(droppedMd, /1 number grew or had its guard weakened with no `Size growth:` line/);
+  const withReason = sr.renderComment({ base, head: dropped, baseSha: "a".repeat(40), headSha: "b".repeat(40), body: "Size growth: moved" });
+  assert.match(withReason, /⚠️ 1 number grew or had its guard weakened; the body's `Size growth:` line gives the reason\./);
   assert.equal(sr.verdict({ base, head: dropped, body: "" }).ok, false, "a removed ceiling counts as raised");
   assert.equal(sr.verdict({ base, head: dropped, body: "Size growth: the row moved" }).ok, true);
   const renamed = report({ "view.bytes": 5000 });
@@ -116,6 +118,8 @@ test("the change is absolute and in percent", () => {
   assert.equal(sr.change(2000, 1990), "−10 (−0.5%)");
   assert.equal(sr.change(5, 5), "±0 (0.0%)");
   assert.equal(sr.change(0, 3), "+3 (+new)");
+  assert.equal(sr.change(1990307, 1990443), "+136 (+<0.1%)", "a nonzero change never reads as 0.0%");
+  assert.equal(sr.change(2000, 1999), "−1 (−<0.1%)");
 });
 
 test("the comment shows main, this PR, the change and the ceiling", () => {
@@ -206,4 +210,33 @@ test("a report that is not valid data is never echoed", async () => {
   const body = f.calls[0][1].body;
   assert.match(body, /is not a valid size report/);
   assert.doesNotMatch(body, /everyone|script/);
+});
+
+test("an invalid base report is named, never shown as no base", async () => {
+  const [baseSha, headSha] = ["b".repeat(40), "c".repeat(40)];
+  const f = fakeGithub({ [baseSha]: "{", [headSha]: JSON.stringify(report()) });
+  f.github.rest.pulls.get = async () => ({ data: { head: { sha: headSha }, base: { sha: baseSha }, body: "" } });
+  await sr.publish({ github: f.github, context: context(), core: fakeCore() });
+  const body = f.calls[0][1].body;
+  assert.match(body, /at `bbbbbbb` is not a valid size report/);
+  assert.doesNotMatch(body, /No number grew|no size report yet/);
+});
+
+test("an API failure fails the run and leaves the comment alone", async () => {
+  const f = fakeGithub({ ["h".repeat(40)]: JSON.stringify(report()) });
+  f.github.rest.repos.getContent = async () => {
+    throw Object.assign(new Error("Server Error"), { status: 502 });
+  };
+  await assert.rejects(sr.publish({ github: f.github, context: context(), core: fakeCore() }), /Server Error/);
+  assert.equal(f.calls.length, 0);
+});
+
+// size-comment.yml checks out only .github/scripts and sets SIZE_REPORT_TEST_NO_FILES: skip the
+// tests that read other files there; `make test` runs them on a full checkout.
+test("the size and perf checks load their script from the base, never the pull request", { skip: process.env.SIZE_REPORT_TEST_NO_FILES === "1" }, () => {
+  for (const name of ["size.yml", "perf-table.yml"]) {
+    const yml = fs.readFileSync(path.join(__dirname, "../workflows", name), "utf8");
+    assert.match(yml, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/, name);
+    assert.doesNotMatch(yml, /pull_request\.head\.sha/, name);
+  }
 });
