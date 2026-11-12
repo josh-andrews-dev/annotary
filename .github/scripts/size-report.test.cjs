@@ -90,7 +90,14 @@ test("growth fails without a reason and passes with one; a ceiling always fails"
   const raised = report({}, { "view.bytes": 1200 });
   assert.equal(sr.verdict({ base, head: raised, body: "" }).ok, false, "a raised ceiling counts as growth");
   assert.equal(sr.verdict({ base, head: raised, body: "Size growth: raised by the rule" }).ok, true);
+  assert.equal(sr.verdict({ base, head: report({}, { "view.elements": 60 }), body: "" }).ok, true, "a new ceiling is a tightening");
+  assert.equal(sr.verdict({ base, head: report({}, { "view.bytes": 1050 }), body: "" }).ok, true, "a lowered ceiling");
   const dropped = report({}, { "view.bytes": null });
+  const droppedMd = sr.renderComment({ base, head: dropped, baseSha: "a".repeat(40), headSha: "b".repeat(40), body: "" });
+  const [mainTable, collapsed = ""] = droppedMd.split("<details>");
+  assert.match(mainTable, /\| Document view: bytes \| 1,000 \| 1,000 \| ±0 \(0\.0%\) \| — \| ⚠️ ceiling \|/, "a removed ceiling is in the main table");
+  assert.doesNotMatch(collapsed, /Document view: bytes/, "and not in the collapsed one");
+  assert.match(droppedMd, /1 number grew or had its guard weakened with no `Size growth:` line/);
   assert.equal(sr.verdict({ base, head: dropped, body: "" }).ok, false, "a removed ceiling counts as raised");
   assert.equal(sr.verdict({ base, head: dropped, body: "Size growth: the row moved" }).ok, true);
   const renamed = report({ "view.bytes": 5000 });
