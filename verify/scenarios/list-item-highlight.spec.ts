@@ -21,7 +21,15 @@ function listItems(doc: { id: string }): Item[] {
   const md = fs.readdirSync(dir).find((f) => f.endsWith('.md'))!;
   const lines = fs.readFileSync(path.join(dir, md), 'utf8').split('\n');
   const items: Item[] = [];
+  // A `-` line inside a fenced code block renders as code, not as a list item.
+  let fence: string | null = null;
   lines.forEach((line, i) => {
+    const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      return;
+    }
+    if (f) { fence = f[1]; return; }
     if (/^\s*(?:[-*+]|\d+\.)\s+\S/.test(line)) items.push({ id: doc.id, n: i + 1, line });
   });
   return items;

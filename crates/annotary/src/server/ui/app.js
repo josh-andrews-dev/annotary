@@ -378,14 +378,16 @@ function main() {
     return lo > 0 ? tops[lo - 1] : null;
   }
   /* The innermost block that holds every anchored line (a `li`, a `td`, a `p` inside a
-     `blockquote`), so a Thread inside one list item never marks the whole list. Siblings never
-     overlap, so at most one child holds the whole range; when none does (a range across
-     blocks), the block we started from is the smallest one that still holds the start. */
+     `blockquote`), so a Thread inside one list item never marks the whole list. At most one child
+     may hold the range; when several do, the block itself is the smallest unambiguous one — table
+     cells share their row's lines (`html.rs`), so a multi-cell row marks the `tr`. */
   function smallestBlock(b, a, z) {
     for (;;) {
-      var next = null;
-      (kidsOf.get(b.el) || []).forEach(function (c) { if (c.a <= a && z <= c.b) next = c; });
-      if (!next) return b;
+      var next = null, holding = 0;
+      (kidsOf.get(b.el) || []).forEach(function (c) {
+        if (c.a <= a && z <= c.b) { next = c; holding++; }
+      });
+      if (holding !== 1) return b;
       b = next;
     }
   }
@@ -404,8 +406,10 @@ function main() {
   }
   /* Whitespace-insensitive search of `quote` in the text of `nodes`: returns [{node, off}] for
      the first and last character, or null. With several hits, `t` (the Thread's `line` and `occ`)
-     picks the one the Thread is anchored to (CMD-7, `pickHit`), not simply the first. */
-  function findQuote(nodes, quote, t) {
+     picks the one the Thread is anchored to (CMD-7, `pickHit`), not simply the first. `unique`
+     accepts a hit only when it is the only one on the Thread's line: a plain form has no `occ`
+     counted for it, so a short word cannot pick among several occurrences safely. */
+  function findQuote(nodes, quote, t, unique) {
     var q = quote.replace(/\s+/g, ' ').trim();
     if (!q) return null;
     var chars = [];
@@ -433,16 +437,20 @@ function main() {
       if (map[k] && map[k + q.length - 1]) hits.push({ start: map[k], end: map[k + q.length - 1] });
     }
     if (!hits.length) return null;
+    if (unique) {
+      if (!t || !t.line) return hits.length === 1 ? hits[0] : null;
+      hitLines(nodes, hits);
+      var only = hits.filter(function (h) { return h.line === t.line; });
+      return only.length === 1 ? only[0] : null;
+    }
     if (hits.length === 1 || !t || !t.line) return hits[0];
     return pickHit(nodes, hits, t);
   }
   /* CMD-7: the same text can occur more than once in the searched blocks (two items of one list,
      a phrase twice on a line). Each hit's source line = the first line of its innermost `[data-l]`
      block + the soft breaks (`\n`, which the renderer keeps inside blocks) in that block's own text
-     before it; the hits on the Thread's start line are taken in order and the server's `occ` (how
-     many times the text starts earlier on that source line) picks one. No hit on the line ⇒ the
-     nearest line; no usable line ⇒ the first hit. */
-  function pickHit(nodes, hits, t) {
+     before it. */
+  function hitLines(nodes, hits) {
     var seen = new Map(); // block element → soft breaks counted in its own text so far
     var at = new Map();   // text node → its hits
     hits.forEach(function (h) { var l = at.get(h.start.node); if (l) l.push(h); else at.set(h.start.node, [h]); });
@@ -457,6 +465,13 @@ function main() {
       (at.get(n) || []).forEach(function (h) { h.line = r ? r.a + before + nl(n.nodeValue.slice(0, h.start.off)) : null; });
       if (blk) seen.set(blk, before + nl(n.nodeValue));
     });
+    return hits;
+  }
+  /* The hits on the Thread's start line are taken in order and the server's `occ` (how many times
+     the text starts earlier on that source line) picks one. No hit on the line ⇒ the nearest line;
+     no usable line ⇒ the first hit. */
+  function pickHit(nodes, hits, t) {
+    hitLines(nodes, hits);
     var onLine = hits.filter(function (h) { return h.line === t.line; });
     if (!onLine.length) {
       var best = null;
@@ -490,8 +505,10 @@ function main() {
         .replace(/_(\S(?:[\s\S]*?\S)?)_/g, '$1');
     };
     s = emphasis(emphasis(s));
-    s = s.replace(/\u0000(\d+)\u0000/g, function (_, n) { return codes[+n]; });
+    // Escapes first: inside a code span a backslash is the literal character, so a restored span
+    // must not be unescaped.
     s = s.replace(/\\([\\`*_{}\[\]()#+\-.!~|>])/g, '$1');
+    s = s.replace(/\u0000(\d+)\u0000/g, function (_, n) { return codes[+n]; });
     return s;
   }
   function wrap(nodes, hit, cls, tid) {
@@ -569,7 +586,7 @@ function main() {
         // The quote came from the Markdown source and carries syntax the rendered text does not
         // have: search its plain form (inline code, emphasis, link text).
         var plain = plainQuote(quote);
-        if (plain && plain !== quote) hit = findQuote(nodes, plain, t);
+        if (plain && plain !== quote) hit = findQuote(nodes, plain, t, true);
       }
       var cls = 'cd-hl cd-st-' + t.status + (t.resolved ? ' cd-res' : '');
       if (hit && wrap(nodes, hit, cls, t.id)) return;
