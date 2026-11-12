@@ -51,6 +51,8 @@ The pre-commit and pre-push hooks scan for secrets with gitleaks.
   A bot comment on the pull request shows every number against `main`.
 - **A web view change from a fork** needs no timed run: the maintainer runs `make perf` before
   deploying it.
+- **The first run of a fork's checks** waits for the maintainer to approve it. The private-names
+  scan of a fork's pull request is `private-check-fork`; `private-check` skips itself there.
 
 ## The rules that catch people out
 

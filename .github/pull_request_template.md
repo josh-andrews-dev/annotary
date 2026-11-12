@@ -1,6 +1,6 @@
 ## What and why
 
-<!-- What changes, and the problem it solves. "Fixes #123" closes an issue when this merges. -->
+<!-- What changes, and the problem it solves. "Fixes #123" closes an issue when this merges, even with "(partially)" after it; a partial fix or a quarantine says "Refs #123". -->
 
 ## Decisions
 

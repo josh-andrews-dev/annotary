@@ -631,6 +631,8 @@ test.describe('hidden resolved Threads (CMD-20)', () => {
 
     // Posting: the new card shows in that strip; the resolved one stays behind the toggle.
     await selectText(page, '.cd-doc li', 'Recommended: A.');
+    // `c` only opens a composer once the pill shows, which waits on a `selectionchange` task (#36).
+    await expect(page.locator('#cd-pill')).toBeVisible();
     await page.keyboard.press('c');
     await postComposer(page, 'Leave it running.');
     const card = page.locator('.cd-thread[data-t="t3"]');
