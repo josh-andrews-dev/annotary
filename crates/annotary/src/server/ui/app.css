@@ -157,10 +157,10 @@ mark.cd-hl code{background:var(--cd-hl-code-bg)}
 .cd-asset-hl{outline:3px solid var(--cd-hl);outline-offset:2px;cursor:pointer}
 .cd-asset-hl.cd-selected{outline-color:var(--cd-hl-sel)}
 .cd-hl-block{box-shadow:-3px 0 0 var(--cd-hl)}
-/* resolved Threads (and their highlights) stay behind the toggle */
-.cd-app:not(.cd-show-resolved) mark.cd-hl.cd-res{background:transparent;box-shadow:none;color:inherit;text-decoration:none;cursor:inherit}
-.cd-app:not(.cd-show-resolved) .cd-asset-hl.cd-res{outline:none;cursor:inherit}
-.cd-app:not(.cd-show-resolved) .cd-hl-block.cd-res{box-shadow:none}
+/* resolved Threads (and their highlights) stay behind the toggle, unless one is selected */
+.cd-app:not(.cd-show-resolved) mark.cd-hl.cd-res:not(.cd-selected){background:transparent;box-shadow:none;color:inherit;text-decoration:none;cursor:inherit}
+.cd-app:not(.cd-show-resolved) .cd-asset-hl.cd-res:not(.cd-selected){outline:none;cursor:inherit}
+.cd-app:not(.cd-show-resolved) .cd-hl-block.cd-res:not(.cd-selected){box-shadow:none}
 
 /* ---------- Thread strips + the Thread element (row in C, card in A) ---------- */
 .cd-strip{margin:6px 0 10px;border-left:3px solid var(--cd-hl);padding-left:10px;font-size:13px;line-height:1.5}
@@ -205,6 +205,10 @@ mark.cd-hl code{background:var(--cd-hl-code-bg)}
 .cd-resline{padding:4px 10px;font-size:12px;color:var(--cd-muted);border-top:1px solid var(--cd-raise)}
 .cd-thread.cd-resolved{display:none}
 .cd-show-resolved .cd-thread.cd-resolved{display:block}
+/* the selected Thread stays until the person moves on, resolved or not; a card that still holds a
+   reply editor stays too, so moving on never hides text that was typed into it */
+.cd-thread.cd-resolved.cd-selected{display:block}
+.cd-thread.cd-resolved:has(.cd-editor){display:block}
 .cd-strip.cd-all-resolved{display:none}
 .cd-show-resolved .cd-strip.cd-all-resolved{display:block}
 details.cd-orphaned summary{cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--cd-muted);font-weight:600;list-style:none;padding:2px 0}

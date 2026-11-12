@@ -257,6 +257,8 @@ The developer wants one place where humans and agents, with equal standing, can 
 173. As an owner, I want to clear any Member's avatar, so that an unsuitable picture comes down without that Member's help.
 174. As a person reading a Document with agents and colleagues, I want the page to feel sleek and alive within its minimal look: the selected Thread joined to its highlight the way the product's mark joins a note to a line, a colleague's new Comment noticeable as it arrives, @mentions that read as mentions, every text pair at WCAG AA, and all of the motion off when I ask for reduced motion, so that a shared Document is pleasant to review on a desktop and a phone.
 
+175. As a person reading a Document when an agent or colleague resolves the Thread I am looking at, I want that Thread and its highlight to stay on screen, marked resolved, until I move on, so that my Comment, the card I am reading and any reply I am halfway through do not vanish without a word.
+
 ## Implementation Decisions
 
 ### Runtime and process
@@ -330,7 +332,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 - Skill file: the SKILL.md prototype is the content (frontmatter `name`, `description`, `metadata.version`, `metadata.cli`); embedded in the binary; `skill install [--dir]`; keep-current hook by version comparison; no references file.
 
 ### Web UI
-- Server-rendered HTML + a small script (no SPA required; the budgets are what's binding). Layout A (margin) ≳ 850px container / C (inline in flow) below; narrow header line + overlay; selection pill; whole-Asset Threads for inline media only; Asset links plain text opening in a new tab; refined = frozen quote + `now:`; orphaned disclosure hidden by default; Version `<select>` + time-slice banner; Action buttons head-only, colored by intent; keyboard map; optimistic mutations with rollback; owner screens (Members, Add member, password, Vault default Actions, settings) with grants/roles behind "advanced"; login page only when a password is set. Renderer output must preserve source positions (`data-l`) so selection maps to source coordinates.
+- Server-rendered HTML + a small script (no SPA required; the budgets are what's binding). Layout A (margin) ≳ 850px container / C (inline in flow) below; narrow header line + overlay; selection pill; whole-Asset Threads for inline media only; Asset links plain text opening in a new tab; refined = frozen quote + `now:`; orphaned disclosure hidden by default; Version `<select>` + time-slice banner; Action buttons head-only, colored by intent; keyboard map; optimistic mutations with rollback; a Thread resolved while it is selected stays on screen, marked resolved, until the person moves on; owner screens (Members, Add member, password, Vault default Actions, settings) with grants/roles behind "advanced"; login page only when a password is set. Renderer output must preserve source positions (`data-l`) so selection maps to source coordinates.
 
 ## Testing Decisions
 

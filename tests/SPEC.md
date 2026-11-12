@@ -6,7 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## Stories` section at the end maps every numbered story of the spec (1–174) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–175) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -626,9 +626,17 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S46-01 — `GET /api/v1/docs/{id}/diff?from=A&to=B` (any credential + `read`, as reading a Version) answers JSON `{id, vault, from, to, head, same_content, html, summary}`: the pair as the page resolves it (S40-04's defaults, oldest first), `html` the rendered diff fragment (`annotary_diff::rendered_diff`: the `ins`/`del` and block marks, `data-cd-dx` change points and folded `details.cd-dx-same` runs, asset links as the renderer writes them, none of the page's notes or chrome), `summary` `{lines_added, lines_removed, blocks_added, blocks_removed, blocks_changed, changes, shown_whole, too_large}`; a Document with one Version, or the same Version twice, has `html` and `summary` null; a pair too large to compare has `html` null and its line counts in `summary`; an unknown or malformed Version is 404 `not_found`, and no turn to diff is 503 `busy`, as JSON (story 171)
 - S46-02 — the page and the API cannot disagree: for every pair of the corpus histories and the default pairs, the page's diff is the API's `html` with only the page's own additions (its notes, Asset links opening in a new tab) and its numbers are the API's `summary` (story 171)
 
+## A selected resolved Thread stays on screen
+
+- S47-01 — with "Show resolved" off, a Thread that becomes resolved while it is selected (a live event from another Member, the person's own reply-and-resolve, or `e` / Resolve) stays on screen as its card or row: `mark.cd-hl`, `.cd-asset-hl` and `.cd-hl-block` keep their selected highlight, the card gains `cd-resolved` and its `.cd-resline` says who resolved it, when and on which Version, its strip is not hidden for being all-resolved, and an open reply editor keeps its text and focus (story 175)
+- S47-02 — deselecting it hides it and its highlight as any other resolved Thread when "Show resolved" is off: selecting another Thread by pointer or `j` / `k`, Escape, tapping the open row again in layout C, or leaving the page; the open and resolved counts are of every Thread and do not change with the selection; determines the same for a span, a block, an Asset and a whole-Document Thread. A card that still holds a reply editor is the exception: it stays on screen with the editor and its text, whichever Thread is selected, until the editor closes — a clean editor closes when the selection moves, a typed one is kept — and a resolved card hides then (story 175)
+- S47-03 — a live resolve or reopen of the selected Thread while an editor is open shows on the card at once (`cd-resolved`, the resolved line, Reopen / Resolve) without re-drawing it, so the editor, its text and its focus survive; the card re-draws when the editor closes (story 175)
+- S47-04 — keyboard: `j` / `k` include the still-shown resolved Thread while it is selected, and moving off it hides it and it is no longer a stop; no key selects a hidden card and focus is not left inside a card that just hid; opening a link to a resolved Thread (`#tN`) keeps its behavior — "Show resolved" turns on and the Thread is selected — but selecting a resolved card that is already on screen (selected before, or kept by an editor) never turns the toggle on (story 175)
+- S47-05 — with "Show resolved" on nothing changes: resolved Threads and their highlights stay shown whether selected or not; a resolved Thread that was not selected when it resolved hides at once with the toggle off (story 175)
+
 ## Stories
 
-Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–174)
+Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–175)
 and the ids whose tests cover it — the checker demands every number and only known ids; a story
 whose coverage Phase 1 does not automate points at a Deferred id.
 
@@ -807,6 +815,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 172 — a Member's avatar (an animated SVG with a static fallback, or a picture) next to their name → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07, S41-08, S41-09, S41-10
 - 173 — an owner clears any Member's avatar → S41-04, S41-10
 - 174 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S42-01, S42-02, S42-03, S42-04, S42-05, S42-06, S42-07, S42-08, S42-09, S42-10, S42-11, S42-12, S43-02, S43-03
+- 175 — a selected Thread stays on screen, marked resolved, until the person moves on → S47-01, S47-02, S47-03, S47-04, S47-05
 
 ## Deferred
 
