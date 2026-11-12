@@ -150,14 +150,22 @@ each choice: `docs/decisions.md`, 2026-11-08.
   malformed Version or Document 404 `not_found`, 401/403 as any read, no turn 503 `busy`. The page's notes are the
   client's to word from these fields (`notes` in `compare.rs`).
 - **What a client must style** (the page's rules: the "Compare Versions" block of `app.css`), inside its Document
-  typography: `ins.cd-ins` / `del.cd-del` (added / removed words: a tint and an underline / strike, an outline on
-  media inside them); `.cd-dx-add` / `.cd-dx-del` on a block or table row (a whole block added / removed: a tint and
-  a bar at the start edge; a removed block is struck through); `.cd-dx-mod` (a block changed inside: a bar), with
-  `.cd-dx-fmt` (only its formatting changed: a dotted bar); `.cd-dx-blk` (a top-level marked block, where the page
-  draws `+` / `−` in the margin); `hr.cd-dx-add` / `hr.cd-dx-del`; `span.cd-sr` (the marks' text labels, "added: "
-  and so on: hidden visually, kept for VoiceOver, never removed); `details.cd-dx-same` with `summary.cd-dx-sum`
-  ("N unchanged blocks", closed: a client folds it, or opens it to show everything); `[data-cd-dx="N"]` (the change
-  points, 1 to `summary.changes` in document order, for a next and previous control). A mark is never color alone.
+  typography:
+  - `ins.cd-ins` / `del.cd-del`: added / removed words (a tint and an underline / strike; an outline on media inside
+    them). An inline run added or removed whole between blocks is an `ins.cd-ins.cd-dx-add` / `del.cd-del.cd-dx-del`.
+  - `.cd-dx-add` / `.cd-dx-del` on an element (not `ins` / `del`): a block, list item, row or cell added / removed
+    whole (a tint and a bar at the start edge; a removed one is struck through; a row tints its cells). Each also has
+    `.cd-dx-blk`, at any depth; the page draws its `+` / `−` margin glyph only on a top-level one that is not `hr`
+    (`.cd-dxdoc > .cd-dx-blk`). `hr.cd-dx-add` / `hr.cd-dx-del` restyle the rule itself.
+  - `.cd-dx-mod` on a block: changed inside (a bar). `span.cd-dx-mod` wraps a changed run inside a block and takes
+    no bar; `.cd-dx-fmt` with it means only the formatting changed (a dotted bar on a block).
+  - `span.cd-sr`: the marks' text labels ("added: ", "removed: ", "changed: ", "formatting changed: "), hidden
+    visually and kept for VoiceOver, never removed. They are absolutely positioned, so a `table` or `pre` that
+    scrolls sideways must be `position: relative` or a label in it widens the page.
+  - `details.cd-dx-same` with `summary.cd-dx-sum` ("N unchanged blocks", closed): a client folds it, or opens it to
+    show everything.
+  - `[data-cd-dx="N"]`: the change points, 1 to `summary.changes` in document order, for a next and previous control.
+  A mark is never color alone.
 - **Script:** `ui/compare.js` is a classic script inlined ahead of the selects, so a change is never lost, however late `app.js` runs: its listener on `document` navigates (`location.href`, or `AnnotaryEmbed.navigate` in an embed render). The change buttons are drawn `disabled` and the block at the end of `app.js` enables them when it binds them: ‹ › and `j` / `k` (off with Keyboard shortcuts Off) step through `[data-cd-dx]`, open a fold around the target, put `.cd-dx-cur` on it, scroll it to the middle and write "Change i of n" into `#cd-dxpos` (`aria-live`).
 - **Tests:** `crates/diff/tests/rendered_diff.rs` (S40-01…03, S40-10, S40-11: marks, structure, folds, and every pair of the corpus
   histories reading back as either Version with the other side's marks taken out), `crates/diff/tests/rendered_diff_bounds.rs` and `rendered_diff_budget.rs` (S40-09: peak memory, deep nesting, the budget), `server/compare.rs` unit tests (S40-12), `tests/web_compare.rs` (S40-04,
