@@ -231,7 +231,9 @@ test("an API failure fails the run and leaves the comment alone", async () => {
   assert.equal(f.calls.length, 0);
 });
 
-test("the size and perf checks load their script from the base, never the pull request", () => {
+// size-comment.yml checks out only .github/scripts and sets SIZE_REPORT_TEST_NO_FILES: skip the
+// tests that read other files there; `make test` runs them on a full checkout.
+test("the size and perf checks load their script from the base, never the pull request", { skip: process.env.SIZE_REPORT_TEST_NO_FILES === "1" }, () => {
   for (const name of ["size.yml", "perf-table.yml"]) {
     const yml = fs.readFileSync(path.join(__dirname, "../workflows", name), "utf8");
     assert.match(yml, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/, name);
