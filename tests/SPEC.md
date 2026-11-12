@@ -620,6 +620,11 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S45-01 — the size report: the generated perf fixture (full scale, seed 1) seeded through the real binary against an in-process server, and deterministic counts of what the server sends for it, never times: the Document view, a Version page and the Document list (bytes split into inline script, page data, inline style, Document HTML, Thread cards and the rest; elements; requests before first paint; database statements to compose it), the API as the app reads it (the Document list, a Version's HTML, its Threads: bytes and statements), embed mode (the shell's bytes, the Document view's bytes and parts) and one reply (the card fragment's bytes and the live event's bytes); the server's address and the text of relative times are normalized first, and the committed `perf/size-report.json` equals what was measured, on Linux and macOS and from run to run (story 128)
 - S45-02 — the size ceilings live in `perf/BUDGETS.md` ("Size ceilings") and are copied into the report; the size test fails when a number is above its ceiling or a ceiling names no measured number (story 128)
 
+## Compare Versions over the API
+
+- S46-01 — `GET /api/v1/docs/{id}/diff?from=A&to=B` (any credential + `read`, as reading a Version) answers JSON `{id, vault, from, to, head, same_content, html, summary}`: the pair as the page resolves it (S40-04's defaults, oldest first), `html` the rendered diff fragment (`annotary_diff::rendered_diff`: the `ins`/`del` and block marks, `data-cd-dx` change points and folded `details.cd-dx-same` runs, asset links as the renderer writes them, none of the page's notes or chrome), `summary` `{lines_added, lines_removed, blocks_added, blocks_removed, blocks_changed, changes, shown_whole, too_large}`; a Document with one Version, or the same Version twice, has `html` and `summary` null; a pair too large to compare has `html` null and its line counts in `summary`; an unknown or malformed Version is 404 `not_found`, and no turn to diff is 503 `busy`, as JSON (story 171)
+- S46-02 — the page and the API cannot disagree: for every pair of the corpus histories and the default pairs, the page's diff is the API's `html` with only the page's own additions (its notes, Asset links opening in a new tab) and its numbers are the API's `summary` (story 171)
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–174)
@@ -796,7 +801,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 168 — the list and the Document view in an embedder's sandboxed frame → S37-01, S37-02, S37-03, S37-04, S37-05, S37-06, S37-07, S37-10
 - 169 — `serve --setup-only --json` → S37-08
 - 170 — attested release tarballs → S37-09
-- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13, S43-01
+- 171 — compare two Versions inline (the Compare button, the diff page) → S40-01, S40-02, S40-03, S40-04, S40-05, S40-06, S40-07, S40-08, S40-09, S40-10, S40-11, S40-12, S40-13, S43-01, S46-01, S46-02
 
 - 172 — a Member's avatar (an animated SVG with a static fallback, or a picture) next to their name → S41-01, S41-02, S41-03, S41-04, S41-05, S41-06, S41-07, S41-08, S41-09, S41-10
 - 173 — an owner clears any Member's avatar → S41-04, S41-10

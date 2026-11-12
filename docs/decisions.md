@@ -452,3 +452,18 @@ shipped, and rejected Linux runs as the record because unchanged code misses a b
 one run that changes every surface (`docs/dev/surfaces.md`, the `surfaces` check), `follows:` only
 for a design answer, an outside contributor or an urgent live fix; rejected "follow later" because
 it is how the app fell behind.
+
+## 2026-11-12: the Compare diff over the API
+
+The iPhone and iPad app reads only `/api/v1` with a Bearer Token, so it could not compare two
+Versions. Chose `GET /api/v1/docs/{id}/diff?from=A&to=B` with the page's `from`/`to` and defaults,
+answering the `rendered_diff` fragment and its numbers as JSON, through the one `compare::compare`
+the page calls, so the two cannot disagree; rejected a path under `versions/{n}` because a diff
+belongs to two Versions and the page's defaults need neither, and rejected letting the app read the
+page because the page is cookie sign-in and chrome. Chose to send the fragment as the renderer and
+the diff write it (Asset links `/a/{hash}`, no notes) and to leave the notes to the client, worded
+from `same_content` and `summary`, as `/versions/{n}/html` leaves the Document page's chrome out;
+rejected sending the page's note sentences because they are web text the app words itself. A
+malformed Version is 404 `not_found`, as on the page, rather than a 400, because both are "no such
+Version" and the shared code answers the same. No CLI verb: an agent reads Markdown (`pull`, the
+Sidecar), and a terminal cannot show an HTML diff.

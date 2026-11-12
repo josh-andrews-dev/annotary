@@ -1,5 +1,6 @@
-//! Compare Versions over HTTP against the in-process server: `GET /d/{id}/diff` (`compare.rs`) and
-//! the Document page's Compare link (`view.rs`). The browser side is `tests/web/compare.spec.ts`.
+//! Compare Versions over HTTP against the in-process server: `GET /d/{id}/diff` (`compare.rs`), its
+//! JSON twin `GET /api/v1/docs/{id}/diff`, and the Document page's Compare link (`view.rs`). The
+//! browser side is `tests/web/compare.spec.ts`.
 
 use annotary::testing::TestServer;
 use annotary_sidecar::identity::sha256_hex;
@@ -235,4 +236,166 @@ fn a_repeated_comparison_answers_the_same_page() {
     let (s2, second) = get(&ts, &path, &[]);
     assert_eq!((s1, s2), (200, 200));
     assert_eq!(doc_part(&first), doc_part(&second));
+}
+
+/// `GET /api/v1/docs/{id}/diff?{q}` as the owner: (status, JSON).
+fn api(ts: &TestServer, id: &str, q: &str) -> (u16, Value) {
+    ts.get(
+        &format!("/api/v1/docs/{id}/diff{}", if q.is_empty() { String::new() } else { format!("?{q}") }),
+        Some(&ts.owner_token),
+    )
+}
+
+// spec: S46-01
+#[test]
+fn the_api_answers_the_pages_pair_diff_and_numbers_as_json() {
+    let ts = TestServer::start();
+    let id = three_versions(&ts);
+    // Neither: the previous Version against the head, every field there.
+    let (status, j) = api(&ts, &id, "");
+    assert_eq!(status, 200, "{j}");
+    let keys: Vec<&str> = j.as_object().unwrap().keys().map(String::as_str).collect();
+    assert_eq!(keys, ["id", "vault", "from", "to", "head", "same_content", "html", "summary"], "{j}");
+    assert_eq!((j["id"].as_str(), j["vault"].as_str()), (Some(id.as_str()), Some("notes")));
+    assert_eq!((j["from"].as_u64(), j["to"].as_u64(), j["head"].as_u64()), (Some(2), Some(3), Some(3)));
+    assert_eq!(j["same_content"], json!(false));
+    assert_eq!(
+        j["summary"],
+        json!({ "lines_added": 2, "lines_removed": 0, "blocks_added": 1, "blocks_removed": 0, "blocks_changed": 0,
+                "changes": 1, "shown_whole": false, "too_large": false })
+    );
+    let html = j["html"].as_str().unwrap();
+    assert!(
+        html.contains(
+            "class=\"cd-dx-add cd-dx-blk\" data-cd-dx=\"1\"><span class=\"cd-sr\">added: </span>A new closing line."
+        ),
+        "{html}"
+    );
+    assert!(!html.contains("cd-dx-note") && !html.contains("cd-dxdoc"), "no page chrome: {html}");
+    // `from` alone, `to` alone, reversed: the page's pairs.
+    for (q, pair) in [("from=1", (1, 3)), ("to=v2", (1, 2)), ("from=3&to=1", (1, 3)), ("from=v1&to=2", (1, 2))] {
+        let (status, j) = api(&ts, &id, q);
+        assert_eq!(status, 200, "{q}: {j}");
+        assert_eq!((j["from"].as_u64().unwrap(), j["to"].as_u64().unwrap()), pair, "{q}");
+    }
+    let (_, j) = api(&ts, &id, "from=1");
+    assert!(
+        j["html"]
+            .as_str()
+            .unwrap()
+            .contains("We ship on <del class=\"cd-del\">Friday</del><ins class=\"cd-ins\">Monday</ins>."),
+        "{j}"
+    );
+    // The same Version twice: nothing compared.
+    let (status, j) = api(&ts, &id, "from=2&to=2");
+    assert_eq!(status, 200);
+    assert_eq!(
+        (j["from"].as_u64(), j["to"].as_u64(), &j["html"], &j["summary"]),
+        (Some(2), Some(2), &Value::Null, &Value::Null)
+    );
+    // An unknown or malformed Version, or Document: 404 JSON, as reading a Version.
+    for q in ["from=9", "to=0", "from=abc"] {
+        let (status, j) = api(&ts, &id, q);
+        assert_eq!((status, j["error"].as_str()), (404, Some("not_found")), "{q}: {j}");
+    }
+    let (status, j) = api(&ts, "nosuchid", "");
+    assert_eq!((status, j["error"].as_str()), (404, Some("not_found")), "{j}");
+    // One Version: nothing to compare; an unknown Version there is still 404.
+    let one = create(&ts, "single", V1, json!([]));
+    let (status, j) = api(&ts, &one, "");
+    assert_eq!(status, 200);
+    assert_eq!((j["from"].as_u64(), j["to"].as_u64(), j["head"].as_u64()), (Some(1), Some(1), Some(1)));
+    assert_eq!((&j["html"], &j["summary"]), (&Value::Null, &Value::Null));
+    assert_eq!(api(&ts, &one, "to=2").0, 404);
+    // Same content: said, nothing marked.
+    let same = create(&ts, "same", V1, json!([]));
+    push(&ts, &same, "same", V2, json!([]));
+    push(&ts, &same, "same", V1, json!([]));
+    let (_, j) = api(&ts, &same, "from=1&to=3");
+    assert_eq!((j["same_content"].as_bool(), j["summary"]["changes"].as_u64()), (Some(true), Some(0)), "{j}");
+    assert!(!j["html"].as_str().unwrap().contains("data-cd-dx="), "{j}");
+    // A long unchanged run is folded, marked for a client to fold too.
+    let long = |last: &str| {
+        format!("# Long\n\n{}{last}\n", (1..=12).map(|i| format!("Paragraph {i}.\n\n")).collect::<String>())
+    };
+    let folded = create(&ts, "folded", &long("The end."), json!([]));
+    push(&ts, &folded, "folded", &long("The new end."), json!([]));
+    let (_, j) = api(&ts, &folded, "");
+    assert!(j["html"].as_str().unwrap().contains("<details class=\"cd-dx-same\">"), "{j}");
+    // Too large to compare: no HTML, the line counts still there.
+    let big = |w: &str| (0..20_001).map(|i| format!("p{i}{w}\n\n")).collect::<String>();
+    let huge = create(&ts, "huge", &big(""), json!([]));
+    push(&ts, &huge, "huge", &big("x"), json!([]));
+    let (status, j) = api(&ts, &huge, "");
+    assert_eq!(status, 200, "{j}");
+    assert_eq!((&j["html"], &j["summary"]["too_large"]), (&Value::Null, &json!(true)), "{}", j["summary"]);
+    assert_eq!(j["summary"]["lines_added"].as_u64(), Some(20_001));
+}
+
+/// The page's numbers above the diff: (+lines, −lines, changes).
+fn page_numbers(body: &str) -> (u64, u64, u64) {
+    let after = |pre: &str, end: char| -> u64 {
+        let s = &body[body.find(pre).unwrap_or_else(|| panic!("{pre}: {body}")) + pre.len()..];
+        s[..s.find(end).unwrap()].parse().unwrap()
+    };
+    (
+        after("<b class=\"cd-dxplus\">+", '<'),
+        after("<b class=\"cd-dxminus\">\u{2212}", '<'),
+        after("data-changes=\"", '"'),
+    )
+}
+
+// spec: S46-02
+#[test]
+fn the_page_and_the_api_show_the_same_diff_for_the_corpus() {
+    let ts = TestServer::start();
+    let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/corpus");
+    let mut compared = 0;
+    for name in ["glossary-multilingual", "onboarding", "rfc-tile-cache"] {
+        let md = |n: u32| std::fs::read_to_string(corpus.join(name).join(format!("v{n}.md"))).unwrap();
+        let id = create(&ts, name, &md(1), json!([]));
+        for n in 2..=4 {
+            push(&ts, &id, name, &md(n), json!([]));
+        }
+        let mut queries = vec![String::new(), "from=2".into(), "to=3".into()];
+        for a in 1..=4 {
+            for b in 1..=4 {
+                if a != b {
+                    queries.push(format!("from={a}&to={b}"));
+                }
+            }
+        }
+        for q in &queries {
+            let (status, j) = api(&ts, &id, q);
+            assert_eq!(status, 200, "{name} {q}: {j}");
+            let (status, page) = get(&ts, &format!("/d/{id}/diff?{q}"), &[]);
+            assert_eq!(status, 200, "{name} {q}");
+            let (from, to) = (j["from"].as_u64().unwrap(), j["to"].as_u64().unwrap());
+            assert_eq!(
+                (selected(&page, "cd-dxfrom"), selected(&page, "cd-dxto")),
+                (from.to_string(), to.to_string()),
+                "{name} {q}: the pair"
+            );
+            // The page's diff is the API's fragment plus only the page's own additions.
+            let html = annotary::server::ui::asset_links_blank(j["html"].as_str().unwrap());
+            let d = doc_part(&page);
+            let d = &d[d.find('>').unwrap() + 1..];
+            let mut rest =
+                d.strip_suffix(html.as_str()).unwrap_or_else(|| panic!("{name} {q}: the page's diff differs"));
+            while let Some(after) = rest.strip_prefix("<p class=\"cd-dx-note\"") {
+                rest = &after[after.find("</p>").unwrap() + 4..];
+            }
+            assert_eq!(rest, "", "{name} {q}: only notes ahead of the diff");
+            let s = &j["summary"];
+            let api_numbers = (
+                s["lines_added"].as_u64().unwrap(),
+                s["lines_removed"].as_u64().unwrap(),
+                s["changes"].as_u64().unwrap(),
+            );
+            assert_eq!(page_numbers(&page), api_numbers, "{name} {q}: the numbers");
+            assert!(api_numbers.2 > 0, "{name} {q}: corpus Versions differ");
+            compared += 1;
+        }
+    }
+    assert_eq!(compared, 45);
 }

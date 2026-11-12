@@ -7,22 +7,26 @@
 //! | route | right | what |
 //! |---|---|---|
 //! | `GET /d/{id}/diff?from=A&to=B` | web auth + `read` | A against B, oldest first (a reversed pair is shown the right way round); `from` alone = against the head, `to` alone = against the Version before it, neither = the previous Version against the head; an unknown Version is the 404 page |
+//! | `GET /api/v1/docs/{id}/diff?from=A&to=B` | any credential + `read` | the same pair and diff as JSON for a native client (`api`): no page chrome, no notes |
 //!
 //! The page has no Thread cards (the Document page is where Threads live). The Document page's
-//! Compare link (`view.rs`) picks the default pair; the two selects here pick any other.
+//! Compare link (`view.rs`) picks the default pair; the two selects here pick any other. Both
+//! routes go through [`compare`], so the page and the API cannot disagree about the pair or the diff.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use annotary_diff::RenderedDiff;
+use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use serde::Deserialize;
+use serde_json::{Value, json};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-use annotary_store::{Right, VersionView};
+use annotary_store::{DocumentView, Right, VersionView};
 
 use super::app::AppState;
 use super::auth::Auth;
@@ -140,6 +144,19 @@ async fn turn(gate: Arc<Semaphore>, wait: Duration) -> Result<OwnedSemaphorePerm
     }
 }
 
+/// Runs `work` on a blocking thread once it has one of the diff turns.
+async fn with_turn<T: Send + 'static>(
+    st: &AppState,
+    work: impl FnOnce() -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
+    let permit = turn(st.diff_gate.clone(), TURN_WAIT).await?;
+    let task = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        work()
+    });
+    task.await.unwrap_or_else(|e| Err(ApiError::internal(format!("the diff failed: {e}"))))
+}
+
 pub async fn page(
     State(st): State<AppState>,
     auth: Auth,
@@ -147,31 +164,75 @@ pub async fn page(
     Path(id): Path<String>,
     Query(q): Query<CompareQuery>,
 ) -> Response {
-    let permit = match turn(st.diff_gate.clone(), TURN_WAIT).await {
-        Ok(p) => p,
-        Err(e) => return ui::error_page_for(&st, &auth, &headers, e),
+    let result = {
+        let (st2, auth, headers) = (st.clone(), auth.clone(), headers.clone());
+        with_turn(&st, move || render_page(&st2, &auth, &id, &q, &headers)).await
     };
-    let task = {
-        let (st, auth, headers) = (st.clone(), auth.clone(), headers.clone());
-        tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            render_page(&st, &auth, &id, &q, &headers)
-        })
-    };
-    let result = task.await.unwrap_or_else(|e| Err(ApiError::internal(format!("the diff failed: {e}"))));
     match result {
         Ok(r) => r,
         Err(e) => ui::error_page_for(&st, &auth, &headers, e),
     }
 }
 
-fn render_page(
-    st: &AppState,
-    auth: &Auth,
-    id: &str,
-    q: &CompareQuery,
-    headers: &HeaderMap,
-) -> Result<Response, ApiError> {
+/// `GET /api/v1/docs/{id}/diff`: the page's comparison as JSON (`docs/dev/web-document-view.md`,
+/// "Compare Versions"). `html` is the diff fragment before any viewer's presentation.
+pub async fn api(
+    State(st): State<AppState>,
+    auth: Auth,
+    Path(id): Path<String>,
+    Query(q): Query<CompareQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let st2 = st.clone();
+    let c = with_turn(&st, move || compare(&st2, &auth, &id, &q)).await?;
+    Ok(Json(c.json()))
+}
+
+/// A comparison as both routes see it, before either presents it.
+pub struct Comparison {
+    pub doc: DocumentView,
+    /// Every Version of the Document, oldest first.
+    pub versions: Vec<VersionView>,
+    /// The pair, oldest first.
+    pub from: u32,
+    pub to: u32,
+    /// `None` when nothing was compared: the Document has one Version, or the same one twice.
+    pub diff: Option<Arc<RenderedDiff>>,
+    /// The two Versions have the same content (the same Markdown, or one pushed as the other).
+    pub same: bool,
+}
+
+impl Comparison {
+    pub fn json(&self) -> Value {
+        let summary = self.diff.as_ref().map(|d| {
+            let s = &d.stats;
+            json!({
+                "lines_added": s.lines_added,
+                "lines_removed": s.lines_removed,
+                "blocks_added": s.blocks_added,
+                "blocks_removed": s.blocks_removed,
+                "blocks_changed": s.blocks_changed,
+                "changes": s.changes,
+                "shown_whole": s.shown_whole,
+                "too_large": s.too_large,
+            })
+        });
+        let html = self.diff.as_ref().filter(|d| !d.stats.too_large).map(|d| d.html.as_str());
+        json!({
+            "id": self.doc.id,
+            "vault": self.doc.vault_name,
+            "from": self.from,
+            "to": self.to,
+            "head": self.doc.head.number,
+            "same_content": self.same,
+            "html": html,
+            "summary": summary,
+        })
+    }
+}
+
+/// Resolves the pair `q` asks for (the module table), checks the right, and diffs the two Versions
+/// unless there is nothing to compare. Errors are those of reading the Versions.
+pub fn compare(st: &AppState, auth: &Auth, id: &str, q: &CompareQuery) -> Result<Comparison, ApiError> {
     let doc = load_doc(st, id)?;
     auth.require_right(&doc.vault_name, Right::Read)?;
     let versions = st.store.versions(&doc.id)?;
@@ -191,27 +252,10 @@ fn render_page(
             .find(|x| x.number == n)
             .ok_or_else(|| ApiError::not_found(format!("Document {} has no v{n}", doc.id)))
     };
-    let prefs = WebPrefs::load(st, auth, headers)?;
-    let members = ui::members_by_handle(st)?;
-    let member = |h: &str| members.get(h).cloned().unwrap_or_else(|| MemberBrief::unknown(h));
-    let name = &doc.head.name;
-
-    let only_one = versions.len() < 2;
     let (va, vb) = (find(a)?, find(b)?);
-
-    // ---- the diff ----
-    let (body, summary) = if only_one {
-        (
-            format!("<p class=\"cd-dx-note\" id=\"cd-dxnote\">Nothing to compare: {} has one Version.</p>", esc(name)),
-            String::new(),
-        )
-    } else if a == b {
-        (
-            format!(
-                "<p class=\"cd-dx-note\" id=\"cd-dxnote\">v{a} and v{b} are the same Version. Pick another one to compare.</p>"
-            ),
-            String::new(),
-        )
+    let same = va.md_hash == vb.md_hash || vb.same_as == Some(a) || va.same_as == Some(b);
+    let diff = if versions.len() < 2 || a == b {
+        None
     } else {
         let md = |v: &VersionView| -> Result<String, ApiError> {
             let bytes = st.store.read_blob(&v.md_hash)?.unwrap_or_default();
@@ -220,20 +264,56 @@ fn render_page(
         let (html_a, hash_a, _) = ensure_html(st, &auth.0.member_id, va)?;
         let (html_b, hash_b, _) = ensure_html(st, &auth.0.member_id, vb)?;
         let key = format!("{}:{}:{hash_a}:{hash_b}", va.md_hash, vb.md_hash);
-        let d = st.diffs.get_or(&key, || {
+        Some(st.diffs.get_or(&key, || {
             let text = |h: &[u8]| String::from_utf8_lossy(h).into_owned();
             Ok(annotary_diff::rendered_diff(&md(va)?, &md(vb)?, &text(&html_a), &text(&html_b)))
-        })?;
-        let mut out = ui::asset_links_blank(&d.html);
-        if prefs.embed {
-            // M3: media go through the embedder (`embed.rs`); a removed image is the older Version's.
-            let mut sizes: HashMap<String, u64> = super::embed::sizes(&va.manifest);
-            sizes.extend(super::embed::sizes(&vb.manifest));
-            out = super::embed::media(&out, &sizes);
+        })?)
+    };
+    Ok(Comparison { doc, versions, from: a, to: b, diff, same })
+}
+
+fn render_page(
+    st: &AppState,
+    auth: &Auth,
+    id: &str,
+    q: &CompareQuery,
+    headers: &HeaderMap,
+) -> Result<Response, ApiError> {
+    let c = compare(st, auth, id, q)?;
+    let (doc, versions, a, b) = (&c.doc, &c.versions, c.from, c.to);
+    let head = doc.head.number;
+    let find = |n: u32| versions.iter().find(|x| x.number == n).expect("compare found both Versions");
+    let prefs = WebPrefs::load(st, auth, headers)?;
+    let members = ui::members_by_handle(st)?;
+    let member = |h: &str| members.get(h).cloned().unwrap_or_else(|| MemberBrief::unknown(h));
+    let name = &doc.head.name;
+
+    let only_one = versions.len() < 2;
+    let (va, vb) = (find(a), find(b));
+
+    // ---- the diff ----
+    let (body, summary) = match &c.diff {
+        None if only_one => (
+            format!("<p class=\"cd-dx-note\" id=\"cd-dxnote\">Nothing to compare: {} has one Version.</p>", esc(name)),
+            String::new(),
+        ),
+        None => (
+            format!(
+                "<p class=\"cd-dx-note\" id=\"cd-dxnote\">v{a} and v{b} are the same Version. Pick another one to compare.</p>"
+            ),
+            String::new(),
+        ),
+        Some(d) => {
+            let mut out = ui::asset_links_blank(&d.html);
+            if prefs.embed {
+                // M3: media go through the embedder (`embed.rs`); a removed image is the older Version's.
+                let mut sizes: HashMap<String, u64> = super::embed::sizes(&va.manifest);
+                sizes.extend(super::embed::sizes(&vb.manifest));
+                out = super::embed::media(&out, &sizes);
+            }
+            let note = notes(&d.stats, c.same, a, b);
+            (format!("{note}{out}"), summary_html(&d.stats))
         }
-        let same = va.md_hash == vb.md_hash || vb.same_as == Some(a) || va.same_as == Some(b);
-        let note = notes(&d.stats, same, a, b);
-        (format!("{note}{out}"), summary_html(&d.stats))
     };
 
     // ---- the header ----
