@@ -191,8 +191,8 @@ function renderComment({ base, head, baseSha, headSha, body, problem }) {
   const over = v.rows.filter((r) => r.over).length;
   const grown = v.rows.filter((r) => r.grew || r.ceilingRaised).length + v.gone.length;
   if (over) out.push(`❌ ${over} number${over > 1 ? "s are" : " is"} above the ceiling: the \`size\` check fails.`);
-  else if (grown && v.reason) out.push(`⚠️ ${grown} number${grown > 1 ? "s" : ""} grew or lost ${grown > 1 ? "their" : "its"} guard; the body's \`Size growth:\` line gives the reason.`);
-  else if (grown) out.push(`❌ ${grown} number${grown > 1 ? "s" : ""} grew or lost ${grown > 1 ? "their" : "its"} guard with no \`Size growth:\` line in the body: the \`size\` check fails.`);
+  else if (grown && v.reason) out.push(`⚠️ ${grown} number${grown > 1 ? "s" : ""} grew or had ${grown > 1 ? "their" : "its"} guard weakened; the body's \`Size growth:\` line gives the reason.`);
+  else if (grown) out.push(`❌ ${grown} number${grown > 1 ? "s" : ""} grew or had ${grown > 1 ? "their" : "its"} guard weakened with no \`Size growth:\` line in the body: the \`size\` check fails.`);
   else out.push("✅ No number grew, and none is above its ceiling.");
   if (!base) out.push("", "> The base branch has no size report yet, so there is nothing to compare with.");
   const fx = head.fixture;
