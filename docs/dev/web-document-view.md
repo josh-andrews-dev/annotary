@@ -11,7 +11,7 @@ index is [README.md](README.md)). Extend them with the code they describe.
 - **Members** render through `ui::MemberBrief` (`display_name` + `.cd-auth` glyph: `has_password` ⇒ "signs in with the local password", else "authenticates with a Token"; `secondary` = harness/model text when the model ever carries it — never a "bot" badge). Comment bodies: `ui::comment_html` = `annotary_renderer::render(body, Options{assets:&[], embeds:false})` with `data-l` stripped and Asset links `target=_blank` (`ui::asset_links_blank` also runs over the Document HTML). Timestamps: `ui::time_tag(iso, rel)` → `<time datetime>` the script localizes (`cd-rel` = relative age); `<option data-at data-pre data-post>` for the Version select. The select (`.cd-vsw select` in `app.css`) keeps `padding-right:22px` and `text-overflow:ellipsis` so a long label stops before the native chevron instead of running under it (issue #5, `S35-01`). `tests/web/select-ink.ts` measures the clearance from the select's pixels (the blank columns between label and chevron), because a browser can report `padding` on a native control without honoring it; the ellipsis is still checked through the computed `text-overflow`. The browser test and the verify-live scenario both use it.
 - **List page** (`listing.rs`): `docs::list_rows(st, auth, &ListQuery)` — the one query the API and the page share (same sort/filters/limit); query params `name`, `vault`, `deleted=1`, `mentions_me=1`, `action=ID|none`, `since` (CLI syntax via `cli::docref::parse_since`), `limit` (+50 per "more"); the title under the Name is `ui::title_for` (front matter `title:` else first H1, cached per blob hash — `annotary_renderer::title` renders the whole Markdown once per blob).
 - **Decisions to keep:** Threads are spliced server-side so the first paint is final (never slotted in after load); one Thread element for both layouts (CSS decides card vs row); the resolved toggle is client-only (no reload, no request); History reads the events API on demand and ticket 11 adds the SSE subscription (opened only after `cd-ready`, never before the first paint); the page never auto-renders — `ensure_html` only falls back when the stored HTML is missing/too old (ADR 0001); 404/403 on page routes are HTML.
-- **The header holds one row (visual refresh):** from 850 to 1800 px the id and the Action chip are hidden (the id is in the URL, the status line says the Action) and the Version select is at most 190 px; from 1100 to 1366 px the gaps tighten to 8 px and the select to 176 px. The status line's text is unchanged: `recount()` and the Rust side still build the same string. In layout C a row is a pill on `--cd-raise` and an open row is a card; `view.rs::snippet` drops Markdown's emphasis and code markers. Look and motion: `DESIGN.md`. S42-*: `tests/web/refresh.spec.ts`.
+- **The header holds one row (visual refresh):** from 850 to 1800 px the id and the Action chip are hidden (the id is in the URL, the status line says the Action), the Document name is at most 16em with an ellipsis (its `title` is the full name), and the Version select is at most 190 px; from 1100 to 1366 px the gaps tighten to 8 px and the select to 176 px. The status line's text is unchanged: `recount()` and the Rust side still build the same string. In layout C a row is a pill on `--cd-raise` and an open row is a card; `view.rs::snippet` drops Markdown's emphasis and code markers. Look and motion: `DESIGN.md`. S42-*: `tests/web/refresh.spec.ts`.
 - **The phone header on an iPhone:** `.cd-nline` shrinks before `.cd-name` (down to 5.5em), and the chip reads "Open" through `::before` with the text still in the DOM (S43-02). The Compare row `.cd-dxpick` clips its selects (S43-01).
 <!-- ---- end ticket 10 ---- -->
 
@@ -104,6 +104,39 @@ over, three times at most). Parts end on UTF-8 character boundaries, so a backen
   `<iframe sandbox="allow-scripts">`, `page.exposeFunction` as the backend — against a private `serve`). Chromium only;
   the Webapp on a phone is WebKit, which the suite does not run.
 <!-- ---- end M3 (Hermes plan) ---- -->
+
+<!-- ---- Document additions ---- -->
+## Copy link, the whole-Document comment, Mentions, Delete and Restore
+
+Why each choice: `docs/decisions.md`, 2026-11-12.
+
+- **Files:** `view.rs` (`share_link`, `more_menu`, `COPY_LINK_BTN`, `Viewer.link`, the Restore button beside the
+  deleted chip, `#cd-data.link` / `can_write`), `mentions_page.rs` (`/mentions`), `listing.rs` (the Deleted
+  filter's Restore), `ui::top_nav` (the Mentions link, in embed renders too), the "More menu" and "Mentions"
+  rules in `app.css`, and in `app.js` `copyLink`, `showMore`, `lifecycle`, the `document` branch of
+  `openComposer` / `postComposer` and the list's Restore handler.
+- **The link:** `share_link` is `annotary_store::doc_link(public_url, link_base, id)` (what `annotary link`
+  prints), else `origin/d/{id}`; null on a deleted Document, which has no Copy link anywhere. A Thread's link is
+  that plus `#tN`. `copyLink` tries `navigator.clipboard`, then a hidden textarea and `execCommand('copy')`,
+  then puts the link, selected, in `#cd-toast` (`.cd-toast-ok`; a click in the field keeps it open).
+- **The More menu (`#cd-docmenubtn` → `#cd-docmenu`):** Copy link (live), "Comment on the whole document" (head,
+  `comment`, live; hidden by `hideHeadOnly` once the head moves), "Delete Document…" (`write`, live, not embed),
+  which shows `#cd-delconfirm` first, and always "Keyboard shortcuts" (`#cd-helpbtn`, the help that had
+  its own `?` button: the header keeps one row). It closes on an outside click and on Escape.
+- **Delete / Restore:** `DELETE /api/v1/docs/{id}` and `POST …/restore`, then the page loads again
+  (`transport.navigate('/d/{id}')`), so the server draws the deleted or live state; an error is a toast. The
+  list's `button.cd-restore[data-restore]` (Deleted filter, `write` on the row's Vault, not embed) restores in
+  place: the row stays and says "restored". Neither exists in an embed render.
+- **Card Copy link:** `.cd-acts` ends with `button.cd-link.cd-copylink[data-act=link]` for every reader of a
+  live Document; a reader without `comment` gets `.cd-acts` with only that button.
+- **Mentions (`/mentions`):** `mentions_page::hits` = `Store::mentions_for` over the readable Vaults (the API's
+  query and order: the Thread's `updated_at`, newest first). Below 850 px the menu opens rightward from the
+  overlay's left edge, and an item that leaves it closes the overlay. Each `li.cd-mrow[data-doc][data-t]` links
+  `/d/{id}#tN` (the page selects it, turning Show resolved on only for a resolved one, as before).
+- **Tests:** `tests/web_document_additions.rs` (S48-01…04, server markup per viewer, Version and embed),
+  `tests/web/document-additions.spec.ts` (the clipboard, the fallback, the composer, Mentions, Delete and
+  Restore), `tests/web/embed.spec.ts` (the four in the frame), `verify/scenarios/document-additions.spec.ts`.
+<!-- ---- end Document additions ---- -->
 
 <!-- ---- compare Versions ---- -->
 ## Compare Versions

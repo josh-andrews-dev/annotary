@@ -996,14 +996,50 @@ function main() {
   /* ---------- toast (header-level errors) ---------- */
   var toast = $('#cd-toast');
   var toastTimer = null;
-  function showToast(msg) {
+  function showToast(msg, ok) {
     if (!toast) return;
     toast.textContent = msg;
+    toast.classList.toggle('cd-toast-ok', !!ok);
     toast.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toast.hidden = true; }, 8000);
+    toastTimer = setTimeout(function () { toast.hidden = true; }, ok ? 3000 : 8000);
   }
-  if (toast) toast.addEventListener('click', function () { toast.hidden = true; });
+  if (toast) toast.addEventListener('click', function (e) { if (!e.target.closest('input')) toast.hidden = true; });
+
+  /* ---------- Copy link: the link `annotary link` prints (`#cd-data.link`, `view.rs::share_link`) ----------
+     The clipboard API first; then a selected textarea and `execCommand('copy')` (an embedder's
+     sandboxed frame may refuse the clipboard); failing both, the link stays in the notice,
+     selected, for the person to copy by hand. */
+  function copyLink(text, what) {
+    function done() { showToast(what + ' copied', true); }
+    function byHand() {
+      if (!toast) return;
+      showToast('Copy this link:', true);
+      clearTimeout(toastTimer);
+      var inp = document.createElement('input');
+      inp.readOnly = true;
+      inp.value = text;
+      inp.setAttribute('aria-label', what);
+      toast.appendChild(inp);
+      inp.focus();
+      inp.select();
+    }
+    function legacy() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'absolute';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      ta.remove();
+      if (ok) done(); else byHand();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, legacy);
+    else legacy();
+  }
 
   /* ---------- counts / status line ---------- */
   function recount() {
@@ -1595,6 +1631,7 @@ function main() {
   }
   function hideHeadOnly() {
     var b = $('#cd-actbtns'); if (b) b.hidden = true;
+    var dc = $('#cd-docmenu [data-doc-act="comment"]'); if (dc) dc.hidden = true;
     hidePill();
   }
   function rebuildActionButtons(available) {
@@ -1979,6 +2016,20 @@ function main() {
       return;
     }
     if (existing) closeEditor(existing);
+    if (p.kind === 'document') {
+      var dtid = 'new' + (++newSeq);
+      var dcard = composerCard(dtid, '<span class="cd-kind">whole document</span>', 'cd-doclevel');
+      dcard.cdPending = { subject: 'document' };
+      var dStrip = docStrip();
+      dStrip.appendChild(dcard);
+      syncStripHidden(dStrip);
+      dcard.classList.add('cd-open');
+      deselect();
+      focusEditor(dcard);
+      scheduleLayout();
+      dcard.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     if (p.kind === 'asset') {
       var tid = 'new' + (++newSeq);
       var blk = p.el.closest('[data-l]');
@@ -2059,19 +2110,21 @@ function main() {
     localizeTimes(card);
     marksOf(tid).forEach(function (m) { m.classList.remove('cd-pending-hl'); });
     // The optimistic item lets selection / layout find it.
-    setItem({ id: tid, subject: p.subject, status: 'anchored', line: p.line, end: p.end || p.line, quote: p.exact || null, now: null, hash: p.hash || null, ref: p.ref || null, resolved: false, mine: false });
+    setItem({ id: tid, subject: p.subject, status: 'anchored', line: p.line || null, end: p.end || p.line || null, quote: p.exact || null, now: null, hash: p.hash || null, ref: p.ref || null, resolved: false, mine: false });
     select(tid, false);
     recount();
     scheduleLayout();
-    var bodyJson = p.subject === 'asset' ? { subject: 'asset', ref: p.ref, body: text, version: D.head } : { subject: 'span', range: p.range, body: text, version: D.head };
+    var bodyJson = p.subject === 'asset' ? { subject: 'asset', ref: p.ref, body: text, version: D.head }
+      : p.subject === 'document' ? { subject: 'document', body: text, version: D.head }
+        : { subject: 'span', range: p.range, body: text, version: D.head };
     var op = beginOp('created', null);
     api('POST', docApi('threads'), bodyJson).then(function (r) {
       if (!r.ok) {
         endOp(op, null);
         // Roll back: the card goes, the composer comes back with the text and the error.
         var i = itemIndex(tid); if (i >= 0) D.threads.splice(i, 1);
-        var again = composerCard(tid, $('.cd-quote', card).innerHTML, p.subject === 'asset' ? 'cd-asset' : '');
-        again.setAttribute('data-line', String(p.line));
+        var again = composerCard(tid, $('.cd-quote', card).innerHTML, { asset: 'cd-asset', document: 'cd-doclevel' }[p.subject] || '');
+        if (p.line) again.setAttribute('data-line', String(p.line));
         again.cdPending = p;
         card.replaceWith(again);
         marksOf(tid).forEach(function (m) { m.classList.add('cd-pending-hl'); m.classList.remove('cd-selected'); });
@@ -2105,6 +2158,7 @@ function main() {
     if (!card) return;
     var act = btn.getAttribute('data-act');
     e.preventDefault();
+    if (act === 'link') { if (D.link) copyLink(D.link + '#' + card.getAttribute('data-t'), 'Thread link'); return; }
     if (act === 'reply') { openReply(card); return; }
     if (act === 'resolve') { setResolved(card.getAttribute('data-t'), true); return; }
     if (act === 'reopen') { setResolved(card.getAttribute('data-t'), false); return; }
@@ -2151,6 +2205,44 @@ function main() {
     if (b) takeAction(b);
   });
 
+  /* ---------- the More menu: Copy link, Comment on the whole document, Delete (`view.rs::more_menu`) ----------
+     Delete asks first, in the menu; after it (and after Restore on a deleted Document's page)
+     the page loads again, so the server draws the deleted, read-only state or the live one. */
+  var moreBtn = $('#cd-docmenubtn'), more = $('#cd-docmenu');
+  function showMore(on) {
+    if (!more) return;
+    more.hidden = !on;
+    moreBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    var conf = $('#cd-delconfirm', more);
+    if (!on && conf) { conf.hidden = true; $('[data-doc-act="delete"]', more).hidden = false; }
+  }
+  function lifecycle(btn, method, path, verb) {
+    btn.disabled = true;
+    api(method, path).then(function (r) {
+      if (r.ok) { transport.navigate('/d/' + encodeURIComponent(D.id)); return; }
+      btn.disabled = false;
+      showToast('Document not ' + verb + ': ' + r.error);
+    });
+  }
+  if (isDocPage && moreBtn && more) {
+    moreBtn.addEventListener('click', function () { showMore(more.hidden); });
+    more.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-doc-act]');
+      if (!b) return;
+      var act = b.getAttribute('data-doc-act');
+      // An item that leaves the menu also closes the narrow header's overlay, which would cover it.
+      if (act === 'link' || act === 'comment' || act === 'help') app.classList.remove('cd-overlay-open');
+      if (act === 'link') { showMore(false); if (D.link) copyLink(D.link, 'Document link'); }
+      else if (act === 'comment') { showMore(false); openComposer({ kind: 'document' }); }
+      else if (act === 'delete') { b.hidden = true; var c = $('#cd-delconfirm', more); c.hidden = false; $('[data-doc-act="delete-no"]', c).focus(); }
+      else if (act === 'delete-no' || act === 'help') showMore(false);
+      else if (act === 'delete-yes') lifecycle(b, 'DELETE', '/api/v1/docs/' + encodeURIComponent(D.id), 'deleted');
+    });
+    document.addEventListener('click', function (e) { if (!more.hidden && !e.target.closest('.cd-docmenuwrap')) showMore(false); });
+  }
+  var restoreBtn = $('#cd-restore');
+  if (isDocPage && restoreBtn) restoreBtn.addEventListener('click', function () { lifecycle(restoreBtn, 'POST', docApi('restore'), 'restored'); });
+
   /* ---------- keyboard ---------- */
   function visibleCards() {
     return $$('.cd-thread:not(.cd-composer)', docEl).filter(function (c) { return c.getClientRects().length > 0; });
@@ -2186,6 +2278,7 @@ function main() {
       if (news) news.hidden = true;
       if (help) help.hidden = true;
       if (toast) toast.hidden = true;
+      if (more && !more.hidden) { showMore(false); moreBtn.focus(); return; }
       if (!isDocPage) return;
       var asking = $('.cd-discard', docEl);
       var open = (t && t.closest && t.closest('.cd-editor')) || (asking && asking.closest('.cd-editor')) || anyEditor();
@@ -2378,6 +2471,27 @@ function main() {
       if (resChanged || scaleChanged) layout();
     });
   }
+  /* The list's Deleted filter: Restore in one click (`listing.rs`, `write` only). The row stays,
+     marked restored, so the list does not jump under the pointer. */
+  if (app.classList.contains('cd-listpage')) app.addEventListener('click', function (e) {
+    var b = e.target.closest('button.cd-restore[data-restore]');
+    if (!b) return;
+    e.preventDefault();
+    b.disabled = true;
+    var cell = b.parentElement;
+    var old = $('.cd-restore-err', cell);
+    if (old) old.remove();
+    api('POST', '/api/v1/docs/' + encodeURIComponent(b.getAttribute('data-restore')) + '/restore').then(function (r) {
+      if (r.ok) {
+        var tag = $('.cd-deleted', cell);
+        if (tag) tag.remove();
+        b.outerHTML = '<span class="cd-restored">restored</span>';
+        return;
+      }
+      b.disabled = false;
+      b.insertAdjacentHTML('afterend', '<span class="cd-restore-err">Not restored: ' + esc(r.error) + '</span>');
+    });
+  });
   if (!isDocPage && app.classList.contains('cd-listpage')) {
     (window.requestIdleCallback || function (f) { setTimeout(f, 0); })(function () {
       try {

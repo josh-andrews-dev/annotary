@@ -109,6 +109,7 @@ pub fn top_nav(st: &AppState, auth: &super::auth::Auth, current: &str, embed: bo
         )
     };
     let mut nav = link("/", "cd-nav-docs", "Documents");
+    nav.push_str(&link("/mentions", "cd-nav-mentions", "Mentions"));
     if !embed {
         nav.push_str(&link("/settings", "cd-nav-settings", "Settings"));
     }

@@ -257,6 +257,8 @@ details.cd-orphaned .cd-thread{background:var(--cd-dim)}
 }
 @container cd (min-width: 850px) and (max-width: 1799.98px){
   .cd-actions>.cd-chip{display:none}
+  /* a long Document name gives way (its full text is the title) rather than wrapping the row */
+  .cd-hdr:not(.cd-hdr-nav) .cd-name{max-width:16em;overflow:hidden;text-overflow:ellipsis}
 }
 /* a small laptop: tighter gaps keep Compare and the Actions on the one row */
 @container cd (min-width: 1100px) and (max-width: 1365.98px){
@@ -350,9 +352,34 @@ mark.cd-hl.cd-pending-hl,.cd-asset-hl.cd-pending-hl{background:var(--cd-hl-sel);
 .cd-thread.cd-composer .cd-body{display:block}
 .cd-thread.cd-composer .cd-snip,.cd-thread.cd-composer .cd-meta{display:none}
 .cd-edited{color:var(--cd-muted)}
+/* the header's More menu (`view.rs::more_menu`): Copy link, Comment on the whole document, Delete */
+.cd-docmenuwrap{position:relative;display:inline-flex}
+.cd-docmenubtn{min-width:28px;padding:4px 8px}
+.cd-mi kbd{float:right;margin-left:12px;padding:0 5px;border:1px solid var(--cd-line);border-radius:4px;font:11px/1.6 var(--cd-mono);color:var(--cd-muted)}
+.cd-app[data-cd-keys=off] .cd-mi kbd{display:none}
+.cd-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:8;min-width:230px;display:flex;flex-direction:column;padding:4px;background:var(--cd-card);border:1px solid var(--cd-line);border-radius:10px;box-shadow:var(--cd-shadow-pop)}
+.cd-menu[hidden],.cd-mconfirm[hidden],.cd-mi[hidden]{display:none}
+.cd-mi{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--cd-fg);font:inherit;font-size:13px;padding:6px 10px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.cd-mi:hover,.cd-mi:focus-visible{background:var(--cd-soft)}
+.cd-mi-warn{color:var(--cd-warn)}
+.cd-mconfirm{padding:6px 10px 8px;font-size:12px;color:var(--cd-fg);max-width:260px}
+.cd-mconfirm p{margin:0 0 8px;white-space:normal}
+.cd-mconfirm .cd-btn{margin-right:6px}
+.cd-btn.cd-danger{background:var(--cd-neg);color:var(--cd-bg);border-color:var(--cd-neg)}
+/* a card's Copy link sits after Reply and Resolve, quiet */
+.cd-acts>.cd-copylink{margin-left:auto;font-size:12px;text-decoration:none}
+.cd-acts>.cd-copylink:hover{text-decoration:underline}
+#cd-restore{margin-left:6px;flex:none}
+/* a notice, not an error: "Link copied", or the link to copy by hand */
+.cd-toast.cd-toast-ok{background:var(--cd-info-bg);color:var(--cd-info-ink);border-color:var(--cd-info-line)}
+.cd-toast input{display:block;width:100%;margin-top:6px;font:12px var(--cd-mono);padding:4px 6px;border:1px solid var(--cd-info-line);border-radius:6px;background:var(--cd-field);color:var(--cd-fg)}
 @container cd (max-width: 849.98px){
   .cd-toast{top:48px;right:8px}
   .cd-actbtns{margin-left:0}
+  /* the overlay puts the tools at its left edge: the menu opens rightward from there */
+  .cd-tools{position:relative}
+  .cd-docmenuwrap{position:static}
+  .cd-menu{left:0;right:auto;max-width:calc(100vw - 32px)}
 }
 
 /* ---------- ticket 12: the shared top bar's nav (list page + owner screens; admin.css has the rest) ---------- */
@@ -387,6 +414,20 @@ table.cd-list tr:hover td{background:var(--cd-soft)}
 .cd-title{font-size:12px;color:var(--cd-muted);margin-top:1px}
 .cd-deleted{display:inline-block;margin-left:6px;font-size:11px;color:var(--cd-warn);border:1px solid var(--cd-warn-line);border-radius:999px;padding:0 6px}
 .cd-listfoot{font-size:13px;color:var(--cd-muted);margin:12px 0}
+.cd-restore{margin-left:6px;vertical-align:1px}
+.cd-restored{display:inline-block;margin-left:6px;font-size:11px;color:var(--cd-pos)}
+.cd-restore-err{display:block;font-size:12px;color:var(--cd-err)}
+/* the Mentions page (`mentions_page.rs`) */
+.cd-pageh{font-size:1.4em;margin:4px 0 2px}
+ul.cd-mentions{list-style:none;margin:12px 0 0;padding:0}
+.cd-mrow{border-bottom:1px solid var(--cd-soft)}
+.cd-mlink{display:block;padding:10px;border-radius:10px;color:var(--cd-fg);text-decoration:none}
+.cd-mlink:hover{background:var(--cd-soft)}
+.cd-mhead{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.cd-mhead .cd-muted{font-size:12px}
+.cd-mrow .cd-quote{font-size:13px;margin-top:3px}
+.cd-msaid{font-size:13px;margin-top:3px;color:var(--cd-muted);overflow-wrap:anywhere}
+.cd-msaid b{color:var(--cd-fg);font-weight:600}
 .cd-empty{color:var(--cd-muted);font-size:14px;padding:24px 8px;text-align:center}
 @container cd (max-width: 640px){
   table.cd-list .cd-col-id,table.cd-list .cd-col-updated{display:none}

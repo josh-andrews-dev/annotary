@@ -482,3 +482,28 @@ avoiding that needs a computed job name in both workflows, which are rendered fr
 template and never edited here. The other required checks need no secret: `ci`, `cargo test`,
 `make e2e`, `size`, `surfaces` and `lessons` run the same on a fork once the maintainer approves its
 runs, and `perf` passes a fork by rule (the maintainer runs `make perf` before deploying).
+
+## 2026-11-12: the web gets the app's four Document additions
+
+The iPhone and iPad app could copy a Document's or a Thread's link, comment on the whole Document,
+list the open Threads that mention the person, and delete and restore a Document; the web page could
+do none of them (issue #53). The maintainer chose to build all four in the web, over the routes that
+already existed. Chose to compute the link on the server with `annotary_store::doc_link`, the helper
+`annotary link` calls, and put it in `#cd-data.link` (the page's own origin when no public URL is
+set, as the CLI falls back to its server's URL); rejected reading `GET /api/v1/health` from the page
+and building the link in the script because two builders could drift and the first paint would wait
+on a request. Copy link tries the clipboard, then `execCommand('copy')`, and otherwise shows the link
+selected, because an embedder's sandboxed frame may refuse both. Chose one More menu (`⋯`) in the
+header for Copy link, Comment on the whole document and Delete, and moved the keyboard help's `?`
+button into it (the `?` key still opens the help), so the header is as wide as before; rejected
+three more header buttons, and a narrower Version select, because the header must stay one row from
+850 px and the select was already cut short. A long Document name now gives way with an ellipsis
+from 850 to 1800 px (the full name is its `title`): a real Name wrapped the header on `main`. Delete asks first, in the menu, and Restore is one
+click on the list's Deleted filter and on the deleted page; both need `write`. Chose a Mentions page
+rendered on the server (`/mentions`) from `Store::mentions_for`, the API's query and order (newest
+first); rejected a script that fetches `/api/v1/mentions` because the pages paint final from one
+response.
+<a id="embed-no-delete"></a>**An embed render has no Delete or Restore.** The Hermes page keeps
+the review loop (read, comment, act); deleting or restoring a Document stays on the web page, the
+app and the CLI, so a click inside an agent's chat never removes a Document. Copy link, the
+whole-Document comment and Mentions are in embed renders as on the web. Purge stays in the CLI.

@@ -14,28 +14,28 @@
       "id": "view.bytes",
       "label": "Document view: bytes",
       "unit": "bytes",
-      "value": 1998771,
+      "value": 2052442,
       "ceiling": 2200000
     },
     {
       "id": "view.script_bytes",
       "label": "Document view: inline script",
       "unit": "bytes",
-      "value": 119060,
+      "value": 124659,
       "ceiling": null
     },
     {
       "id": "view.data_bytes",
       "label": "Document view: page data (JSON)",
       "unit": "bytes",
-      "value": 95526,
+      "value": 95585,
       "ceiling": null
     },
     {
       "id": "view.style_bytes",
       "label": "Document view: inline style",
       "unit": "bytes",
-      "value": 41372,
+      "value": 44484,
       "ceiling": null
     },
     {
@@ -49,21 +49,21 @@
       "id": "view.cards_bytes",
       "label": "Document view: Thread cards",
       "unit": "bytes",
-      "value": 1202754,
+      "value": 1246770,
       "ceiling": null
     },
     {
       "id": "view.other_bytes",
       "label": "Document view: the rest",
       "unit": "bytes",
-      "value": 5074,
+      "value": 5959,
       "ceiling": null
     },
     {
       "id": "view.elements",
       "label": "Document view: elements",
       "unit": "count",
-      "value": 32444,
+      "value": 32979,
       "ceiling": 36000
     },
     {
@@ -77,35 +77,35 @@
       "id": "view.db_statements",
       "label": "Document view: database statements",
       "unit": "count",
-      "value": 42,
+      "value": 44,
       "ceiling": 47
     },
     {
       "id": "version.bytes",
       "label": "Version page: bytes",
       "unit": "bytes",
-      "value": 1716431,
+      "value": 1767233,
       "ceiling": 1900000
     },
     {
       "id": "version.script_bytes",
       "label": "Version page: inline script",
       "unit": "bytes",
-      "value": 119060,
+      "value": 124659,
       "ceiling": null
     },
     {
       "id": "version.data_bytes",
       "label": "Version page: page data (JSON)",
       "unit": "bytes",
-      "value": 88899,
+      "value": 88958,
       "ceiling": null
     },
     {
       "id": "version.style_bytes",
       "label": "Version page: inline style",
       "unit": "bytes",
-      "value": 41372,
+      "value": 44484,
       "ceiling": null
     },
     {
@@ -119,21 +119,21 @@
       "id": "version.cards_bytes",
       "label": "Version page: Thread cards",
       "unit": "bytes",
-      "value": 924919,
+      "value": 966163,
       "ceiling": null
     },
     {
       "id": "version.other_bytes",
       "label": "Version page: the rest",
       "unit": "bytes",
-      "value": 5248,
+      "value": 6036,
       "ceiling": null
     },
     {
       "id": "version.elements",
       "label": "Version page: elements",
       "unit": "count",
-      "value": 26823,
+      "value": 27324,
       "ceiling": null
     },
     {
@@ -147,21 +147,21 @@
       "id": "version.db_statements",
       "label": "Version page: database statements",
       "unit": "count",
-      "value": 45,
+      "value": 47,
       "ceiling": 50
     },
     {
       "id": "list.bytes",
       "label": "Document list: bytes",
       "unit": "bytes",
-      "value": 188024,
+      "value": 196807,
       "ceiling": 200000
     },
     {
       "id": "list.script_bytes",
       "label": "Document list: inline script",
       "unit": "bytes",
-      "value": 119060,
+      "value": 124659,
       "ceiling": null
     },
     {
@@ -175,21 +175,21 @@
       "id": "list.style_bytes",
       "label": "Document list: inline style",
       "unit": "bytes",
-      "value": 41372,
+      "value": 44484,
       "ceiling": null
     },
     {
       "id": "list.other_bytes",
       "label": "Document list: the rest",
       "unit": "bytes",
-      "value": 27592,
+      "value": 27664,
       "ceiling": null
     },
     {
       "id": "list.elements",
       "label": "Document list: elements",
       "unit": "count",
-      "value": 673,
+      "value": 674,
       "ceiling": null
     },
     {
@@ -259,7 +259,7 @@
       "id": "embed.view.bytes",
       "label": "Embed Document view: bytes",
       "unit": "bytes",
-      "value": 2010006,
+      "value": 2063251,
       "ceiling": null
     },
     {
@@ -273,7 +273,7 @@
       "id": "reply.fragment.bytes",
       "label": "Reply: card fragment bytes",
       "unit": "bytes",
-      "value": 2439,
+      "value": 2529,
       "ceiling": 2700
     },
     {

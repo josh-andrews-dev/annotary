@@ -6,7 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## Stories` section at the end maps every numbered story of the spec (1–175) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–179) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -634,9 +634,16 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S47-04 — keyboard: `j` / `k` include the still-shown resolved Thread while it is selected, and moving off it hides it and it is no longer a stop; no key selects a hidden card and focus is not left inside a card that just hid; opening a link to a resolved Thread (`#tN`) keeps its behavior — "Show resolved" turns on and the Thread is selected — but selecting a resolved card that is already on screen (selected before, or kept by an editor) never turns the toggle on (story 175)
 - S47-05 — with "Show resolved" on nothing changes: resolved Threads and their highlights stay shown whether selected or not; a resolved Thread that was not selected when it resolved hides at once with the toggle off (story 175)
 
+## The web gets the app's four Document additions
+
+- S48-01 — Copy link: a live Document's page carries the link `annotary link DOC` prints in `#cd-data.link` (`annotary_store::doc_link`: the public URL, through the link relay when both are set; with no public URL, the page's own origin), the header's More menu has Copy link, and every Thread card has Copy link, for a reader too; it copies that link, and the link plus `#tN` for a Thread, to the clipboard and says so, and where the clipboard is refused (an embedder's sandboxed frame) it shows the link selected to copy by hand; a deleted Document has no link and no Copy link (stories 176, 179)
+- S48-02 — Comment on the whole Document: on the head, for a Member with `comment`, the More menu's "Comment on the whole document" opens a composer in the Whole document strip under the title; posting it creates a `subject: "document"` Thread through `POST /api/v1/docs/{id}/threads`, shown at once and confirmed by the server's card, pinned with the other Document-level Threads; a failure keeps the text with the error; an older Version, a reader and a deleted Document have no such item (story 177)
+- S48-03 — the Mentions page (`/mentions`, "Mentions" in the top bar, in an embed render too): every open Thread that mentions the viewer in a Document they can read — the Threads of `GET /api/v1/mentions` — newest activity first, each with its Document, Vault, Thread id, quote (or "whole document" / the Asset), the last Comment's author and text, and its age, opening `/d/{id}#tN` at that Thread; resolved and fully deleted Threads, deleted Documents and Vaults the viewer cannot read are not there; none says so (story 178)
+- S48-04 — Delete and Restore: a Member with `write` on the Vault has "Delete Document…" in the More menu, which asks first ("Delete" / "Cancel") and then sends `DELETE /api/v1/docs/{id}`; the page loads again deleted and read-only with a Restore button, which sends `POST /api/v1/docs/{id}/restore` and loads the live page; on the list's Deleted filter each deleted row has Restore, one click, and the row says restored; a Member without `write` sees none of them, an error leaves the control with the server's sentence, and an embed render (the Hermes page) has neither Delete nor Restore; purge stays in the CLI (story 179)
+
 ## Stories
 
-Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–175)
+Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–179)
 and the ids whose tests cover it — the checker demands every number and only known ids; a story
 whose coverage Phase 1 does not automate points at a Deferred id.
 
@@ -816,6 +823,10 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 173 — an owner clears any Member's avatar → S41-04, S41-10
 - 174 — the margin-note visual refresh (the tie, live wash, mention tags, reduced motion, AA palettes) → S42-01, S42-02, S42-03, S42-04, S42-05, S42-06, S42-07, S42-08, S42-09, S42-10, S42-11, S42-12, S43-02, S43-03
 - 175 — a selected Thread stays on screen, marked resolved, until the person moves on → S47-01, S47-02, S47-03, S47-04, S47-05
+- 176 — copy a Document's link from its page → S48-01
+- 177 — comment on the whole Document from its page → S48-02
+- 178 — a Mentions page of the open Threads that mention me → S48-03
+- 179 — delete and restore a Document from the web, with the `write` right → S48-01, S48-04
 
 ## Deferred
 

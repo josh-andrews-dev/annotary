@@ -11,6 +11,8 @@ use axum::response::Response;
 use serde::Deserialize;
 use serde_json::Value;
 
+use annotary_store::Right;
+
 use super::app::AppState;
 use super::auth::Auth;
 use super::docs::{LIST_LIMIT, ListQuery, list_rows};
@@ -130,10 +132,15 @@ fn render(st: &AppState, auth: &Auth, headers: &HeaderMap, q: &ListPageQuery) ->
             ),
             None => "<span class=\"cd-muted\">-</span>".to_string(),
         };
-        let deleted_tag = if d.get("deleted_at").is_some_and(|v| !v.is_null()) {
-            "<span class=\"cd-deleted\">deleted</span>"
-        } else {
-            ""
+        let is_deleted = d.get("deleted_at").is_some_and(|v| !v.is_null());
+        // Restore: one click for a Member with `write` on its Vault, never in an embed render.
+        let deleted_tag = match is_deleted {
+            false => String::new(),
+            true if !prefs.embed && auth.0.has_right(s("vault"), Right::Write) => format!(
+                "<span class=\"cd-deleted\">deleted</span><button type=\"button\" class=\"cd-btn cd-sm cd-restore\" data-restore=\"{}\">Restore</button>",
+                esc(id)
+            ),
+            true => "<span class=\"cd-deleted\">deleted</span>".to_string(),
         };
         let open = d["open_threads"].as_u64().unwrap_or(0);
         let mine = d["mentions_me"].as_u64().unwrap_or(0);
