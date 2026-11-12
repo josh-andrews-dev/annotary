@@ -631,8 +631,9 @@ function main() {
   }
   function anchorTop(strip, base) {
     // A hidden resolved Thread has no place to align with: the strip goes by its first visible one
-    // (a selected resolved Thread is visible).
-    var t = $(app.classList.contains('cd-show-resolved') ? '.cd-thread' : '.cd-thread:not(.cd-resolved), .cd-thread.cd-selected', strip);
+    // (a selected one, or one kept on screen by an open editor).
+    var ts = $$('.cd-thread', strip), t = null;
+    for (var i = 0; i < ts.length; i++) { if (ts[i].getClientRects().length) { t = ts[i]; break; } }
     var tid = t && t.getAttribute('data-t');
     if (!tid) return null;
     var m = marksOf(tid)[0];
@@ -749,13 +750,22 @@ function main() {
     var a = document.activeElement;
     if (card && a && card.contains(a) && !card.getClientRects().length) a.blur();
   }
+  /* Moving on from a card that holds an editor: a clean one closes (and a stale card re-draws);
+     a dirty one stays on screen with its text, because app.css keeps a resolved card that still
+     has an editor, selected or not. */
+  function releaseEditor(card) {
+    if (!card || card.classList.contains('cd-composer')) return;
+    var ed = $('.cd-editor', card);
+    if (ed && !editorDirty(ed)) closeEditor(card, ed);
+  }
   function select(tid, scroll) {
     var wasSelected = selected === tid;
     var prevCard = selected && cardOf(selected);
     var prevStrip = prevCard && prevCard.closest('.cd-strip');
-    $$('.cd-selected').forEach(function (e) { e.classList.remove('cd-selected'); });
     var card = $('.cd-thread[data-t="' + cssEsc(tid) + '"]');
     if (!card) return;
+    if (prevCard && prevCard !== card) releaseEditor(prevCard);
+    $$('.cd-selected').forEach(function (e) { e.classList.remove('cd-selected'); });
     selected = tid;
     // A link to a resolved Thread (or History's event) shows it as it always has: by turning the
     // toggle on. Re-selecting the one on screen must not widen that to every resolved Thread.
@@ -778,6 +788,7 @@ function main() {
   function deselect() {
     var prevCard = selected && cardOf(selected);
     var prevStrip = prevCard && prevCard.closest('.cd-strip');
+    if (prevCard) releaseEditor(prevCard);
     selected = null;
     $$('.cd-selected').forEach(function (e) { e.classList.remove('cd-selected'); });
     if (prevStrip) syncStripHidden(prevStrip);
@@ -805,10 +816,22 @@ function main() {
       var id = th.getAttribute('data-t');
       if (!isWide() && th.classList.contains('cd-open') && th.classList.contains('cd-selected')) {
         var cstrip = th.closest('.cd-strip');
+        var ced = $('.cd-editor', th);
+        if (ced && editorDirty(ced)) {
+          // A typed reply must not hide with the row: keep it open, only end the selection.
+          th.classList.remove('cd-selected');
+          $$('.cd-selected', docEl || app).forEach(function (m) { m.classList.remove('cd-selected'); });
+          selected = null;
+          if (cstrip) syncStripHidden(cstrip);
+          layout();
+          return;
+        }
+        if (ced) closeEditor(th, ced);
         th.classList.remove('cd-open', 'cd-selected');
         $$('.cd-selected', docEl || app).forEach(function (m) { m.classList.remove('cd-selected'); });
         selected = null;
         if (cstrip) syncStripHidden(cstrip);
+        dropFocusIn(th);
         layout();
         return;
       }
@@ -1004,9 +1027,11 @@ function main() {
   function syncStripHidden(s) {
     if (s.classList.contains('cd-strip-orphaned')) return;
     var ts = $$('.cd-thread', s);
-    // A selected resolved Thread is still on screen with its strip; a composer keeps its strip too.
+    // A selected resolved Thread is still on screen with its strip; so is one whose editor was
+    // kept open, and a composer keeps its strip too.
     var all = ts.length > 0 && ts.every(function (t) {
-      return t.classList.contains('cd-resolved') && !t.classList.contains('cd-selected') && !t.classList.contains('cd-composer');
+      return t.classList.contains('cd-resolved') && !t.classList.contains('cd-selected')
+        && !t.querySelector('.cd-editor') && !t.classList.contains('cd-composer');
     });
     s.classList.toggle('cd-all-resolved', all);
   }
@@ -1155,10 +1180,9 @@ function main() {
     timer = setTimeout(done, WASH_MS);
     c.classList.add('cd-fresh');
   }
-  /* A live resolve / reopen on the selected Thread while an editor is open: the editor (and the
-     text in it) stays, and the resolved mark and its line arrive without a re-draw. */
+  /* A live resolve / reopen on a card that holds an editor: the editor (and the text in it) stays,
+     and the resolved mark and its line arrive without a re-draw. */
   function reflectResolved(card, item, fresh) {
-    if (selected !== card.getAttribute('data-t')) return;
     var on = !!item.resolved;
     if (card.classList.contains('cd-resolved') === on) return;
     var tid = card.getAttribute('data-t');

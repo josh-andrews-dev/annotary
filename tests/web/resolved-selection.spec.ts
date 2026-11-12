@@ -230,7 +230,7 @@ Delta paragraph for the span.
   });
 
   // spec: S47-02
-  test('narrow layout: a selected row resolved live stays open; tapping it again collapses and hides it', async ({ page }) => {
+  test('narrow layout: a selected row resolved live stays open; tapping it again collapses and hides it, and focus leaves it', async ({ page }) => {
     const doc = seedDoc('web-r7', MD);
     await newThreads(doc.id, MD);
     await openDoc(page, doc.id, { width: 800 });
@@ -243,8 +243,200 @@ Delta paragraph for the span.
     await expect(t1).toHaveClass(/cd-resolved/);
     await expect(t1.locator('.cd-body')).toBeVisible();
     await expect(page.locator('.cd-res-n')).toHaveText('1');
-    await t1.locator('.cd-row').click();
+    // Focus inside the row's controls does not stay in it when the row collapses.
+    await t1.locator('[data-act="reopen"]').focus();
+    await t1.locator('.cd-row').dispatchEvent('click');
     await expect(t1).toBeHidden();
     await expect(page.locator('.cd-thread.cd-selected')).toHaveCount(0);
+    expect(await page.evaluate(() => !!document.activeElement && !!document.activeElement.closest?.('.cd-thread[data-t="t1"]'))).toBe(false);
+  });
+
+  // spec: S47-02
+  test('narrow layout: tapping a row that holds a typed reply keeps it open until the reply is canceled', async ({ page }) => {
+    const doc = seedDoc('web-r8', MD);
+    await newThreads(doc.id, MD);
+    await openDoc(page, doc.id, { width: 800 });
+    await waitLive(page);
+    const t1 = card(page, 't1');
+    await t1.locator('.cd-row').click();
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(t1).toBeVisible();
+    await t1.locator('[data-act="reply"]').click();
+    const box = t1.locator('.cd-editor-reply textarea');
+    await box.fill('half a thought');
+    await t1.locator('.cd-row').dispatchEvent('click');
+    await expect(t1).toBeVisible();
+    await expect(t1).toHaveClass(/cd-open/);
+    await expect(t1).not.toHaveClass(/cd-selected/);
+    await expect(box).toBeVisible();
+    await expect(box).toHaveValue('half a thought');
+    await t1.locator('.cd-editor-reply [data-act="cancel"]').click();
+    await expect(t1.locator('.cd-editor')).toHaveCount(0);
+    await expect(t1).toBeHidden();
+  });
+
+  // spec: S47-01, S47-02
+  test('a typed reply keeps its card on screen when another Thread is selected, and Escape is never trapped in a hidden editor', async ({ page }) => {
+    const doc = seedDoc('web-r9', MD);
+    await newThreads(doc.id, MD);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    const t1 = card(page, 't1'), t2 = card(page, 't2');
+    await mark(page, 't1').click();
+    await t1.locator('[data-act="reply"]').click();
+    const box = t1.locator('.cd-editor-reply textarea');
+    await box.pressSequentially('half a thought');
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(t1).toBeVisible();
+    await expect(box).toBeFocused();
+    // Show resolved on and off again while the editor is open: the card stays either way.
+    await page.locator('#cd-resolved').check();
+    await expect(t1).toBeVisible();
+    await page.locator('#cd-resolved').uncheck();
+    await expect(t1).toBeVisible();
+    // Selecting another Thread does not take the typed text away with it, nor does `j` moving on,
+    // nor opening a second reply on the newly selected Thread: both editors stay where they are.
+    await mark(page, 't2').click();
+    await expect(t2).toHaveClass(/cd-selected/);
+    await expect(t1).toBeVisible();
+    await expect(t1).not.toHaveClass(/cd-selected/);
+    await expect(box).toBeVisible();
+    await expect(box).toHaveValue('half a thought');
+    await page.keyboard.press('j');
+    const t3 = card(page, 't3');
+    await expect(t3).toHaveClass(/cd-selected/);
+    await expect(t1).toBeVisible();
+    await expect(box).toBeVisible();
+    await page.keyboard.press('r');
+    await expect(t3.locator('.cd-editor-reply textarea')).toBeFocused();
+    await expect(page.locator('.cd-editor-reply')).toHaveCount(2);
+    await expect(t1.locator('.cd-editor-reply textarea')).toBeVisible();
+    await t3.locator('.cd-editor-reply [data-act="cancel"]').click();
+    await expect(page.locator('.cd-editor-reply')).toHaveCount(1);
+    // Escape with the focus in the kept editor asks there — visibly — and keep gives it back.
+    await box.focus();
+    await page.keyboard.press('Escape');
+    await expect(t1.locator('.cd-discard')).toBeVisible();
+    await expect(t3).toHaveClass(/cd-selected/);
+    await t1.locator('.cd-discard [data-act="discard-no"]').click();
+    await expect(box).toBeFocused();
+    // Discard: the editor closes, the card re-draws resolved and unselected, then hides.
+    await page.keyboard.press('Escape');
+    await t1.locator('.cd-discard [data-act="discard-yes"]').click();
+    await expect(t1.locator('.cd-editor')).toHaveCount(0);
+    await expect(t1).toBeHidden();
+    await expect(t3).toHaveClass(/cd-selected/);
+    // Escape with the focus outside the editor deselects the Thread.
+    await page.locator('.cd-doc h1').click();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.cd-thread.cd-selected')).toHaveCount(0);
+  });
+
+  // spec: S47-01, S47-03
+  test('sending a reply after a live resolve posts it and keeps the card on screen', async ({ page }) => {
+    const doc = seedDoc('web-r14', MD);
+    await newThreads(doc.id, MD);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    const t1 = card(page, 't1');
+    await mark(page, 't1').click();
+    await t1.locator('[data-act="reply"]').click();
+    const box = t1.locator('.cd-editor-reply textarea');
+    await box.fill('a thought I meant to send');
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(box).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(t1.locator('.cd-editor')).toHaveCount(0);
+    await expect(t1.locator('.cd-c[data-c="t1.1"] .cd-cbody')).toContainText('a thought I meant to send');
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(t1).toBeVisible();
+    await expect(t1).toHaveClass(/cd-selected/);
+    await page.keyboard.press('Escape');
+    await expect(t1).toBeHidden();
+  });
+
+  // spec: S47-02
+  test('moving the selection closes a clean reply editor, so it never keeps a resolved card on screen', async ({ page }) => {
+    const doc = seedDoc('web-r10', MD);
+    await newThreads(doc.id, MD);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    const t1 = card(page, 't1');
+    await mark(page, 't1').click();
+    await t1.locator('[data-act="reply"]').click();
+    await expect(t1.locator('.cd-editor-reply textarea')).toBeFocused();
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await mark(page, 't2').click();
+    await expect(card(page, 't2')).toHaveClass(/cd-selected/);
+    await expect(page.locator('.cd-editor')).toHaveCount(0);
+    await expect(t1).toBeHidden();
+  });
+
+  // spec: S47-01, S47-05
+  test('my own reply-and-resolve from the card keeps the card until I move on', async ({ page }) => {
+    const doc = seedDoc('web-r11', MD);
+    await newThreads(doc.id, MD);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    const t1 = card(page, 't1');
+    await mark(page, 't1').click();
+    await t1.locator('[data-act="reply"]').click();
+    await t1.locator('.cd-editor-reply textarea').fill('Done and dusted.');
+    await t1.locator('.cd-resolve-too').check();
+    await page.keyboard.press('Enter');
+    await expect(t1.locator('.cd-c[data-c="t1.1"] .cd-cbody')).toContainText('Done and dusted.');
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(t1).toBeVisible();
+    await expect(t1).toHaveClass(/cd-selected/);
+    await expect(t1.locator('.cd-resline')).toContainText('resolved by Rowan Vale');
+    await expect(page.locator('.cd-status')).toContainText('2 open');
+    await expect(page.locator('.cd-res-n')).toHaveText('1');
+    await page.keyboard.press('Escape');
+    await expect(t1).toBeHidden();
+  });
+
+  // spec: S47-01, S47-03
+  test('a live reopen of a kept Thread keeps it and clears the resolved mark', async ({ page }) => {
+    const doc = seedDoc('web-r12', MD);
+    await newThreads(doc.id, MD);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    const t1 = card(page, 't1');
+    await mark(page, 't1').click();
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await expect(t1).toHaveClass(/cd-resolved/);
+    await expect(t1).toBeVisible();
+    cli(h().agent, ['thread', 'reopen', doc.id, 't1']);
+    await expect(t1).not.toHaveClass(/cd-resolved/);
+    await expect(t1.locator('.cd-resline')).toHaveCount(0);
+    await expect(t1).toBeVisible();
+    await expect(t1).toHaveClass(/cd-selected/);
+    await expect(page.locator('.cd-status')).toContainText('3 open');
+    await expect(page.locator('.cd-res-n')).toHaveText('0');
+    await page.keyboard.press('Escape');
+    await expect(t1).toBeVisible();
+  });
+
+  // spec: S47-02
+  test('a kept Thread deleted by another Member leaves the page as if it were never there', async ({ page }) => {
+    const doc = seedDoc('web-r13', MD);
+    await newThreads(doc.id, MD);
+    await openDoc(page, doc.id);
+    await waitLive(page);
+    const t1 = card(page, 't1');
+    await mark(page, 't1').click();
+    cli(h().agent, ['thread', 'resolve', doc.id, 't1']);
+    await expect(t1).toBeVisible();
+    await expect(t1).toHaveClass(/cd-resolved/);
+    cli(h().agent, ['thread', 'delete', doc.id, 't1']);
+    await expect(t1).toHaveCount(0);
+    await expect(page.locator('mark.cd-hl[data-t="t1"]')).toHaveCount(0);
+    await expect(page.locator('.cd-thread.cd-selected')).toHaveCount(0);
+    await expect(page.locator('.cd-status')).toContainText('2 open');
+    await expect(page.locator('.cd-res-n')).toHaveText('0');
   });
 });

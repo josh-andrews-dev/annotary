@@ -205,8 +205,10 @@ mark.cd-hl code{background:var(--cd-hl-code-bg)}
 .cd-resline{padding:4px 10px;font-size:12px;color:var(--cd-muted);border-top:1px solid var(--cd-raise)}
 .cd-thread.cd-resolved{display:none}
 .cd-show-resolved .cd-thread.cd-resolved{display:block}
-/* the selected Thread stays until the person moves on, resolved or not */
+/* the selected Thread stays until the person moves on, resolved or not; a card that still holds a
+   reply editor stays too, so moving on never hides text that was typed into it */
 .cd-thread.cd-resolved.cd-selected{display:block}
+.cd-thread.cd-resolved:has(.cd-editor){display:block}
 .cd-strip.cd-all-resolved{display:none}
 .cd-show-resolved .cd-strip.cd-all-resolved{display:block}
 details.cd-orphaned summary{cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--cd-muted);font-weight:600;list-style:none;padding:2px 0}

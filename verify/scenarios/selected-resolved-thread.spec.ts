@@ -11,14 +11,42 @@ import * as path from 'node:path';
 import { test } from '@playwright/test';
 import { URL, cli, cliJson, documents, expect, openDoc, shot } from '../lib';
 
-/** The first plain paragraph of a Document (1-based line number, its text). */
+/** The first plain paragraph of a Document (1-based line number, its text), skipping what the
+ *  page does not render as a paragraph: YAML front matter, fenced code, and list items including a
+ *  lazy continuation line (one that starts at the margin but belongs to the item above). */
 function firstParagraph(id: string): { n: number; text: string } | null {
   const dir = fs.mkdtempSync(path.join(process.env.VERIFY_TMP!, 'pull-'));
   cli(['pull', id, '--out', dir]);
   const md = fs.readdirSync(dir).find((f) => f.endsWith('.md'))!;
-  const lines = fs.readFileSync(path.join(dir, md), 'utf8').split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].replace(/^\uFEFF/, '').replace(/\r$/, '');
+  const lines = fs.readFileSync(path.join(dir, md), 'utf8').split('\n')
+    .map((line) => line.replace(/^\uFEFF/, '').replace(/\r$/, ''));
+  // Front matter is parsed out before rendering; a closer may be `---` or `...`.
+  let start = 0;
+  if (lines[0] === '---') {
+    const close = lines.findIndex((line, i) => i > 0 && (line === '---' || line === '...'));
+    if (close > 0) start = close + 1;
+  }
+  let fence: string | null = null;
+  let inList = false;
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i];
+    const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (f) { fence = f[1]; inList = false; continue; }
+    // A blank line ends a list; a lazy continuation has none.
+    if (!line.trim()) { inList = false; continue; }
+    const item = /^\s*(?:[-*+]|\d+\.)\s+\S/.test(line);
+    if (inList) {
+      // A new block (heading, quote, table, HTML, rule) ends the list; anything else is its lazy
+      // continuation and is not a paragraph of its own.
+      if (!item && !/^\s{0,3}(?:#{1,6}\s|>|\||<|(?:-{3,}|\*{3,}|_{3,})\s*$)/.test(line)) continue;
+      inList = false;
+    }
+    if (item) { inList = true; continue; }
+    if (/^(?: {4}|\t)/.test(line)) continue; // indented code
     // A plain paragraph: letters at the start, no heading, list marker, quote, code or table.
     if (/^[A-Za-z][^`*_[\]<>|#-]{19,}$/.test(line)) return { n: i + 1, text: line };
   }
