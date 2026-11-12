@@ -140,6 +140,11 @@ machine, so CI checks them on every pull request. `docs/dev/perf-suite.md` says 
   pull request's code, so a fork's pull request gets it too.
 - Two open pull requests that both move a number conflict in `perf/size-report.json`; the later one
   runs `make size-report` again after merging `main`.
+- annotary carries the original of `.github/scripts/size-report.cjs` (and of the `surfaces` workflow,
+  `.github/workflows/surfaces.yml`). annotary-hermes and the iPhone and iPad app's repo each keep a
+  copy, with their own fixture and report, and each repo's `size` check runs only its own copy. A fix
+  to the script or the workflow here is ported to both copies in the same run, as "Hit every surface"
+  says (`docs/dev/surfaces.md`).
 
 ## Reading a failure
 
