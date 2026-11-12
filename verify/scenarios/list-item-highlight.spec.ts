@@ -19,11 +19,14 @@ function listItems(doc: { id: string }): Item[] {
   const dir = fs.mkdtempSync(path.join(process.env.VERIFY_TMP!, 'pull-'));
   cli(['pull', doc.id, '--out', dir]);
   const md = fs.readdirSync(dir).find((f) => f.endsWith('.md'))!;
-  const lines = fs.readFileSync(path.join(dir, md), 'utf8').split('\n');
-  // Leading YAML front matter is not the body: a `- tag` line in it renders no list item.
+  // A BOM and CRLF's `\r` are not part of a line's text; trim both before comparing delimiters.
+  const lines = fs.readFileSync(path.join(dir, md), 'utf8').split('\n').map((line) => line.replace(/^\uFEFF/, '').replace(/\r$/, ''));
+  // Leading YAML front matter is not the body: a `- tag` line in it renders no list item. A closer
+  // may be `---` or `...`; a body that starts with a `---` thematic break has no closer, so the
+  // `close > 0` guard leaves `start` at 0 and the break's following lines are still body.
   let start = 0;
   if (lines[0] === '---') {
-    const close = lines.indexOf('---', 1);
+    const close = lines.findIndex((line, i) => i > 0 && (line === '---' || line === '...'));
     if (close > 0) start = close + 1;
   }
   const items: Item[] = [];
@@ -42,10 +45,10 @@ function listItems(doc: { id: string }): Item[] {
   return items;
 }
 
-/** A Thread on a range of a list item; returns its id. */
+/** A Thread on a range of a list item; returns its id. `cliJson` appends `--json`, so pass no flag. */
 function anchor(item: Item, startCol: number): string {
   const end = Array.from(item.line).length;
-  return String(cliJson(['thread', 'new', item.id, `${item.n}:${startCol}-${item.n}:${end}`, '-m', 'Checks the anchor inside one list item.', '--json', 'id'])['id']);
+  return String(cliJson(['thread', 'new', item.id, `${item.n}:${startCol}-${item.n}:${end}`, '-m', 'Checks the anchor inside one list item.'])['id']);
 }
 
 /** The item's mark is the Thread's, the list around it is not, and the card sits at the item. */
@@ -53,11 +56,16 @@ async function expectItemMarked(page: import('@playwright/test').Page, item: Ite
   const li = page.locator(`.cd-doc li[data-l^="${item.n}-"]`).first();
   await expect(li).toHaveCount(1);
   // A tight or nested item marks its `li`; a loose item's paragraph is a child block, so accept
-  // either the item itself or a mark or block inside it.
-  const marked = await li.evaluate((e, t) => {
-    if (e.getAttribute('data-t') === t && e.classList.contains('cd-hl-block')) return true;
-    return !!e.querySelector(`mark.cd-hl[data-t="${t}"], .cd-hl-block[data-t="${t}"]`);
-  }, tid);
+  // either the item itself or a mark or block inside it — but the block's `data-l` must start on
+  // the anchored item's line. That rejects a mark in a nested child `li`, whose lines start after.
+  const marked = await li.evaluate((e, arg) => {
+    const starts = (el: Element) => {
+      const block = el.matches('[data-l]') ? el : el.closest('[data-l]');
+      return !!block && (block.getAttribute('data-l') ?? '').startsWith(arg.prefix);
+    };
+    if (e.getAttribute('data-t') === arg.t && e.classList.contains('cd-hl-block') && starts(e)) return true;
+    return [...e.querySelectorAll(`mark.cd-hl[data-t="${arg.t}"], .cd-hl-block[data-t="${arg.t}"]`)].some((c) => starts(c));
+  }, { t: tid, prefix: `${item.n}-` });
   expect(marked, 'the item or a mark inside it carries this Thread').toBe(true);
   // No list around it carries this Thread: no bar beside every bullet, no list-wide block mark.
   const lists = page.locator('.cd-doc ul, .cd-doc ol');
@@ -97,9 +105,14 @@ test('a comment inside one list item marks that item on the real data, never the
   const forcedTid = anchor(forced, 0);
   await openDoc(page, forced.id);
   const li = page.locator(`.cd-doc li[data-l^="${forced.n}-"]`).first();
-  const block = await li.evaluate((e, t) => (
-    e.getAttribute('data-t') === t ? e.classList.contains('cd-hl-block') : !!e.querySelector(`.cd-hl-block[data-t="${t}"]`)
-  ), forcedTid);
+  const block = await li.evaluate((e, arg) => {
+    const starts = (el: Element) => {
+      const block = el.matches('[data-l]') ? el : el.closest('[data-l]');
+      return !!block && (block.getAttribute('data-l') ?? '').startsWith(arg.prefix);
+    };
+    if (e.getAttribute('data-t') === arg.t && e.classList.contains('cd-hl-block')) return starts(e);
+    return [...e.querySelectorAll(`.cd-hl-block[data-t="${arg.t}"]`)].some((c) => starts(c));
+  }, { t: forcedTid, prefix: `${forced.n}-` });
   expect(block, 'the whole-item range marks a block at the item').toBe(true);
   await expectItemMarked(page, forced, forcedTid);
 });
