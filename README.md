@@ -160,8 +160,8 @@ Report a vulnerability privately: see [SECURITY.md](https://github.com/josh-andr
 ## Platforms
 
 macOS and Linux, on arm64 and x86_64. Windows is not supported. The web UI works in current browsers, on a
-phone too. An iPhone and iPad app is coming later; the server's `annotary pair`, `--link-base` and
-`annotary://` links are for it, and you can ignore them until then.
+phone too. The server's `annotary pair`, `--link-base` and `annotary://` links are for the iPhone and
+iPad app (see [Annotary elsewhere](#annotary-elsewhere)), and you can ignore them until then.
 
 ## Learn more
 
@@ -171,6 +171,12 @@ phone too. An iPhone and iPad app is coming later; the server's `annotary pair`,
 - [Contributing](CONTRIBUTING.md) and [implementation notes](docs/dev/README.md).
 - Questions go to [Discussions](https://github.com/josh-andrews-dev/annotary/discussions), bugs and ideas to
   [Issues](https://github.com/josh-andrews-dev/annotary/issues).
+
+## Annotary elsewhere
+
+- [Annotary for Hermes Agent](https://github.com/josh-andrews-dev/annotary-hermes): a Hermes Agent plugin that
+  gives each Hermes install its own private Annotary, with an Annotary page in Desktop and the Webapp.
+- An iPhone and iPad app is coming later.
 
 ## License
 
