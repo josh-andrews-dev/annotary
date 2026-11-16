@@ -18,7 +18,11 @@ removed_starter_files:
 - deploy/install.sh
 - CODE_OF_CONDUCT.md
 server_host: generic
-surfaces: []
+surfaces:
+-   name: annotary binary
+    signs:
+    - .github/workflows/release.yml
+    - .github/workflows/publish-tap.yml
 tier: full
 tracker: github
 visibility: public
