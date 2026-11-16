@@ -507,3 +507,12 @@ response.
 the review loop (read, comment, act); deleting or restoring a Document stays on the web page, the
 app and the CLI, so a click inside an agent's chat never removes a Document. Copy link, the
 whole-Document comment and Mentions are in embed renders as on the web. Purge stays in the CLI.
+
+## 2026-11-15: one standard surface, the released binary
+
+repo-standard v0.18.0 asks what the repo ships to (`surfaces` in `.agents/standard.yml`) and fails
+`make lint` on an undeclared release workflow. Chose one surface, `annotary binary`, with
+`release.yml` and `publish-tap.yml` as its signs; rejected recording the five surfaces of
+`docs/dev/surfaces.md` there because two or more make the template render its own
+`.github/workflows/surfaces.yml` over this repo's, whose required `surfaces` check lists the five
+and is tested by `.github/scripts/surfaces.test.cjs`.
