@@ -303,3 +303,20 @@ is in the pull request.
   - **Not done: the Codex CLI check.** Codex is disabled in T3 on this machine and on both
     linked Macs, and no `codex` binary is installed here. It needs the maintainer to enable it;
     it was not swapped for another tool.
+- 2026-11-19, M6 (stopped at a stop rule). Review went through `review-gate` with Gemini 4 Neon
+  High: three rounds (fix first, merge, merge). The fixes:
+  - Pages skip `cli_only` settings, because of the statement budgets.
+  - The per-pass failure state and the full-page wait are fixed.
+  - `hook test` no longer holds shutdown.
+  - A purged Document's id shows in `hook list`.
+  - A host outside ONLY_HOSTS is refused before its lookup.
+
+  One open low: no tests for the last two. Planning verify-live found a hazard: a copy of the live
+  data would carry the live hooks. `ANNOTARY_HOOK_ONLY_HOSTS` now limits the copy to loopback, and
+  `verify/scenarios/review-handoff-hooks.spec.ts` was added.
+
+  `make verify-live` on a Mac at 756523e: 25 of 26 passed, `review-handoff-hooks` included.
+  `dollar-amounts` failed twice, and the same way on `main`, so the cause is outside this change
+  (#86). The stop rule applies: no merge, no deploy, no live proof yet. Also found: verify-live's
+  Playwright path on a Mac (#87). CI's `perf` check needs a `make perf` table from a Mac, because
+  of the `prefs.rs` fix.
