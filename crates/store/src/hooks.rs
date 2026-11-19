@@ -387,6 +387,21 @@ impl Store {
         Ok(expired)
     }
 
+    /// `(live, failing, disabled)` across every Member: live = not disabled, not expired;
+    /// failing = live with failed attempts since its last delivery.
+    pub fn hook_counts(&self) -> Result<(i64, i64, i64)> {
+        let now = time::now();
+        Ok(self.conn().query_row(
+            "SELECT
+               COALESCE(SUM(disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?1)), 0),
+               COALESCE(SUM(disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?1) AND failures > 0), 0),
+               COALESCE(SUM(disabled_at IS NOT NULL), 0)
+             FROM hooks",
+            [now],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?)
+    }
+
     /// Who a hook delivers as, as they are now: through the Token that added it (revoked,
     /// expired or disabled ⇒ None), else the Member by id (disabled ⇒ None).
     pub fn hook_member(&self, h: &HookRow) -> Result<Option<AuthMember>> {

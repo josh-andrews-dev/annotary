@@ -239,8 +239,22 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-async fn health(State(st): State<AppState>) -> axum::Json<serde_json::Value> {
-    axum::Json(json!({
+async fn health(State(st): State<AppState>, req: axum::extract::Request) -> axum::Json<serde_json::Value> {
+    // The hook counts are for the host's own health check: a true loopback peer only, never a
+    // request a local proxy forwarded (`deploy/healthcheck.sh`).
+    let local = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .is_some_and(|c| super::login_guard::is_loopback(super::login_guard::client_ip(c.0.ip(), req.headers())));
+    let hooks = if local {
+        st.store
+            .hook_counts()
+            .ok()
+            .map(|(live, failing, disabled)| json!({ "live": live, "failing": failing, "disabled": disabled }))
+    } else {
+        None
+    };
+    let mut body = json!({
         "ok": true,
         "version": crate::VERSION,
         "url": st.url,
@@ -252,7 +266,11 @@ async fn health(State(st): State<AppState>) -> axum::Json<serde_json::Value> {
         "public_url": st.store.public_url().ok().flatten(),
         "link_base": st.store.link_base().ok().flatten(),
         // ---- end ticket 18 ----
-    }))
+    });
+    if let Some(h) = hooks {
+        body["hooks"] = h;
+    }
+    axum::Json(body)
 }
 
 async fn not_found(uri: axum::http::Uri) -> ApiError {

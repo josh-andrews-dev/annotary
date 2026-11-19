@@ -510,3 +510,34 @@ fn the_server_stops_within_drain_max_while_a_delivery_hangs() {
     ts.shutdown();
     assert!(t.elapsed() < annotary::server::DRAIN_MAX, "took {:?}", t.elapsed());
 }
+
+// spec: S49-14
+#[test]
+fn health_counts_hooks_for_a_loopback_peer_only() {
+    let bad = Receiver::start(Reply::Codes(vec![503]));
+    let ts = TestServer::start_hooks(local(60_000, 3600));
+    let (_, agent) = ts.add_member("scribe");
+    let d = doc(&ts, "plan");
+    add(&ts, &agent, json!({ "url": bad.url, "on": "action", "doc": d }));
+    add(&ts, &agent, json!({ "url": bad.url, "on": "mention" }));
+    ts.store.act(&ts.owner_id, &d, "approve", None).unwrap();
+    bad.wait_for(1, 5);
+    let health = |forwarded: bool| -> Value {
+        let mut r = ureq::get(format!("{}/api/v1/health", ts.url));
+        if forwarded {
+            r = r.header("X-Forwarded-For", "203.0.113.9");
+        }
+        r.call().unwrap().body_mut().read_json().unwrap()
+    };
+    let end = Instant::now() + Duration::from_secs(5);
+    loop {
+        let h = health(false);
+        if h["hooks"]["failing"] == 1 {
+            assert_eq!(h["hooks"], json!({ "live": 2, "failing": 1, "disabled": 0 }));
+            break;
+        }
+        assert!(Instant::now() < end, "{h}");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(health(true).get("hooks").is_none(), "a forwarded request gets no hook counts");
+}

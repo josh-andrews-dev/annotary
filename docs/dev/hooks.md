@@ -67,3 +67,44 @@ One `POST` per event, `Content-Type: application/json`, body-free (no Comment te
   10 s, is retried with backoff for up to 24 hours, then the hook is disabled (`hook.disabled`).
 - A `--once` hook is removed after its first 2xx. A hook expires after 7 days unless
   `--expires` says otherwise.
+
+## Implementation notes (extend, don't rewrite)
+
+- **Files:** `crates/store/src/hooks.rs` (the rows, HMAC-SHA256, the URL fingerprint, kinds,
+  the `Store` methods), migration v7 in `migrations.rs`, `crates/annotary/src/server/hooks.rs`
+  (the routes, the address policy, the deliverer; its module docs have the route table),
+  `crates/annotary/src/cli/hook.rs`, `cli/help.rs::SETUP` (`annotary help setup`), the settings
+  `review_handoff` / `review_wake` in `crates/store/src/settings.rs`. Tests:
+  `tests/hooks_api.rs`, the rows in `tests/access_api.rs`, `tests/e2e/89-hooks/`, spec ids
+  S49-01…S49-14.
+- **Schema v7:** `hooks (n AUTOINCREMENT, member_id, token_id, doc_id, kinds, once, url, secret,
+  cursor_seq, expires_at, created_at, last_status, last_attempt_at, failures, failing_since,
+  next_attempt_at, disabled_at)`. The id people type is `h<n>`. The previous binary cannot open
+  a v7 store; the installer exports first (`docs/ops-health-check.md` P7).
+- **Events:** `hook.added`, `hook.removed {reason: removed|once|expired}`, `hook.disabled
+  {reason: gone|failing|credential, status}`, with `member`, `hook`, `doc`, `kinds`, `once`,
+  `host` and `url_fp`, never the URL or the secret. They have no Document, so only owners see
+  them in the feed. A delivery attempt changes only the hook's own columns, in a hand-made
+  transaction with no event and no commit hook (an event per delivery would wake the deliverer).
+- **Who it delivers as:** the Token that added it (`token_id`), re-resolved every pass
+  (`Store::hook_member`); revoked or expired, or the Member disabled ⇒ disabled `credential`.
+  Rights are the Member's as they are now (`readable_vaults`), and the Member's own events never
+  wake it. The filter is `server/events.rs::Filter`, the same one `wait` uses.
+- **Addresses (D4):** `HookConfig::check_url` (https, or http to an allowlisted host; no user
+  info) and `check_addrs` (every resolved address public) at registration;
+  `GuardedResolver` runs `check_addrs` inside ureq's own lookup, so the address dialed is the one
+  checked. No proxy, no redirects, 10 s per POST. `ANNOTARY_HOOK_ALLOW_HOSTS` (comma list, in
+  `/etc/annotary/env` on a server) names hosts allowed to be private.
+- **The deliverer** (`hooks::deliverer`, spawned by `server::run_with`): a pass after every
+  commit and at least every 60 s: expire, then per live hook read up to 200 events after its
+  cursor, POST each one it carries, move the cursor. A failure sets `next_attempt_at` (backoff
+  from 5 s, doubling, at most 1 h) and stops that hook's pass. Each POST runs on its own thread,
+  so a hung receiver never holds shutdown (S49-09). Test seams: `HookConfig` through
+  `TestServer::start_hooks`; `ANNOTARY_HOOK_BACKOFF_MS`, `ANNOTARY_HOOK_RETRY_SECS` for a spawned
+  `serve`.
+- **Health:** `GET /api/v1/health` adds `hooks {live, failing, disabled}` for a true loopback
+  peer only; `deploy/healthcheck.sh` warns on failing or disabled ones (P8).
+- **The CLI:** `hook add` reads the URL (and an optional secret) from stdin, never argv;
+  `settings … --device this` is this install's own `cli` Device (`config.toml`'s `device`, made
+  on first use), which `review_handoff` applies to. `cli_only` settings stay out of the
+  catalog, the matrix, iOS sync and the web search, so no screen shows them.

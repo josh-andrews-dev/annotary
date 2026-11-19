@@ -19,6 +19,7 @@ session loads only `AGENTS.md` and reads the file for the area it is about to to
 | [access-model.md](access-model.md) | ticket 06: Rights, Grants, Tokens, password, sessions, web auth |
 | [reanchoring.md](reanchoring.md) | ticket 07: re-anchoring across Versions |
 | [events-wait-live.md](events-wait-live.md) | ticket 08: the events log, `wait`, the live feed, bounded shutdown |
+| [hooks.md](hooks.md) | hooks: how T3 Code and Claude Code wake an agent, the `v: 1` payload, the store, the deliverer, the address policy, the `hook` verbs, `review_handoff` |
 | [rendering.md](rendering.md) | ticket 09: the renderer and its HTML contract |
 | [web-document-view.md](web-document-view.md) | ticket 10 (+15): the Document view and list pages |
 | [web-commenting.md](web-commenting.md) | ticket 11: commenting, Actions, keyboard, live updates in the browser |

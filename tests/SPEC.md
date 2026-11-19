@@ -657,6 +657,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S49-11 — `review_handoff` (`wait`, `ask`, `end`, `hook`; default `ask`) and `review_wake` (free text, default empty) are device settings that apply only to the `cli` Device kind: `settings get` reads `default` until someone saves one, `--device` / `--all-devices` save it, and the web Settings screen and the iPhone and iPad sync never show or apply them (story 183)
 - S49-12 — the `hook` verbs: `hook add [DOC] --on KINDS [--once] [--expires DUR]` reads the URL from stdin (a second line is the receiver's own secret; a terminal is asked without echo; no URL is exit 1) and prints `ID SECRET` once with the host on stderr, `hook list` prints `ID ON DOC STATE HOST LAST EXPIRES` (TTY aligned with a header), `hook remove ID` prints `ID removed`, `hook test ID` prints `ID STATUS ok|failed` and exits 5 when the receiver did not take it; refused addresses exit 5, an unknown Document or hook 2, bad kinds or expiry 1, no credential 3, an unreachable server 6; nothing prints the URL (story 181)
 - S49-13 — `annotary help setup` prints the setup topic: how to read and save `review_handoff` with `--device this` (this install's own `cli` Device, made on first use and kept in `config.toml`'s `device`), the four experiences, what each looks like in T3 Code, Claude Code, a terminal and Hermes, and the `t3-webhook`, `background-wait` and build-your-own recipes; `annotary help` prints the top-level help; an unknown topic is exit 1 (story 183)
+- S49-14 — `GET /api/v1/health` adds `hooks {live, failing, disabled}` for a true loopback peer only (never for a request a local proxy forwarded, never for a remote one), and `deploy/healthcheck.sh` warns (P8) when any hook is failing or disabled (story 182)
 
 ## Stories
 
@@ -846,7 +847,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 179 — delete and restore a Document from the web, with the `write` right → S48-01, S48-04
 - 180 — Annotary wakes the agent on a Send back, Approve or @mention → S49-04, S49-06, S49-07, S49-08, S49-09
 - 181 — an agent registers its own signed, secret-URL hook from the CLI → S49-01, S49-02, S49-05, S49-10, S49-12
-- 182 — public https only unless allowed; the owner lists and removes hooks → S49-02, S49-03
+- 182 — public https only unless allowed; the owner lists and removes hooks → S49-02, S49-03, S49-14
 - 183 — the review handoff is chosen at setup, saved per machine → S49-11, S49-13
 
 ## Deferred
