@@ -1,7 +1,9 @@
 # CLI end-to-end goldens (trycmd)
 
 Run with `make e2e` (= `cargo test -p annotary --test e2e -- --ignored`); regenerate with
-`TRYCMD=overwrite make e2e`. Harness: `crates/annotary/tests/e2e.rs`.
+`TRYCMD=overwrite make e2e`. Harness: `crates/annotary/tests/e2e.rs`. Overwrite writes the
+actual output over every line that changed, `[..]` wildcards included: after `make goldens`, put
+back each wildcard the diff dropped before committing.
 
 - Groups `NN-name/` run in lexical order; cases in a group run in parallel and must not depend on
   one another (mutating cases use handles nobody else uses). Put a dependent sequence in one
