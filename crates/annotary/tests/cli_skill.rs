@@ -44,20 +44,29 @@ fn the_review_flow_leaves_a_review_in_progress_alone() {
 
 // spec: S14-09
 #[test]
-fn the_review_handoff_ends_the_turn_on_a_question_where_the_agent_can_ask() {
+fn the_review_handoff_follows_the_saved_choice_and_asks_by_default() {
     let skill = include_str!("../skill/SKILL.md");
     let step1 = skill.split("\n1. ").nth(1).and_then(|s| s.split("\n2. ").next()).expect("review step 1");
     for rule in [
-        "Can you ask the user?",
-        "End your turn asking \"Done?\"",
+        "By `review_handoff`",
+        "ask = end your turn",
+        "\"Done?\"",
         "Read my comments → 3",
         "Approved → 4",
-        "else `wait` it",
+        "wait = `wait` it",
+        "end = end it",
+        "hook = `help setup`",
     ] {
         assert!(step1.contains(rule), "review step 1 lost {rule:?}: {step1}");
     }
-    // Asking comes before the fallback, so an agent that can ask never parks in `wait`.
-    assert!(step1.find("End your turn").unwrap() < step1.find("else `wait`").unwrap());
+    // Asking is the first choice read, so the default never parks in `wait`.
+    assert!(step1.find("ask = ").unwrap() < step1.find("wait = ").unwrap());
+    // First use: nobody has chosen yet, so ask the human and save it.
+    let first = skill.lines().find(|l| l.contains("**First use:**")).expect("a First use line");
+    for rule in ["settings get review_handoff --device this", "`default`", "Ask them", "help setup", "save it"] {
+        assert!(first.contains(rule), "the First use line lost {rule:?}: {first}");
+    }
+    assert_eq!(annotary_store::settings::setting("review_handoff").unwrap().default, "\"ask\"");
 }
 
 // spec: S39-01

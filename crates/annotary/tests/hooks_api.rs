@@ -272,6 +272,7 @@ fn private_and_plain_http_addresses_are_refused_unless_allowed() {
             once: false,
             url: secure,
             expires_in: None,
+            secret: None,
         })
         .unwrap();
     ts.store.act(&ts.owner_id, &d, "send-back", None).unwrap();
@@ -483,6 +484,16 @@ fn the_test_route_sends_one_signed_test_body() {
     assert_eq!(got[0].json()["kind"], "test");
     assert_eq!(got[0].json()["by"], "@scribe");
     assert_eq!(got[0].header("x-annotary-signature"), Some(signature(&secret, &got[0].body).as_str()));
+
+    // The receiver's own secret (a T3 trigger is made with one): kept, and it signs.
+    let mine = "s3cret-from-the-receiver-0123456789";
+    let (st, b) = add(&ts, &agent, json!({ "url": rx.url, "on": "action", "secret": mine }));
+    assert_eq!((st, b["secret"].as_str()), (201, Some(mine)), "{b}");
+    call(&ts, "POST", "/api/v1/me/hooks/h2/test", &agent, None);
+    let got = rx.wait_for(2, 5);
+    assert_eq!(got[1].header("x-annotary-signature"), Some(signature(mine, &got[1].body).as_str()));
+    let (st, b) = add(&ts, &agent, json!({ "url": rx.url, "on": "action", "secret": "short" }));
+    assert_eq!(st, 400, "{b}");
 }
 
 // spec: S49-09

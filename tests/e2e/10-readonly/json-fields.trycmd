@@ -1,4 +1,4 @@
-spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06
+spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06, S49-12
 
 The `--json ?` contract of every verb in one place (ticket 16's sweep): each lists every field
 its `--json` can carry (`--json a,b` narrows to some of them) and exits 0 without calling the
@@ -126,6 +126,18 @@ key value source kind label group device changed
 
 $ annotary -p down settings reset k --json ?
 key value source kind label group device changed
+
+$ annotary -p down hook add --json ?
+id secret on once doc name host url_fp expires_at
+
+$ annotary -p down hook list --json ?
+id on once doc name state host url_fp last_status last_attempt_at failures created_at expires_at member
+
+$ annotary -p down hook remove h1 --json ?
+id removed
+
+$ annotary -p down hook test h1 --json ?
+id status ok
 
 $ annotary -p down devices list --json ?
 id kind name last_seen created forgotten

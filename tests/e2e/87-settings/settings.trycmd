@@ -26,6 +26,8 @@ keyboard_shortcuts	on	default	device
 send_key	enter	default	device
 times	relative	default	user
 clock	system	default	user
+review_handoff	ask	default	device
+review_wake	-	default	device
 
 $ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p kim settings
 KEY                 VALUE     SOURCE   KIND
@@ -40,9 +42,11 @@ keyboard_shortcuts  on        default  device
 send_key            enter     default  device
 times               relative  default  user
 clock               system    default  user
+review_handoff      ask       default  device
+review_wake         -         default  device
 
 $ annotary -p kim settings list --json key,value,label,group
-[{"key":"display_name","value":"Kim","label":"Display name","group":"profile"},{"key":"appearance","value":"system","label":"Appearance","group":"appearance"},{"key":"highlight_light","value":"yellow","label":"Highlight, light","group":"appearance"},{"key":"highlight_dark","value":"yellow","label":"Highlight, dark","group":"appearance"},{"key":"text_size","value":100,"label":"Text size","group":"appearance"},{"key":"show_resolved","value":"hidden","label":"Resolved Threads","group":"threads"},{"key":"default_vault","value":"any","label":"Default Vault","group":"documents"},{"key":"keyboard_shortcuts","value":"on","label":"Keyboard shortcuts","group":"keyboard"},{"key":"send_key","value":"enter","label":"Send key for replies","group":"keyboard"},{"key":"times","value":"relative","label":"Times shown as","group":"date-and-time"},{"key":"clock","value":"system","label":"Clock","group":"date-and-time"}]
+[{"key":"display_name","value":"Kim","label":"Display name","group":"profile"},{"key":"appearance","value":"system","label":"Appearance","group":"appearance"},{"key":"highlight_light","value":"yellow","label":"Highlight, light","group":"appearance"},{"key":"highlight_dark","value":"yellow","label":"Highlight, dark","group":"appearance"},{"key":"text_size","value":100,"label":"Text size","group":"appearance"},{"key":"show_resolved","value":"hidden","label":"Resolved Threads","group":"threads"},{"key":"default_vault","value":"any","label":"Default Vault","group":"documents"},{"key":"keyboard_shortcuts","value":"on","label":"Keyboard shortcuts","group":"keyboard"},{"key":"send_key","value":"enter","label":"Send key for replies","group":"keyboard"},{"key":"times","value":"relative","label":"Times shown as","group":"date-and-time"},{"key":"clock","value":"system","label":"Clock","group":"date-and-time"},{"key":"review_handoff","value":"ask","label":"Review handoff","group":"agents"},{"key":"review_wake","label":"Review wake recipe","group":"agents"}]
 
 $ annotary -p kim devices list
 web	web	Web	[..]
@@ -109,7 +113,7 @@ $ annotary -p kim settings get appearance --device web --json
 {"key":"appearance","value":"light","source":"device","kind":"device"}
 
 $ annotary -p kim settings list --device "iphone 17" --json key,value,source,device
-[{"key":"display_name","value":"Kim","source":"user"},{"key":"appearance","value":"system","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"highlight_light","value":"yellow","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"highlight_dark","value":"yellow","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"text_size","value":130,"source":"all","device":"01K9PH0NE00000000000000001"},{"key":"show_resolved","value":"hidden","source":"default"},{"key":"default_vault","value":"any","source":"default"},{"key":"keyboard_shortcuts","value":"on","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"send_key","value":"enter","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"times","value":"relative","source":"default"},{"key":"clock","value":"system","source":"default"}]
+[{"key":"display_name","value":"Kim","source":"user"},{"key":"appearance","value":"system","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"highlight_light","value":"yellow","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"highlight_dark","value":"yellow","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"text_size","value":130,"source":"all","device":"01K9PH0NE00000000000000001"},{"key":"show_resolved","value":"hidden","source":"default"},{"key":"default_vault","value":"any","source":"default"},{"key":"keyboard_shortcuts","value":"on","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"send_key","value":"enter","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"times","value":"relative","source":"default"},{"key":"clock","value":"system","source":"default"},{"key":"review_handoff","value":"ask","source":"default","device":"01K9PH0NE00000000000000001"},{"key":"review_wake","source":"default","device":"01K9PH0NE00000000000000001"}]
 
 $ annotary -p kim settings set default_vault notes
 default_vault	notes	user	user

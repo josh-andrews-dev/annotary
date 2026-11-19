@@ -2,7 +2,7 @@
 //!
 //! | route | who | what |
 //! |---|---|---|
-//! | `POST /api/v1/me/hooks {url, on, doc?, once?, expires?}` | any Member, for itself | add a hook → `{hook, secret}` (the secret only here) |
+//! | `POST /api/v1/me/hooks {url, on, doc?, once?, expires?, secret?}` | any Member, for itself | add a hook → `{hook, secret}` (the secret only here; `secret` given = the receiver's own) |
 //! | `GET /api/v1/me/hooks` | any Member | `{hooks[]}`, its own |
 //! | `DELETE /api/v1/me/hooks/{id}` | its Member, or an owner | remove → `{removed}` |
 //! | `POST /api/v1/me/hooks/{id}/test` | its Member | POST one signed `kind: "test"` body now → `{status, ok}` |
@@ -363,6 +363,8 @@ pub struct AddBody {
     pub once: bool,
     /// Seconds.
     pub expires: Option<i64>,
+    /// The receiver's own secret (24–128 printable characters); absent = generate one.
+    pub secret: Option<String>,
 }
 
 fn refused(msg: String) -> ApiError {
@@ -405,6 +407,7 @@ pub async fn add(
         once: b.once,
         url,
         expires_in: b.expires,
+        secret: b.secret.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
     })?;
     Ok((StatusCode::CREATED, Json(json!({ "hook": hook_json(&st, &row), "secret": row.secret }))))
 }

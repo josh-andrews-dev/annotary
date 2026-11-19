@@ -274,3 +274,11 @@ is in the pull request.
   ureq's resolver (`unversioned`, pinned by `Cargo.lock`) so the checked address is the one
   dialed. The `review_handoff` / `review_wake` settings (S49-11, M5) landed here too: `cli_only`
   settings are kept out of the catalog, the matrix, iOS sync and the web search.
+- 2026-11-19, M4 done: `annotary hook add|list|remove|test` (`cli/hook.rs`), `annotary help
+  [setup]`, `settings … --device this` (this install's own `cli` Device, its id kept in
+  `config.toml`'s `device`; without it no agent could save a per-machine choice, since the CLI
+  never made a Device), goldens in `tests/e2e/89-hooks/`, `json-fields`, `help`; `make lint test
+  e2e` green. Choices: `hook add` takes the receiver's own secret as an optional second stdin
+  line, because a T3 trigger needs its signing secret at creation, before Annotary would make
+  one; the top-level help and SKILL.md sat at their token ceilings (825 of 826, 1086 of 1086), so
+  room came from trimming parentheticals and rarely used flags there, not from raising either.

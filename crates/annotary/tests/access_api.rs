@@ -154,6 +154,7 @@ fn own_hook(ts: &TestServer, c: &Caller) -> String {
             once: false,
             url: "https://192.0.2.1/hook".into(),
             expires_in: None,
+            secret: None,
         })
         .unwrap()
         .id()

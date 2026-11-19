@@ -28,6 +28,16 @@ pub const DEFAULT_EXPIRY_SECS: i64 = 7 * 86_400;
 pub const MAX_EXPIRY_SECS: i64 = 30 * 86_400;
 /// Characters of the generated signing secret (base62, > 190 bits).
 pub const SECRET_LEN: usize = 32;
+/// A given secret: 24 to 128 printable ASCII characters, no spaces.
+pub const MIN_SECRET_LEN: usize = 24;
+pub const MAX_SECRET_LEN: usize = 128;
+
+pub fn check_secret(s: &str) -> std::result::Result<(), String> {
+    if !(MIN_SECRET_LEN..=MAX_SECRET_LEN).contains(&s.len()) || !s.bytes().all(|b| b.is_ascii_graphic()) {
+        return Err(format!("a secret is {MIN_SECRET_LEN} to {MAX_SECRET_LEN} printable characters with no spaces"));
+    }
+    Ok(())
+}
 
 /// A hook to add. `kinds` are [`HOOK_KINDS`] words; `expires_in` seconds (None = the default).
 #[derive(Clone, Debug)]
@@ -39,6 +49,9 @@ pub struct NewHook {
     pub once: bool,
     pub url: String,
     pub expires_in: Option<i64>,
+    /// The receiver's signing secret when it already has one (a T3 trigger is made with its
+    /// secret); None = generate one.
+    pub secret: Option<String>,
 }
 
 /// One stored hook, secrets included: only the server's deliverer and the create response see
@@ -230,6 +243,9 @@ impl Store {
     /// [`MAX_HOOKS_PER_MEMBER`] live hooks (`TooManyHooks`). `hook.added`.
     pub fn add_hook(&self, h: NewHook) -> Result<HookRow> {
         let kinds = parse_kinds(&h.kinds.join(",")).map_err(|reason| StoreError::Invalid { what: "kinds", reason })?;
+        if let Some(s) = &h.secret {
+            check_secret(s).map_err(|reason| StoreError::Invalid { what: "secret", reason })?;
+        }
         let life = h.expires_in.unwrap_or(DEFAULT_EXPIRY_SECS);
         if !(60..=MAX_EXPIRY_SECS).contains(&life) {
             return Err(StoreError::Invalid {
@@ -261,7 +277,7 @@ impl Store {
                     kinds.join(","),
                     h.once as i64,
                     h.url,
-                    ids::random_base62(SECRET_LEN),
+                    h.secret.clone().unwrap_or_else(|| ids::random_base62(SECRET_LEN)),
                     head,
                     expires_at,
                     created_at

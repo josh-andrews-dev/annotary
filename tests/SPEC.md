@@ -290,7 +290,7 @@ markers in implementation code — only in tests.
 - S14-06 — TTY / non-TTY parity across the flow: `show`, `status`, `thread list`, `thread show`, `mentions`, `wait` print identical fields in identical order in both modes — only separators, header and alignment differ (story 150)
 - S14-07 — token-count guard: the o200k counts of `status`, a `wait` event line, `mentions` (one hit), `show` (header + five open Threads), `thread show`, the top-level `--help` and SKILL.md, measured from real output of the real binary on the prototype's scenario, stay within ±20% of the prototype's numbers (24 · 12 · 58 · 245 · 117 · 688 · 905; `status --json` 61, `thread list --json id,anchor,body` 188); the regenerated report is `tests/token-report.md` (Further Notes: measured targets; story 147)
 - S14-08 — SKILL.md's review flow leaves a review in progress alone: the agent tells the human how to finish, does not push or add `--on thread,reply` mid-review (a push stops their commenting), treats `send-back`, `approve` or their word in chat as the end of the review, answers an @mention without pushing, and then handles every open Thread in one Version (story 147)
-- S14-09 — SKILL.md's review handoff ends the agent's turn where it can ask the user a question: after the link and how to finish, it ends its turn on one ("Done?": "Read my comments" starts step 3, review over; "Approved" starts step 4, approve) instead of blocking on `wait`, so the harness shows it is the human's turn; an agent that cannot ask still `wait`s (story 147)
+- S14-09 — SKILL.md's review handoff does what the device setting `review_handoff` says after the link and how to finish: `ask` (the default) ends the turn on a question ("Done?": "Read my comments" starts step 3, review over; "Approved" starts step 4, approve) instead of blocking, so the harness shows it is the human's turn; `wait` blocks on `wait`; `end` ends the turn; `hook` follows the `help setup` recipe `review_wake` names; a first-use line has the agent ask the human and save the choice when it reads `default` (stories 147, 183)
 <!-- ---- end ticket 14 ---- -->
 
 <!-- ---- ticket 15 ---- -->
@@ -653,8 +653,10 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S49-07 — `once`: a `once` hook is removed after its first 2xx (`hook.removed {reason: "once"}`) and later events go nowhere (story 180)
 - S49-08 — expiry: a hook past its `expires_at` is removed (`hook.removed {reason: "expired"}`) and delivers nothing (story 180)
 - S49-09 — shutdown: the server stops within `DRAIN_MAX` while a delivery is in flight to a receiver that never answers (story 180)
-- S49-10 — `POST /api/v1/me/hooks/{id}/test` sends one signed `kind: "test"` body now and answers `{id, status, ok}`; only the hook's Member may test it (story 181)
+- S49-10 — `POST /api/v1/me/hooks/{id}/test` sends one signed `kind: "test"` body now and answers `{id, status, ok}`; only the hook's Member may test it; a hook added with `secret` (24–128 printable characters, the receiver's own) signs with that secret (story 181)
 - S49-11 — `review_handoff` (`wait`, `ask`, `end`, `hook`; default `ask`) and `review_wake` (free text, default empty) are device settings that apply only to the `cli` Device kind: `settings get` reads `default` until someone saves one, `--device` / `--all-devices` save it, and the web Settings screen and the iPhone and iPad sync never show or apply them (story 183)
+- S49-12 — the `hook` verbs: `hook add [DOC] --on KINDS [--once] [--expires DUR]` reads the URL from stdin (a second line is the receiver's own secret; a terminal is asked without echo; no URL is exit 1) and prints `ID SECRET` once with the host on stderr, `hook list` prints `ID ON DOC STATE HOST LAST EXPIRES` (TTY aligned with a header), `hook remove ID` prints `ID removed`, `hook test ID` prints `ID STATUS ok|failed` and exits 5 when the receiver did not take it; refused addresses exit 5, an unknown Document or hook 2, bad kinds or expiry 1, no credential 3, an unreachable server 6; nothing prints the URL (story 181)
+- S49-13 — `annotary help setup` prints the setup topic: how to read and save `review_handoff` with `--device this` (this install's own `cli` Device, made on first use and kept in `config.toml`'s `device`), the four experiences, what each looks like in T3 Code, Claude Code, a terminal and Hermes, and the `t3-webhook`, `background-wait` and build-your-own recipes; `annotary help` prints the top-level help; an unknown topic is exit 1 (story 183)
 
 ## Stories
 
@@ -843,9 +845,9 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 178 — a Mentions page of the open Threads that mention me → S48-03
 - 179 — delete and restore a Document from the web, with the `write` right → S48-01, S48-04
 - 180 — Annotary wakes the agent on a Send back, Approve or @mention → S49-04, S49-06, S49-07, S49-08, S49-09
-- 181 — an agent registers its own signed, secret-URL hook from the CLI → S49-01, S49-02, S49-05, S49-10
+- 181 — an agent registers its own signed, secret-URL hook from the CLI → S49-01, S49-02, S49-05, S49-10, S49-12
 - 182 — public https only unless allowed; the owner lists and removes hooks → S49-02, S49-03
-- 183 — the review handoff is chosen at setup, saved per machine → S49-11
+- 183 — the review handoff is chosen at setup, saved per machine → S49-11, S49-13
 
 ## Deferred
 

@@ -361,6 +361,16 @@ impl Api {
         self.finish(req.call())
     }
 
+    /// GET `path` with extra request headers (`settings --device this` names this install's
+    /// Device with them).
+    pub fn get_with_headers(&self, path: &str, headers: &[(&str, &str)]) -> CliResult<Value> {
+        let mut req = self.decorate(self.agent.get(self.url(path)));
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        self.finish(req.call())
+    }
+
     // ---- ticket 08 ----
     /// GET `path` with its own whole-request timeout (longer than `REQUEST_TIMEOUT`): `wait`'s
     /// long-poll asks the server to park up to 30 s per request.

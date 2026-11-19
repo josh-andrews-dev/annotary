@@ -11,6 +11,7 @@ metadata:
 Humans and agents comment on Markdown as equals. Pass `-p NAME` on **every** command.
 - **Your profile** (`annotary profile list`) is your agent Member, never the human's. None? Ask them.
 - **Post as the human** only when asked ("comment as me"): their profile, that command only.
+- **First use:** `settings get review_handoff --device this` is `default`? Ask them (`help setup`), save it.
 
 ## Do this
 
@@ -23,16 +24,15 @@ Humans and agents comment on Markdown as equals. Pass `-p NAME` on **every** com
 - **Links:** give a person only the URL `annotary link DOC [t7]` prints, plain, not in code;
   127.0.0.1 only with them on that machine. T3 Code: `preview_open` it too.
 - **Guard `act`, `thread new` with `--version N`**: exit 5 if head moved.
-- **Wait, don't poll.** `wait DOC` blocks for a new Version, Action or @mention; `--cursor SEQ` (`status`) resumes.
-- **`--json`** to parse (`--json id,body` narrows, `--json ?` lists).
+- **Wait, don't poll.** `wait DOC` blocks for a Version, Action or @mention; `--cursor SEQ` resumes. `--json` parses (`?` lists).
 
 ## A document for the human's review
 
 Markdown you wrote for them to decide on (plans, specs, research, handoffs; not PR
 bodies or tracker items). The repo file stays the source; push a copy:
 1. `D=~/.cache/annotary/review; mkdir -p $D; cp docs/plans/x.md $D/REPO:docs:plans:x.md; push` it.
-   Give its link, say "comment, then Send back or tell me when you're done". Can you ask the user?
-   End your turn asking "Done?" (Read my comments → 3, Approved → 4); else `wait` it.
+   Give its link, say "comment, then Send back or tell me when you're done". By `review_handoff`: ask = end your turn
+   asking "Done?" (Read my comments → 3, Approved → 4); wait = `wait` it; end = end it; hook = `help setup`'s recipe.
 2. **Mid-review, never push** (it stops their commenting) **or add `--on thread,reply`.** Review ends at `send-back`,
    `approve` or their word in chat. An @mention: answer that Thread, no push.
 3. Review over: read every open Thread, fix the repo file, copy it over, push once, answer each Thread.
@@ -43,15 +43,14 @@ bodies or tracker items). The repo file stays the source; push a copy:
 ```
 show DOC                          header + open Threads
 status DOC                        version · action · open · mentions-me · seq
-thread list DOC [--all|--status S|--mentions-me|--since 2h|--sort recent|--version N]
-thread show DOC t7                full Thread
+thread list DOC [--all|--mentions-me|--since 2h|--version N]
 thread new DOC "L:C-L:C"|--document|--asset REF -m MSG [--version N]
 thread reply DOC t7 -m MSG [--resolve]      thread resolve|reopen|edit|delete DOC t7
-mentions [--since 2h]             open Threads mentioning you
-pull DOC [--version N]            push FILE.md [-m MSG] [--strict]
+thread show DOC t7                mentions [--since 2h]
+pull DOC [--version N]            push FILE.md [-m MSG]
 act DOC approve|send-back [--version N]     actions DOC
-wait [DOC] [--on version,action,mention] [--timeout 30m] [--cursor SEQ]
-list [NAME] [--mentions-me|--action ID|none|--since 2h]
+wait [DOC] [--on action,mention] [--timeout 30m] [--cursor SEQ]
+list [NAME] [--mentions-me|--since 2h]
 ```
 
 DOC = id, unique Name, or path to a pulled `.md`. Anchor `refined`: text changed (`thread show`);
