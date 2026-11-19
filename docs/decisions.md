@@ -516,3 +516,15 @@ repo-standard v0.18.0 asks what the repo ships to (`surfaces` in `.agents/standa
 `docs/dev/surfaces.md` there because two or more make the template render its own
 `.github/workflows/surfaces.yml` over this repo's, whose required `surfaces` check lists the five
 and is tested by `.github/scripts/surfaces.test.cjs`.
+
+## 2026-11-19: a review handoff ends the agent's turn on a question (S14-09)
+
+The skill told an agent that handed the human a Document to review to `wait` on it. A blocking
+`wait`, or a background one the harness holds, keeps the agent's turn running, so a harness such as
+T3 Code shows the thread as working while it is really the human's turn. Chose to end the turn on a
+question ("Done?": "Read my comments" starts the review-over step, "Approved" the approve step)
+wherever the agent can ask the user one, and to keep `wait` only where it cannot; rejected a webhook
+that wakes the agent's thread on Send back, Approve or an @mention as the fix for this, because it
+is a larger feature with its own design, and it can come later without changing the question flow.
+To stay within the skill's 60 lines and its token band (S14-07, at its ceiling of 1086 now), the
+review section dropped the Name aside (the file name shows the Name) and a few words elsewhere.
