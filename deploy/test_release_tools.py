@@ -161,6 +161,8 @@ class Formula(unittest.TestCase):
             DIST_FORMULA.replace("    install_binary_aliases!\n", ""),
             DIST_FORMULA.replace("    install_binary_aliases!\n", "    install_binary_aliases!\n" * 2),
             DIST_FORMULA.replace("  def install\n", "  def install\n    ohai target_triple\n"),
+            DIST_FORMULA.replace("    install_binary_aliases!\n", "    if true\n      install_binary_aliases!\n    end\n"),
+            DIST_FORMULA.replace("    install_binary_aliases!\n", "    #    install_binary_aliases!\n"),
         ):
             with self.assertRaises(ValueError, msg=bad):
                 tap_formula.with_test(bad)

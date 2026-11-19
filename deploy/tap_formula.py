@@ -66,9 +66,11 @@ def inlined_helpers(formula):
     named = re.search(r"\b(target_triple|install_binary_aliases!)", formula)
     if not named:
         return formula
-    if formula.count(HELPERS) != 1 or formula.count(HELPERS_CALL) != 1:
+    # Each piece must start a line: a deeper or commented call would otherwise match its tail.
+    helpers, call = "\n" + HELPERS, "\n" + HELPERS_CALL
+    if formula.count(helpers) != 1 or formula.count(call) != 1:
         raise ValueError("the formula's %s is not in the shape dist writes; inline it by hand" % named.group(1))
-    formula = formula.replace(HELPERS, "").replace(HELPERS_CALL, HELPERS_INLINED)
+    formula = formula.replace(helpers, "\n").replace(call, "\n" + HELPERS_INLINED)
     left = re.search(r"\b(target_triple|install_binary_aliases!)", formula)
     if left:
         raise ValueError("the formula still uses %s after inlining it" % left.group(1))
