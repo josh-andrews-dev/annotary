@@ -13,6 +13,7 @@
 //! `ANNOTARY_HOOK_ALLOW_HOSTS` (comma list) may be private and may use `http`. The check runs at
 //! registration and again inside every connection's name lookup ([`GuardedResolver`]), so a
 //! name that later resolves inward is refused (DNS rebinding). No proxy, no redirects.
+//! `ANNOTARY_HOOK_ONLY_HOSTS` (comma list) is a hard limit on top: no other host is ever called.
 //!
 //! The deliverer ([`deliverer`]) parks on the commit hook and a 60 s tick. Per live hook it reads
 //! the events after the hook's cursor with that Member's rights as they are now (CMD-8), skips
@@ -43,6 +44,9 @@ use super::events::{Filter, Kind};
 use super::vaults::readable_vaults;
 
 pub const ALLOW_HOSTS_ENV: &str = "ANNOTARY_HOOK_ALLOW_HOSTS";
+/// When set (comma list), no host outside it is ever called: `make verify-live` sets it on its
+/// copy of the live data, whose hooks would otherwise wake real agents.
+pub const ONLY_HOSTS_ENV: &str = "ANNOTARY_HOOK_ONLY_HOSTS";
 /// Test seams: the first retry delay (ms) and how long a hook may fail before it is disabled (s).
 pub const BACKOFF_ENV: &str = "ANNOTARY_HOOK_BACKOFF_MS";
 pub const RETRY_FOR_ENV: &str = "ANNOTARY_HOOK_RETRY_SECS";
@@ -61,6 +65,8 @@ const MAX_BACKOFF: Duration = Duration::from_secs(3600);
 pub struct HookConfig {
     /// Lowercased host names allowed to be private (and `http`).
     pub allow_hosts: Vec<String>,
+    /// Lowercased host names that are the only ones ever called (None = no such limit).
+    pub only_hosts: Option<Vec<String>>,
     pub backoff_base: Duration,
     pub retry_for: Duration,
 }
@@ -69,6 +75,7 @@ impl Default for HookConfig {
     fn default() -> Self {
         HookConfig {
             allow_hosts: Vec::new(),
+            only_hosts: None,
             backoff_base: Duration::from_secs(5),
             retry_for: Duration::from_secs(24 * 3600),
         }
@@ -78,8 +85,14 @@ impl Default for HookConfig {
 impl HookConfig {
     pub fn from_env() -> HookConfig {
         let mut c = HookConfig::default();
+        let hosts = |v: String| -> Vec<String> {
+            v.split(',').map(|h| h.trim().to_ascii_lowercase()).filter(|h| !h.is_empty()).collect()
+        };
         if let Ok(v) = std::env::var(ALLOW_HOSTS_ENV) {
-            c.allow_hosts = v.split(',').map(|h| h.trim().to_ascii_lowercase()).filter(|h| !h.is_empty()).collect();
+            c.allow_hosts = hosts(v);
+        }
+        if let Ok(v) = std::env::var(ONLY_HOSTS_ENV) {
+            c.only_hosts = Some(hosts(v));
         }
         if let Some(ms) = std::env::var(BACKOFF_ENV).ok().and_then(|v| v.trim().parse::<u64>().ok()).filter(|n| *n > 0)
         {
@@ -96,6 +109,12 @@ impl HookConfig {
         self.allow_hosts.iter().any(|h| h == host)
     }
 
+    fn outside_only(&self, host: &str) -> Option<String> {
+        let only = self.only_hosts.as_ref()?;
+        (!only.iter().any(|h| h == host))
+            .then(|| format!("{host} is not one of the hosts this server may call ({ONLY_HOSTS_ENV})"))
+    }
+
     /// D4 before any lookup: an absolute `https` URL (or `http` to an allowlisted host), no user
     /// info, at most [`MAX_URL_LEN`].
     pub fn check_url(&self, url: &str) -> Result<String, String> {
@@ -106,6 +125,9 @@ impl HookConfig {
         let host = uri.host().map(|h| h.trim_matches(['[', ']']).to_ascii_lowercase()).ok_or("the URL has no host")?;
         if uri.authority().is_some_and(|a| a.as_str().contains('@')) {
             return Err("the URL may not carry a user name or password".into());
+        }
+        if let Some(e) = self.outside_only(&host) {
+            return Err(e);
         }
         match uri.scheme_str() {
             Some("https") => {}
@@ -118,6 +140,9 @@ impl HookConfig {
     /// D4 at lookup: every address the name resolves to must be public, unless the host is
     /// allowlisted.
     pub fn check_addrs(&self, host: &str, addrs: &[SocketAddr]) -> Result<(), String> {
+        if let Some(e) = self.outside_only(host) {
+            return Err(e);
+        }
         if self.allowed_host(host) {
             return Ok(());
         }
@@ -688,6 +713,11 @@ mod tests {
         let public: SocketAddr = "8.8.8.8:443".parse().unwrap();
         assert!(cfg.check_addrs("dns.example.com", &[public, local]).is_err());
         assert!(cfg.check_addrs("dns.example.com", &[public]).is_ok());
+        // ONLY_HOSTS: nothing outside the list is ever called, public or not.
+        let only = HookConfig { only_hosts: Some(vec!["127.0.0.1".into()]), ..cfg.clone() };
+        assert!(only.check_url("https://relay.example.com/x").is_err());
+        assert!(only.check_addrs("relay.example.com", &[public]).is_err());
+        assert!(only.check_addrs("127.0.0.1", &[local]).is_ok());
     }
 
     #[test]

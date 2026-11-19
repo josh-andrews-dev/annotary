@@ -94,7 +94,7 @@ One `POST` per event, `Content-Type: application/json`, body-free (no Comment te
   info) and `check_addrs` (every resolved address public) at registration;
   `GuardedResolver` runs `check_addrs` inside ureq's own lookup, so the address dialed is the one
   checked. No proxy, no redirects, 10 s per POST. `ANNOTARY_HOOK_ALLOW_HOSTS` (comma list, in
-  `/etc/annotary/env` on a server) names hosts allowed to be private.
+  `/etc/annotary/env` on a server) names hosts allowed to be private. `ANNOTARY_HOOK_ONLY_HOSTS` is a hard limit on top: no other host is ever called. `deploy/verify_live.py` sets both to `127.0.0.1` on its copy, because the copy holds the live hooks and must never wake a real agent; `verify/scenarios/review-handoff-hooks.spec.ts` uses a loopback receiver there.
 - **The deliverer** (`hooks::deliverer`, spawned by `server::run_with`): a pass after every
   commit and at least every 60 s: expire, then per live hook read up to 200 events after its
   cursor, POST each one it carries, move the cursor. A failure sets `next_attempt_at` (backoff

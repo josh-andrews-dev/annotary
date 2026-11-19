@@ -109,6 +109,7 @@ impl Receiver {
 fn local(backoff_ms: u64, retry_secs: u64) -> HookConfig {
     HookConfig {
         allow_hosts: vec!["127.0.0.1".into()],
+        only_hosts: None,
         backoff_base: Duration::from_millis(backoff_ms),
         retry_for: Duration::from_secs(retry_secs),
     }
