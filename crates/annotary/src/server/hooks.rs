@@ -214,8 +214,12 @@ impl ureq::unversioned::resolver::Resolver for GuardedResolver {
         config: &ureq::config::Config,
         timeout: ureq::unversioned::transport::NextTimeout,
     ) -> Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
-        let addrs = self.inner.resolve(uri, config, timeout)?;
         let host = uri.host().unwrap_or_default().trim_matches(['[', ']']).to_ascii_lowercase();
+        // A host outside ONLY_HOSTS is refused before any lookup is made for it.
+        if self.cfg.outside_only(&host).is_some() {
+            return Err(ureq::Error::HostNotFound);
+        }
+        let addrs = self.inner.resolve(uri, config, timeout)?;
         let list: Vec<SocketAddr> = addrs.iter().copied().collect();
         match self.cfg.check_addrs(&host, &list) {
             Ok(()) => Ok(addrs),
@@ -299,6 +303,9 @@ impl Sender {
         seq: i64,
         body: Vec<u8>,
     ) -> Option<Outcome> {
+        if *shutdown.borrow() {
+            return None;
+        }
         let (tx, rx) = tokio::sync::oneshot::channel();
         let me = self.clone();
         std::thread::spawn(move || {
