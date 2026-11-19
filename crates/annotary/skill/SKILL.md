@@ -11,7 +11,6 @@ metadata:
 Humans and agents comment on Markdown as equals. Pass `-p NAME` on **every** command.
 - **Your profile** (`annotary profile list`) is your agent Member, never the human's. None? Ask them.
 - **Post as the human** only when asked ("comment as me"): their profile, that command only.
-- **First use:** `settings get review_handoff --device this` is `default`? Ask them (`help setup`), save it.
 
 ## Do this
 
@@ -31,8 +30,10 @@ Humans and agents comment on Markdown as equals. Pass `-p NAME` on **every** com
 Markdown you wrote for them to decide on (plans, specs, research, handoffs; not PR
 bodies or tracker items). The repo file stays the source; push a copy:
 1. `D=~/.cache/annotary/review; mkdir -p $D; cp docs/plans/x.md $D/REPO:docs:plans:x.md; push` it.
-   Give its link, say "comment, then Send back or tell me when you're done". By `review_handoff`: ask = end your turn
-   asking "Done?" (Read my comments → 3, Approved → 4); wait = `wait` it; end = end it; hook = `help setup`'s recipe.
+   Give its link, say "comment, then Send back or tell me when you're done". Run
+   `settings get review_handoff --device this`. SOURCE `default`? Ask them which (`help setup`), save it. Then
+   ask = end your turn asking "Done?" (Read my comments → 3, Approved → 4); wait = `wait` it; end = end it;
+   hook = the `help setup` recipe `review_wake` names.
 2. **Mid-review, never push** (it stops their commenting) **or add `--on thread,reply`.** Review ends at `send-back`,
    `approve` or their word in chat. An @mention: answer that Thread, no push.
 3. Review over: read every open Thread, fix the repo file, copy it over, push once, answer each Thread.

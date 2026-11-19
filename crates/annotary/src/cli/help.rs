@@ -108,7 +108,8 @@ Recipe t3-webhook (T3 Code, needs T3 Connect)
      \"Annotary: {{body.kind}} {{body.action}} on {{body.doc}} v{{body.version}} by {{body.by}}.
      Continue the review.\" The body reaches the woken turn only through such templates.
   2. printf '%s\\n%s\\n' \"$URL\" \"$S\" | annotary -p ME hook add DOC --once --on action,mention
-  3. End the turn. When woken: delete the trigger, then continue at \"Review over\".
+  3. End the turn. When woken: delete the trigger, then continue at \"Review over\". After that
+     push, arm again (1 and 2) for the Approve. Skip `hook test` here: it wakes this thread now.
 Recipe background-wait (Claude Code; T3 Code too, no T3 Connect)
   Start `annotary -p ME wait DOC --on action,mention --timeout 7d` in the background
   (Bash run_in_background; never t3_background_wait, which shows Working) and end the turn.

@@ -282,3 +282,24 @@ is in the pull request.
   line, because a T3 trigger needs its signing secret at creation, before Annotary would make
   one; the top-level help and SKILL.md sat at their token ceilings (825 of 826, 1086 of 1086), so
   room came from trimming parentheticals and rarely used flags there, not from raising either.
+- 2026-11-19, M5: settings, `help setup`, the skill, docs and the health check done; the
+  annotary-hermes issue is josh-andrews-dev/annotary-hermes#61.
+  - Claude Code (a plain terminal session): the first skill wording failed. A separate "First use"
+    line was skipped and the agent went straight to `wait`. Moving the
+    `settings get review_handoff --device this` call into review step 1 fixed it. The next fresh
+    agent asked the human (Hook), saved `hook` + `background-wait` with `--device this`, and ended
+    its turn with a background `wait`. A Send back re-invoked the idle session: it answered the
+    Thread, pushed v2 and re-armed. An Approve re-invoked it again, and it committed.
+    The test session ran with its own `CLAUDE_CONFIG_DIR`, because a user-level v0.3.1 annotary
+    skill in `~/.claude/skills` shadows the project's copy. That is the machine's setup, not
+    this change.
+  - T3 Code (a scratch thread, pointed at the new skill file for the same reason): the agent
+    asked through T3's question card, saved `hook` + `t3-webhook`, made a webhook trigger bound
+    to its thread, and registered a `--once` hook to the relay. The thread was idle (run
+    `completed`). The Send back woke it through the webhook, with the templated prompt. It
+    deleted the trigger, answered t1 and pushed v2. Finding: it did not arm again for the
+    Approve round, so `help setup`'s T3 recipe now says to. It also notes that `hook test` wakes
+    the thread at once.
+  - **Not done: the Codex CLI check.** Codex is disabled in T3 on this machine and on both
+    linked Macs, and no `codex` binary is installed here. It needs the maintainer to enable it;
+    it was not swapped for another tool.
