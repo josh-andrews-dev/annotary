@@ -60,6 +60,9 @@ FORMULA = """class Annotary < Formula
   end
 end
 """ % ("a" * 64)
+# The formula dist generated for v0.7.1, as released.
+with open(os.path.join(HERE, "..", "fixtures", "release", "dist-annotary-v0.7.1.rb"), encoding="utf-8") as f:
+    DIST_FORMULA = f.read()
 
 
 class Stamp(unittest.TestCase):
@@ -130,6 +133,39 @@ class Formula(unittest.TestCase):
         table = '  BINARY_ALIASES = {\n    "aarch64-apple-darwin": {"annotary": ["an"]},\n  }\n\n'
         out = tap_formula.with_test(FORMULA.replace("  def install", table + "  def install"))
         self.assertIn(table, out)
+
+    def test_dists_one_caller_helpers_are_inlined_into_install(self):
+        out = tap_formula.with_test(DIST_FORMULA)
+        for gone in ("def target_triple", "def install_binary_aliases!", "target_triple", "install_binary_aliases!"):
+            self.assertNotIn(gone, out)
+        self.assertIn(
+            '    bin.install "annotary"\n    end\n\n'
+            '    cpu = Hardware::CPU.arm? ? "aarch64" : "x86_64"\n'
+            '    os = OS.mac? ? "apple-darwin" : "unknown-linux-gnu"\n'
+            '    BINARY_ALIASES[:"#{cpu}-#{os}"].each do |source, dests|\n'
+            "      dests.each do |dest|\n"
+            "        bin.install_symlink bin/source.to_s => dest\n"
+            "      end\n"
+            "    end\n\n"
+            "    # Homebrew will automatically install these",
+            out,
+        )
+        self.assertIn("  }.freeze\n\n  def install\n", out)
+        self.assertNotIn('  version "0.7.1"', out)
+        self.assertEqual(out.count("  def "), 1)
+        self.assertEqual(out.count("test do"), 1)
+
+    def test_helpers_it_does_not_recognize_are_refused(self):
+        for bad in (
+            DIST_FORMULA.replace('"aarch64" : "x86_64"', '"arm64" : "x86_64"'),
+            DIST_FORMULA.replace("    install_binary_aliases!\n", ""),
+            DIST_FORMULA.replace("    install_binary_aliases!\n", "    install_binary_aliases!\n" * 2),
+            DIST_FORMULA.replace("  def install\n", "  def install\n    ohai target_triple\n"),
+            DIST_FORMULA.replace("    install_binary_aliases!\n", "    if true\n      install_binary_aliases!\n    end\n"),
+            DIST_FORMULA.replace("    install_binary_aliases!\n", "    #    install_binary_aliases!\n"),
+        ):
+            with self.assertRaises(ValueError, msg=bad):
+                tap_formula.with_test(bad)
 
     def test_it_refuses_a_formula_that_should_not_go_out(self):
         for bad in (

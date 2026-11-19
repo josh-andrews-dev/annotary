@@ -51,10 +51,14 @@ runner each target gets. `tests/phase1_done.rs` does not check it.
 
 dist's `homebrew` publish job needs a personal access token (`HOMEBREW_TAP_TOKEN`) and writes a formula with
 no `test do`, so `publish-jobs` names our own workflow, `publish-tap.yml`. Its `check` job, with no secret, takes
-dist's generated `annotary.rb`, adds the test and rewrites what `brew audit --strict` refuses in dist's output, the `version` line and the alias table (`deploy/tap_formula.py`; if dist changes its shape, the audit stops the job), and puts it in a local tap for `brew
+dist's generated `annotary.rb`, adds the test and rewrites what `brew audit --strict` refuses in dist's output, the `version` line, the alias table and the two one-caller helpers (`target_triple`, `install_binary_aliases!`) it inlines into `install` (`deploy/tap_formula.py`, tested on the real v0.7.1 formula in `fixtures/release/`; helpers of another shape are refused, and any other change in dist's shape stops the job at the audit), and puts it in a local tap for `brew
 audit --strict --online`, `brew install` and `brew test`. Only then does its `push` job, on a runner of its own,
 check out `josh-andrews-dev/homebrew-tap` with the key, commit that same file and push. A failure leaves the tap
 on the previous release, and the release itself up.
+
+To see the audit's style offenses on a Mac before a release, copy the formula to `<dir>/Formula/annotary.rb` and
+run `brew rubocop --config "$(brew --repo)/Library/.rubocop.yml" <dir>/Formula/annotary.rb`: `brew style` refuses a
+path, and a local `brew tap` is refused on the maintainer's Macs, which change Homebrew only through its upgrade tool.
 
 It pushes with `HOMEBREW_TAP_DEPLOY_KEY`, this repo's secret: the private half of a deploy key on the tap with
 write access. It can write to that one repo and nothing else, it needs no personal token, and a fork's pull

@@ -3,16 +3,45 @@
 
     python3 deploy/tap_formula.py path/to/annotary.rb
 
-dist writes the formula with no test and with an alias table `brew audit --strict` refuses, so the
-tap's publish job (.github/workflows/publish-tap.yml) runs this before the audit. It refuses a formula
-with a test already (one is all a formula may have), with no closing `end` to put it before, or with
-a download that has no checksum.
+dist writes the formula with no test, and with an alias table and two one-caller helpers that
+`brew audit --strict` refuses, so the tap's publish job (.github/workflows/publish-tap.yml) runs this
+before the audit. It refuses a formula with a test already (one is all a formula may have), with no
+closing `end` to put it before, with a download that has no checksum, or with helpers named as dist
+names them but not in the shape it knows how to inline.
 """
 import re
 import sys
 
 # dist's table of binary aliases, written so that `brew audit --strict` refuses it.
 ALIASES = re.compile(r"^  BINARY_ALIASES = \{\n(?:    \"[^\"]+\": \{\},?\n)+  \}\n", re.M)
+
+# dist's two helpers, each with one caller, which `brew audit --strict` wants inlined. Matched
+# exactly: a helper of another shape is refused, not guessed at.
+HELPERS = """  def target_triple
+    cpu = Hardware::CPU.arm? ? "aarch64" : "x86_64"
+    os = OS.mac? ? "apple-darwin" : "unknown-linux-gnu"
+
+    "#{cpu}-#{os}"
+  end
+
+  def install_binary_aliases!
+    BINARY_ALIASES[target_triple.to_sym].each do |source, dests|
+      dests.each do |dest|
+        bin.install_symlink bin/source.to_s => dest
+      end
+    end
+  end
+
+"""
+HELPERS_CALL = "    install_binary_aliases!\n"
+HELPERS_INLINED = """    cpu = Hardware::CPU.arm? ? "aarch64" : "x86_64"
+    os = OS.mac? ? "apple-darwin" : "unknown-linux-gnu"
+    BINARY_ALIASES[:"#{cpu}-#{os}"].each do |source, dests|
+      dests.each do |dest|
+        bin.install_symlink bin/source.to_s => dest
+      end
+    end
+"""
 
 TEST_BLOCK = """
   test do
@@ -32,6 +61,22 @@ def aligned_aliases(match):
     return "  BINARY_ALIASES = {\n" + rows + "  }.freeze\n"
 
 
+def inlined_helpers(formula):
+    """`formula` with dist's helpers inlined into `install`; ValueError if they are not dist's."""
+    named = re.search(r"\b(target_triple|install_binary_aliases!)", formula)
+    if not named:
+        return formula
+    # Each piece must start a line: a deeper or commented call would otherwise match its tail.
+    helpers, call = "\n" + HELPERS, "\n" + HELPERS_CALL
+    if formula.count(helpers) != 1 or formula.count(call) != 1:
+        raise ValueError("the formula's %s is not in the shape dist writes; inline it by hand" % named.group(1))
+    formula = formula.replace(helpers, "\n").replace(call, "\n" + HELPERS_INLINED)
+    left = re.search(r"\b(target_triple|install_binary_aliases!)", formula)
+    if left:
+        raise ValueError("the formula still uses %s after inlining it" % left.group(1))
+    return formula
+
+
 def with_test(formula):
     """`formula` with the test added; ValueError if it should not be published."""
     if re.search(r"^\s*test do\b", formula, re.M):
@@ -41,6 +86,7 @@ def with_test(formula):
     if not urls or urls != sums:
         raise ValueError("the formula has %d url lines and %d sha256 lines; every download needs a checksum" % (urls, sums))
     formula = ALIASES.sub(aligned_aliases, formula)
+    formula = inlined_helpers(formula)
     # `brew audit --strict`: the version is already in the url.
     formula = re.sub(r'^  version "[^"]+"\n', "", formula, count=1, flags=re.M)
     stripped = formula.rstrip("\n")
