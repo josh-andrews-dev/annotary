@@ -66,6 +66,10 @@ settings [web-document-view.md](web-document-view.md), the CLI verbs
   `agents`, which no screen has, and stay out of `catalog_json`, `settings_matrix`, `device_sync`
   and the web search (`device_settings()` leaves them out); `GET /api/v1/me/settings` still
   resolves them for every Device. The CLI's own Device is `settings … --device this`.
+- **Every setting costs each page:** `WebPrefs::load` resolves the screens' settings on every page
+  render (two statements per device setting), and `perf/BUDGETS.md` caps the statements per page, so
+  a new catalog entry runs `make size-check` (part of `make check`, not of `make test`); a setting no
+  page applies stays out through `resolved_screen_settings`.
 - **Tests:** `tests/settings_store.rs`, `tests/settings_api.rs`, the CMD-23 rows in
   `tests/access_api.rs`; spec ids S29-01…S29-15.
 
