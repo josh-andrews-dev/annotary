@@ -542,3 +542,66 @@ fn health_counts_hooks_for_a_loopback_peer_only() {
     }
     assert!(health(true).get("hooks").is_none(), "a forwarded request gets no hook counts");
 }
+
+/// Change the hook's own row directly (a second connection to the store's database), to set up
+/// state a pass must start from.
+fn sql(ts: &TestServer, stmt: &str) {
+    let db = ts.data_dir.join("store").join(annotary_store::DB_FILE);
+    let conn = rusqlite::Connection::open(db).unwrap();
+    conn.busy_timeout(Duration::from_secs(5)).unwrap();
+    conn.execute_batch(stmt).unwrap();
+}
+
+// spec: S49-06
+#[test]
+fn a_delivery_resets_the_failure_state_for_the_rest_of_the_pass() {
+    // Event 1 is delivered, event 2 fails, in one pass, on a hook that had been failing for long.
+    let rx = Receiver::start(Reply::Codes(vec![200, 503]));
+    let ts = TestServer::start_hooks(local(60_000, 60));
+    let (_, agent) = ts.add_member("scribe");
+    let d = doc(&ts, "plan");
+    add(&ts, &agent, json!({ "url": rx.url, "on": "action", "doc": d }));
+    // Hold the hook back while both events land, then release it with an old failure record.
+    sql(&ts, "UPDATE hooks SET next_attempt_at = '9999-01-01T00:00:00.000Z'");
+    ts.store.act(&ts.owner_id, &d, "approve", None).unwrap();
+    ts.store.act(&ts.owner_id, &d, "send-back", None).unwrap();
+    sql(&ts, "UPDATE hooks SET next_attempt_at = NULL, failures = 9, failing_since = '2000-01-01T00:00:00.000Z'");
+    let other = doc(&ts, "other"); // a commit wakes the deliverer
+    let _ = other;
+    rx.wait_for(2, 5);
+    let end = Instant::now() + Duration::from_secs(5);
+    loop {
+        let h = ts.store.hook(1).unwrap().unwrap();
+        if h.last_status.as_deref() == Some("503") {
+            assert!(h.disabled_at.is_none(), "disabled from the stale failure record: {h:?}");
+            assert_eq!(h.failures, 1, "{h:?}");
+            break;
+        }
+        assert!(Instant::now() < end, "{h:?}");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(events_of(&ts, "hook.disabled").is_empty());
+}
+
+// spec: S49-04
+#[test]
+fn a_full_page_of_other_events_does_not_delay_the_next_one() {
+    let rx = Receiver::start(Reply::Codes(vec![200]));
+    let ts = TestServer::start_hooks(local(50, 60));
+    let (_, agent) = ts.add_member("scribe");
+    let d = doc(&ts, "plan");
+    add(&ts, &agent, json!({ "url": rx.url, "on": "mention" }));
+    sql(&ts, "UPDATE hooks SET next_attempt_at = '9999-01-01T00:00:00.000Z'");
+    // More Threads than one page holds, none mentioning the agent, then one that does.
+    for i in 0..210 {
+        ts.store.new_thread(&ts.owner_id, &d, NewThread::document(format!("note {i}"))).unwrap();
+    }
+    ts.store.new_thread(&ts.owner_id, &d, NewThread::document("@scribe please look")).unwrap();
+    let other = doc(&ts, "other");
+    std::thread::sleep(Duration::from_millis(300));
+    sql(&ts, "UPDATE hooks SET next_attempt_at = NULL");
+    // Exactly one commit wakes the deliverer: one pass, which must not stop at the first page.
+    ts.store.act(&ts.owner_id, &other, "approve", None).unwrap();
+    let got = rx.wait_for(1, 10);
+    assert_eq!(got[0].json()["kind"], "mention");
+}

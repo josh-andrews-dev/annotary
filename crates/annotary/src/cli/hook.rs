@@ -208,7 +208,8 @@ fn list(ctx: &Ctx) -> CliResult<()> {
     let rows: Vec<Vec<String>> = hooks
         .iter()
         .map(|h| {
-            let doc = if s(h, "name").is_empty() { "*".to_string() } else { s(h, "name") };
+            // A purged Document has no name left: show its id, never `*` (every Document).
+            let doc = [s(h, "name"), s(h, "doc")].into_iter().find(|d| !d.is_empty()).unwrap_or_else(|| "*".into());
             let on = if h["once"].as_bool().unwrap_or(false) { format!("{} once", kinds(h)) } else { kinds(h) };
             let last = h["last_status"].as_str().unwrap_or("-").to_string();
             let exp = s(h, "expires_at");

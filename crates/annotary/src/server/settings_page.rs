@@ -231,7 +231,7 @@ fn load_ctx(st: &AppState, auth: &Auth) -> Result<Ctx, ApiError> {
     let matrix = entries.into_iter().map(|e| (e.def.key, e)).collect();
     let user = st
         .store
-        .resolved_settings(&auth.0.member_id, Some(&web.id))?
+        .resolved_screen_settings(&auth.0.member_id, Some(&web.id))?
         .into_iter()
         .filter(|r| r.def.kind == SettingKind::User)
         .map(|r| (r.def.key, r.value))

@@ -491,11 +491,13 @@ pub async fn test(State(st): State<AppState>, auth: Auth, Path(id): Path<String>
         "hook": h.id(),
     });
     let bytes = serde_json::to_vec(&body).map_err(|e| ApiError::internal(e.to_string()))?;
-    let sender = st.hook_sender.clone();
-    let (url, secret, hid) = (h.url.clone(), h.secret.clone(), h.id());
-    let out = tokio::task::spawn_blocking(move || sender.post(&url, &secret, &hid, 0, &bytes))
+    // On its own thread like every delivery, so a hung receiver never holds shutdown.
+    let mut shutdown = st.shutdown.clone();
+    let out = st
+        .hook_sender
+        .post_async(&mut shutdown, h.url.clone(), h.secret.clone(), h.id(), 0, bytes)
         .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+        .ok_or_else(|| ApiError::new(StatusCode::SERVICE_UNAVAILABLE, "shutting_down", "the server is stopping"))?;
     Ok(Json(json!({ "id": h.id(), "status": out.status(), "ok": matches!(out, Outcome::Delivered(_)) })))
 }
 
@@ -610,6 +612,9 @@ async fn deliver_hook(
     let cut = rows.len() > PAGE;
     let rows = &rows[..rows.len().min(PAGE)];
     let reached = if cut { rows.last().map_or(head, |r| r.event.seq) } else { head };
+    // Failure state as this pass changes it: a delivery resets it, so a later failure in the same
+    // pass starts a fresh backoff instead of reading the row loaded before the pass.
+    let (mut failures, mut failing_since) = (h.failures, h.failing_since.clone());
     for row in rows {
         // The Member's own Version or Action never wakes it.
         if row.event.by.as_deref() == Some(auth.0.member_id.as_str()) || !filter.readable(row) {
@@ -633,6 +638,7 @@ async fn deliver_hook(
                     h.n,
                     &HookAttempt { cursor: Some(row.event.seq), status: out.status(), ok: true, next_attempt_at: None },
                 )?;
+                (failures, failing_since) = (0, None);
                 if h.once {
                     st.store.remove_hook(None, h.n, "once")?;
                     return Ok(None);
@@ -643,16 +649,17 @@ async fn deliver_hook(
                 return Ok(None);
             }
             Outcome::Failed(status) => {
-                let failing_since = h.failing_since.clone().unwrap_or_else(time::now);
-                let failed_for = time::parse(&failing_since)
+                let failed_for = failing_since
+                    .as_deref()
+                    .and_then(time::parse)
                     .map(|t| jiff::Timestamp::now().duration_since(t))
                     .and_then(|d| Duration::try_from(d).ok())
                     .unwrap_or(Duration::ZERO);
-                if h.failing_since.is_some() && failed_for >= st.hooks.retry_for {
+                if failing_since.is_some() && failed_for >= st.hooks.retry_for {
                     st.store.disable_hook(h.n, "failing", &status)?;
                     return Ok(None);
                 }
-                let delay = backoff(&st.hooks, h.failures);
+                let delay = backoff(&st.hooks, failures);
                 st.store.record_hook_attempt(
                     h.n,
                     &HookAttempt { cursor: None, status, ok: false, next_attempt_at: Some(later(delay)) },
@@ -662,7 +669,8 @@ async fn deliver_hook(
         }
     }
     st.store.advance_hook_cursor(h.n, reached)?;
-    Ok(None)
+    // A full page: the rest is waiting now, and moving a cursor wakes nobody, so go again at once.
+    Ok(cut.then_some(Duration::ZERO))
 }
 
 #[cfg(test)]

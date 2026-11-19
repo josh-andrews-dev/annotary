@@ -174,7 +174,7 @@ impl WebPrefs {
     /// The caller's Web settings (the Web Device is made on first use).
     pub fn load(st: &AppState, auth: &Auth, headers: &HeaderMap) -> Result<WebPrefs, ApiError> {
         let device = st.store.ensure_device(&auth.0.member_id, WEB_DEVICE, None)?;
-        let rows = st.store.resolved_settings(&auth.0.member_id, Some(&device.id))?;
+        let rows = st.store.resolved_screen_settings(&auth.0.member_id, Some(&device.id))?;
         // Embed mode: what a browser keeps in cookies comes from the embedder's headers, and no
         // cookie is read (the frame has none).
         let embed = super::embed::is_embed(headers);
