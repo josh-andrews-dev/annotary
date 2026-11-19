@@ -200,7 +200,7 @@ fn search_index(auth: &Auth) -> Value {
     for g in GROUPS {
         out.push(json!({ "group": g.slug, "text": g.label }));
     }
-    for d in settings::CATALOG {
+    for d in settings::CATALOG.iter().filter(|d| !d.cli_only()) {
         out.push(json!({ "group": d.group, "key": d.key, "text": format!("{} {}", d.label, d.help) }));
     }
     out.push(json!({ "group": "profile", "text": "Handle Role Avatar picture photo image" }));
@@ -497,6 +497,8 @@ fn control(def: &SettingDef, value: &Value, mixed: bool, ctx: &Ctx) -> String {
             esc(value.as_str().unwrap_or_default()),
             def.key
         ),
+        // `cli_only` settings: no screen shows them (`settings::SettingDef::cli_only`).
+        ValueType::Word { .. } => String::new(),
     }
 }
 

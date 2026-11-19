@@ -260,6 +260,8 @@ impl From<StoreError> for ApiError {
                 err
             }
             // ---- end CMD-23 ----
+            StoreError::HookNotFound(_) => ApiError::not_found(e.to_string()),
+            StoreError::TooManyHooks(_) => ApiError::new(StatusCode::CONFLICT, "too_many_hooks", e.to_string()),
             StoreError::NotSetUp => ApiError::internal("store is not set up"),
             other => {
                 tracing::error!("store error: {other}");

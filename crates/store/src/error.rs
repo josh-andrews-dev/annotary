@@ -125,6 +125,11 @@ pub enum StoreError {
     #[error("{key} already holds a change stamped {stored_stamp}, not older than {stamp}")]
     Stale { key: String, stamp: String, stored_value: Option<Box<serde_json::Value>>, stored_stamp: String },
     // ---- end CMD-23 ----
+    // Hooks (docs/dev/hooks.md)
+    #[error("no hook {0}")]
+    HookNotFound(String),
+    #[error("you already have {0} live hooks: remove one (`annotary hook list`)")]
+    TooManyHooks(usize),
     #[error("failpoint triggered")]
     Failpoint,
     #[error("password hashing failed: {0}")]

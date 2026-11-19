@@ -265,3 +265,12 @@ is in the pull request.
 ## Run log
 
 - (empty)
+- 2026-11-19, M3 done: migration v7 (`hooks`), `annotary_store::hooks`, `server/hooks.rs` (routes
+  and the deliverer), spec ids S49-01…S49-10, `tests/hooks_api.rs`; `make lint test` green.
+  Choices: a hook delivers as the Token that added it (revoked ⇒ disabled `credential`); the
+  Member's own events never wake it; 404 / 410 disable at once (T3 answers 404 for a deleted
+  trigger); delivery bookkeeping is a hand-made transaction with no event, as `touch_device`;
+  each POST runs on its own thread so shutdown never waits for it; the D4 check sits inside
+  ureq's resolver (`unversioned`, pinned by `Cargo.lock`) so the checked address is the one
+  dialed. The `review_handoff` / `review_wake` settings (S49-11, M5) landed here too: `cli_only`
+  settings are kept out of the catalog, the matrix, iOS sync and the web search.

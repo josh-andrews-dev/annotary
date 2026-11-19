@@ -325,3 +325,54 @@ fn no_member_reaches_another_members_settings_or_devices() {
     let kim_dev = ts.store.list_devices(&ts.store.member_by_handle("kim").unwrap().unwrap().id, false).unwrap();
     assert_eq!(kim_dev.iter().find(|d| d.id == id).unwrap().name, "iPhone 17 Pro");
 }
+
+// spec: S49-11
+#[test]
+fn review_handoff_is_a_cli_setting_the_screens_never_see() {
+    let ts = TestServer::start();
+    let (_, t) = ts.add_member("scribe");
+    let cli_id = settings::new_device_id();
+    let cli = [("X-Annotary-Device", cli_id.as_str()), ("X-Annotary-Device-Info", "kind=cli; name=laptop")];
+    // Nobody has chosen yet: the default, from `default`.
+    let (s, b) = call(&ts, "GET", "/api/v1/me/settings", &t, &cli, None);
+    assert_eq!(s, 200, "{b}");
+    let get =
+        |b: &Value, key: &str| b["settings"].as_array().unwrap().iter().find(|r| r["key"] == key).cloned().unwrap();
+    assert_eq!(get(&b, "review_handoff")["value"], "ask");
+    assert_eq!(get(&b, "review_handoff")["source"], "default");
+    assert_eq!(get(&b, "review_wake")["value"], "");
+    // Saved for this machine.
+    let body = json!({ "key": "review_handoff", "value": "hook", "scope": "devices", "devices": [cli_id] });
+    let (s, b) = call(&ts, "PUT", "/api/v1/me/settings", &t, &cli, Some(body));
+    assert_eq!(s, 200, "{b}");
+    let body = json!({ "key": "review_wake", "value": "t3-webhook", "scope": "devices", "devices": [cli_id] });
+    assert_eq!(call(&ts, "PUT", "/api/v1/me/settings", &t, &cli, Some(body)).0, 200);
+    let (_, b) = call(&ts, "GET", "/api/v1/me/settings", &t, &cli, None);
+    assert_eq!(get(&b, "review_handoff")["value"], "hook");
+    assert_eq!(get(&b, "review_handoff")["source"], "device");
+    assert_eq!(get(&b, "review_wake")["value"], "t3-webhook");
+    // Refused values.
+    for (key, value) in
+        [("review_handoff", json!("poll")), ("review_wake", json!("two words")), ("review_wake", json!("x".repeat(65)))]
+    {
+        let body = json!({ "key": key, "value": value, "scope": "all" });
+        let (s, b) = call(&ts, "PUT", "/api/v1/me/settings", &t, &[], Some(body));
+        assert_eq!(s, 400, "{key} {b}");
+    }
+    // The screens: not in the catalog they render from, not in the matrix, not in iOS sync,
+    // not on any web Settings page.
+    let (_, cat) = call(&ts, "GET", "/api/v1/me/settings/catalog", &t, &[], None);
+    assert!(!cat.to_string().contains("review_"), "{cat}");
+    let (_, m) = call(&ts, "GET", "/api/v1/me/settings/matrix", &t, &[], None);
+    assert!(!m.to_string().contains("review_"), "{m}");
+    let phone = settings::new_device_id();
+    let ph = phone_headers(&phone);
+    let (s, sync) = call(&ts, "GET", &format!("/api/v1/me/devices/{phone}/sync"), &t, &hs(&ph), None);
+    assert_eq!(s, 200, "{sync}");
+    assert!(!sync.to_string().contains("review_"), "{sync}");
+    for page in ["/settings", "/settings/appearance", "/settings/devices"] {
+        let (s, html) = ts.get(page, Some(&ts.owner_token));
+        assert_eq!(s, 200, "{page}");
+        assert!(!html.to_string().contains("review_") && !html.to_string().contains("Review handoff"), "{page}");
+    }
+}
