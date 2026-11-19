@@ -61,7 +61,9 @@ fn the_review_handoff_follows_the_saved_choice_and_asks_by_default() {
     // Asking is the first choice read, so the default never parks in `wait`.
     assert!(step1.find("ask = ").unwrap() < step1.find("wait = ").unwrap());
     // First use, in the step itself: nobody has chosen yet, so ask the human and save it.
-    for rule in ["settings get review_handoff --device this", "SOURCE `default`?", "Ask them which", "help setup", "save it"] {
+    for rule in
+        ["settings get review_handoff --device this", "SOURCE `default`?", "Ask them which", "help setup", "save it"]
+    {
         assert!(step1.contains(rule), "review step 1 lost {rule:?}: {step1}");
     }
     assert!(step1.find("settings get review_handoff").unwrap() < step1.find("ask = ").unwrap());
