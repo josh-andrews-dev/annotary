@@ -22,11 +22,11 @@ const diffText = (page: Page) =>
     return (c.textContent || '').replace(/\s+/g, '');
   });
 
-/** The text of a Document page's rendered Version (no cards, no whitespace). */
+/** The text of a Document page's rendered Version (no cards, no Question controls, no whitespace). */
 const pageText = (page: Page) =>
   page.locator('#cd-doc').evaluate((root) => {
     const c = root.cloneNode(true) as HTMLElement;
-    c.querySelectorAll('.cd-strip').forEach((e) => e.remove());
+    c.querySelectorAll('.cd-strip, .cd-qx').forEach((e) => e.remove());
     return (c.textContent || '').replace(/\s+/g, '');
   });
 

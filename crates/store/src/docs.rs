@@ -34,15 +34,20 @@ pub struct PurgeOutcome {
 
 const DOC_SELECT: &str = "SELECT d.id, d.vault_id, vl.name, d.created_at, d.created_by, d.deleted_at, d.last_activity_at,
         v.number, v.name, v.hash, v.md_hash, v.by, ms.handle, v.at, v.message, v.manifest, v.placements, v.renderer, v.html_hash,
-        d.actions_available
+        d.actions_available, v.questions
      FROM documents d
      JOIN vaults vl ON vl.id = d.vault_id
      JOIN versions v ON v.doc_id = d.id AND v.number = (SELECT MAX(number) FROM versions WHERE doc_id = d.id)
      JOIN memberships ms ON ms.member_id = v.by";
 
 const VERSION_SELECT: &str = "SELECT v.doc_id, v.number, v.name, v.hash, v.md_hash, v.by, ms.handle, v.at, v.message,
-        v.manifest, v.placements, v.renderer, v.html_hash
+        v.manifest, v.placements, v.renderer, v.html_hash, v.questions
      FROM versions v JOIN memberships ms ON ms.member_id = v.by";
+
+/// A nullable JSON column (Questions).
+fn json_col(s: Option<String>) -> Option<serde_json::Value> {
+    s.and_then(|s| serde_json::from_str(&s).ok())
+}
 
 fn row_to_version(r: &rusqlite::Row<'_>, offset: usize) -> rusqlite::Result<VersionView> {
     let manifest: String = r.get(offset + 9)?;
@@ -62,6 +67,7 @@ fn row_to_version(r: &rusqlite::Row<'_>, offset: usize) -> rusqlite::Result<Vers
         renderer: r.get(offset + 11)?,
         html_hash: r.get(offset + 12)?,
         same_as: None,
+        questions: json_col(r.get(offset + 13)?),
     })
 }
 
@@ -92,6 +98,7 @@ fn row_to_document(r: &rusqlite::Row<'_>) -> rusqlite::Result<DocumentView> {
             renderer: r.get(17)?,
             html_hash: r.get(18)?,
             same_as: None,
+            questions: json_col(r.get(20)?),
         },
         id,
         actions_available: actions_available.and_then(|a| serde_json::from_str(&a).ok()),
@@ -196,8 +203,8 @@ fn insert_version(
     now: &str,
 ) -> Result<()> {
     tx.execute(
-        "INSERT INTO versions(doc_id, number, name, hash, md_hash, by, at, message, manifest, placements, renderer, html_hash)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        "INSERT INTO versions(doc_id, number, name, hash, md_hash, by, at, message, manifest, placements, renderer, html_hash, questions)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         params![
             doc_id,
             number as i64,
@@ -211,6 +218,7 @@ fn insert_version(
             serde_json::to_string(&input.placements)?,
             input.renderer,
             input.html_hash,
+            input.questions.as_ref().map(serde_json::to_string).transpose()?,
         ],
     )?;
     Ok(())
@@ -272,6 +280,12 @@ impl Store {
         input.manifest = crate::manifest::validate(&self.blobs, &input.md_hash, &input.manifest)?.manifest;
         let declaration = input.actions_available.as_ref().map(crate::actions::validate_declaration).transpose()?; // ticket 05
         let hash = identity_of(&input.md_hash, &input.manifest);
+        if input.questions.is_none() {
+            // Questions: an older CLI sent none; the store computes them as the pusher would.
+            let md = self.blobs.read(&input.md_hash)?.ok_or_else(|| StoreError::BlobMissing(input.md_hash.clone()))?;
+            let found = annotary_renderer::questions::find(&String::from_utf8_lossy(&md));
+            input.questions = Some(annotary_renderer::questions::to_json(&found.questions));
+        }
         let id = self.tx(|tx| {
             let vault: Option<String> =
                 tx.query_row("SELECT name FROM vaults WHERE id = ?1", [vault_id], |r| r.get(0)).optional()?;
@@ -410,6 +424,23 @@ impl Store {
                 }
             }
             // ---- end ticket 17
+            // ---- Questions (decision D2): the Answers given on the head go into the Decided
+            // cells before the push, unless the pusher discards them.
+            let head_qs = crate::questions::questions_in_tx(self, tx, doc_id, head)?;
+            let local_qs = match &input.questions {
+                Some(v) => annotary_renderer::questions::from_json(v)
+                    .ok_or_else(|| StoreError::InvalidQuestions("not the shape the CLI sends".into()))?,
+                None => annotary_renderer::questions::find(&text_n1).questions,
+            };
+            let recorded = crate::questions::unrecorded(tx, doc_id, &head_qs, &text_n1, &local_qs)?;
+            if !recorded.missing.is_empty() && !input.discard_answers {
+                return Err(StoreError::AnswersMissing { name: input.name.clone(), missing: recorded.missing });
+            }
+            let discarded_answers: Vec<String> = recorded.missing.iter().map(|m| m.key.clone()).collect();
+            if input.questions.is_none() {
+                input.questions = Some(annotary_renderer::questions::to_json(&local_qs));
+            }
+            // ---- end Questions
             let number = head + 1;
             let now = time::now();
             insert_version(tx, by, doc_id, number, &input, &hash, &now)?;
@@ -420,6 +451,9 @@ impl Store {
             });
             if !discarded.is_empty() {
                 payload["discarded"] = serde_json::json!(discarded); // ticket 17
+            }
+            if !discarded_answers.is_empty() {
+                payload["discarded_answers"] = serde_json::json!(discarded_answers); // Questions
             }
             append_event(tx, Some(by), "version.pushed", Some(doc_id), payload)?;
             // ---- ticket 07: re-anchor every Thread from the head onto the new Version, in the
@@ -615,6 +649,7 @@ impl Store {
             // Markup: the drawings' blobs are candidates too; their rows go before the Comments.
             candidates.extend(crate::markup::markup_blob_refs(&tx, Some(id))?);
             tx.execute("DELETE FROM comment_markups WHERE doc_id = ?1", [id])?;
+            tx.execute("DELETE FROM answers WHERE doc_id = ?1", [id])?; // Questions
             tx.execute("DELETE FROM actions WHERE doc_id = ?1", [id])?; // ticket 05
             tx.execute("DELETE FROM thread_events WHERE doc_id = ?1", [id])?; // ticket 04
             tx.execute("DELETE FROM comments WHERE doc_id = ?1", [id])?; // ticket 04

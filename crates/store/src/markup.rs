@@ -215,6 +215,20 @@ impl Store {
         let (image_hash, strokes_hash) = parse_markup_id(id)
             .ok_or_else(|| invalid(format!("{id:?} is not a Markup id (upload it: POST …/markups)")))?;
         let missing = || StoreError::MarkupMissing(id.trim().to_string());
+        // Sizes first: the ids may name any blob (a Version's Markdown of 10 MiB), and a read
+        // allocates it whole before `check_png` / `check_strokes` could refuse it.
+        let image_size = self.blobs.size(image_hash)?.ok_or_else(missing)?;
+        let strokes_size = self.blobs.size(strokes_hash)?.ok_or_else(missing)?;
+        if image_size > IMAGE_MAX {
+            return Err(StoreError::TooLarge { what: "the Markup image".into(), size: image_size, max: IMAGE_MAX });
+        }
+        if strokes_size > STROKES_MAX {
+            return Err(StoreError::TooLarge {
+                what: "the Markup strokes".into(),
+                size: strokes_size,
+                max: STROKES_MAX,
+            });
+        }
         let image = self.blobs.read(image_hash)?.ok_or_else(missing)?;
         let strokes = self.blobs.read(strokes_hash)?.ok_or_else(missing)?;
         let (width, height) = check_png(&image)?;
@@ -366,6 +380,76 @@ pub(crate) mod tests {
         }
         let big = vec![b' '; STROKES_MAX as usize + 1];
         assert!(matches!(check_strokes(&big), Err(StoreError::TooLarge { max: STROKES_MAX, .. })));
+    }
+
+    fn fresh() -> (tempfile::TempDir, Store) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("store")).unwrap();
+        (dir, store)
+    }
+
+    /// A valid PNG padded to exactly `len` bytes with a `tEXt` chunk before `IEND`.
+    fn png_padded_to(len: usize) -> Vec<u8> {
+        let png = png_of(8, 8);
+        let iend = png.len() - 12;
+        let data_len = len - png.len() - 12;
+        let mut chunk = Vec::with_capacity(data_len + 12);
+        chunk.extend_from_slice(&(data_len as u32).to_be_bytes());
+        let mut body = b"tEXt".to_vec();
+        body.extend_from_slice(b"k\0");
+        body.resize(4 + data_len, b'x');
+        chunk.extend_from_slice(&body);
+        chunk.extend_from_slice(&crc32(&body).to_be_bytes());
+        let mut out = png[..iend].to_vec();
+        out.extend_from_slice(&chunk);
+        out.extend_from_slice(&png[iend..]);
+        assert_eq!(out.len(), len);
+        out
+    }
+
+    fn crc32(bytes: &[u8]) -> u32 {
+        let mut crc = 0xffff_ffffu32;
+        for b in bytes {
+            crc ^= *b as u32;
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 { (crc >> 1) ^ 0xedb8_8320 } else { crc >> 1 };
+            }
+        }
+        !crc
+    }
+
+    /// The caps apply before a blob is read: a blob over a cap is refused from its size, so an id
+    /// naming two large Version blobs allocates nothing. The test makes the large blob unreadable,
+    /// so reading it first would fail with an I/O error instead of `TooLarge`.
+    // spec: S49-11
+    #[cfg(unix)]
+    #[test]
+    fn check_markup_refuses_by_size_before_reading() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_dir, store) = fresh();
+        let (strokes, _) = store.blobs.put(STROKES.as_bytes()).unwrap();
+        let (image, _) = store.blobs.put(&png_of(8, 8)).unwrap();
+        let (big, _) = store.blobs.put(&vec![b'#'; IMAGE_MAX as usize + 1]).unwrap();
+        let path = store.blobs.path(&big);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let unreadable = std::fs::read(&path).is_err(); // root reads anyway; the check still holds
+        let r = store.check_markup(&markup_id(&big, &strokes));
+        assert!(matches!(r, Err(StoreError::TooLarge { max: IMAGE_MAX, .. })), "{r:?} (unreadable: {unreadable})");
+        let r = store.check_markup(&markup_id(&image, &big));
+        assert!(matches!(r, Err(StoreError::TooLarge { max: STROKES_MAX, .. })), "{r:?}");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let gone = "c".repeat(64);
+        assert!(matches!(store.check_markup(&markup_id(&gone, &strokes)), Err(StoreError::MarkupMissing(_))));
+        assert!(matches!(store.check_markup(&markup_id(&image, &gone)), Err(StoreError::MarkupMissing(_))));
+
+        // Exactly at both caps is accepted.
+        let (at_image, _) = store.blobs.put(&png_padded_to(IMAGE_MAX as usize)).unwrap();
+        let mut at_strokes = STROKES.as_bytes().to_vec();
+        at_strokes.resize(STROKES_MAX as usize, b' ');
+        let (at_strokes, _) = store.blobs.put(&at_strokes).unwrap();
+        let m = store.check_markup(&markup_id(&at_image, &at_strokes)).unwrap();
+        assert_eq!((m.image_size, m.strokes_size), (IMAGE_MAX, STROKES_MAX));
     }
 
     #[test]

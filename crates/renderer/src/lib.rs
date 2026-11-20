@@ -27,6 +27,7 @@ pub mod assets;
 pub mod autolink;
 pub mod escape;
 pub mod html;
+pub mod questions;
 pub mod refs;
 pub mod sanitize;
 

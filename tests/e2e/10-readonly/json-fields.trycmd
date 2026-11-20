@@ -1,4 +1,4 @@
-spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06
+spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06, S50-10
 
 The `--json ?` contract of every verb in one place (ticket 16's sweep): each lists every field
 its `--json` can carry (`--json a,b` narrows to some of them) and exits 0 without calling the
@@ -14,10 +14,10 @@ $ annotary -p down push x.md --json ?
 name id version same_as already warnings assets threads vault hash url
 
 $ annotary -p down pull x --json ?
-md sidecar version name id vault threads assets written
+md sidecar version name id vault threads assets written answers
 
 $ annotary -p down show x --json ?
-name id vault version by at message action open actions threads same_as deleted url
+name id vault version by at message action open actions threads questions same_as deleted url
 
 $ annotary -p down status x --json ?
 name id version action open_threads mentions_me seq vault deleted
@@ -38,10 +38,10 @@ $ annotary -p down thread list x --json ?
 id author anchor body markup mentions replies resolved deleted created updated version
 
 $ annotary -p down thread show x t1 --json ?
-id subject anchor author created body markup mentions edited_at deleted resolved replies updated
+id subject anchor author created body markup mentions edited_at deleted resolved replies updated question options answers
 
 $ annotary -p down thread new x --document -m m --json ?
-id subject anchor version created body mentions doc
+id subject anchor version created body mentions doc options
 
 $ annotary -p down thread reply x t1 -m m --json ?
 id thread state version doc
@@ -72,6 +72,9 @@ name id version action by at label intent
 
 $ annotary -p down actions x --json ?
 id by at version label intent
+
+$ annotary -p down answer x D1 A --json ?
+key option changed version doc name
 
 $ annotary -p down member add x --json ?
 handle name role grants token created id

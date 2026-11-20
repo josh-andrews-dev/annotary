@@ -131,6 +131,10 @@ pub struct ThreadView {
     pub resolved: Option<Resolution>,
     /// The latest of: any Comment posted / edited / deleted, resolve / reopen.
     pub updated_at: String,
+    /// Questions: the Document Question this Thread is about (`D4`).
+    pub question: Option<String>,
+    /// Questions: the labels of the Question asked on this Thread (its key is the Thread id).
+    pub options: Option<Vec<String>>,
 }
 
 impl ThreadView {
@@ -262,6 +266,11 @@ pub struct NewThread {
     /// A Markup id from `Store::upload_markup` to attach to the root Comment (whose body may
     /// then be empty).
     pub markup: Option<String>,
+    /// Questions: the key of a Document Question on the head this Thread is about (a span Thread;
+    /// without a range it anchors at the Question's place). One Thread per key.
+    pub question: Option<String>,
+    /// Questions: the labels of a Question asked on this Thread (2 to 6; Options `A`, `B`, …).
+    pub options: Option<Vec<String>>,
 }
 
 impl NewThread {
@@ -274,6 +283,8 @@ impl NewThread {
             reference: None,
             line: None,
             markup: None,
+            question: None,
+            options: None,
         }
     }
 
@@ -286,6 +297,8 @@ impl NewThread {
             reference: None,
             line: None,
             markup: None,
+            question: None,
+            options: None,
         }
     }
 
@@ -298,6 +311,8 @@ impl NewThread {
             reference: Some(reference.into()),
             line,
             markup: None,
+            question: None,
+            options: None,
         }
     }
 }
@@ -446,6 +461,12 @@ fn resolve_mentions(tx: &rusqlite::Connection, body: &str) -> Result<Vec<String>
         }
     }
     Ok(out)
+}
+
+/// The range covering lines `a..=b` of `text` whole (`a:0-b:<length of line b>`, code points).
+fn whole_lines(text: &str, a: u32, b: u32) -> Range {
+    let last = text.split('\n').nth(b as usize - 1).unwrap_or("").trim_end_matches('\r');
+    Range { start_line: a, start_col: 0, end_line: b, end_col: last.chars().count() as u32 }
 }
 
 fn doc_head(tx: &Transaction, doc_id: &str) -> Result<(u32, String)> {
@@ -643,7 +664,8 @@ fn load_threads(conn: &rusqlite::Connection, doc_id: &str, only: Option<u32>) ->
         }
     }
     let mut sql = String::from(
-        "SELECT num, subject, anchor, created_by, created_at, created_version, resolved_by, resolved_at, resolved_version
+        "SELECT num, subject, anchor, created_by, created_at, created_version, resolved_by, resolved_at, resolved_version,
+                question, options
          FROM threads WHERE doc_id = ?1",
     );
     if only.is_some() {
@@ -652,8 +674,8 @@ fn load_threads(conn: &rusqlite::Connection, doc_id: &str, only: Option<u32>) ->
     sql.push_str(" ORDER BY num");
     let mut stmt = conn.prepare(&sql)?;
     let mut out = Vec::new();
-    /// `(num, subject, anchor JSON, resolved (by, at, version))`.
-    type ThreadRow = (u32, String, Option<String>, Option<(String, String, u32)>);
+    /// `(num, subject, anchor JSON, resolved (by, at, version), question, options JSON)`.
+    type ThreadRow = (u32, String, Option<String>, Option<(String, String, u32)>, Option<String>, Option<String>);
     let map_row = |r: &rusqlite::Row<'_>| -> rusqlite::Result<ThreadRow> {
         let num = r.get::<_, i64>(0)? as u32;
         let subject: String = r.get(1)?;
@@ -665,13 +687,13 @@ fn load_threads(conn: &rusqlite::Connection, doc_id: &str, only: Option<u32>) ->
             (Some(b), Some(a), Some(v)) => Some((b, a, v as u32)),
             _ => None,
         };
-        Ok((num, subject, anchor, resolved))
+        Ok((num, subject, anchor, resolved, r.get(9)?, r.get(10)?))
     };
     let rows: Vec<_> = match only {
         Some(n) => stmt.query_map(params![doc_id, n as i64], map_row)?.collect::<rusqlite::Result<_>>()?,
         None => stmt.query_map([doc_id], map_row)?.collect::<rusqlite::Result<_>>()?,
     };
-    for (num, subject, anchor, resolved) in rows {
+    for (num, subject, anchor, resolved, question, options) in rows {
         let mut cs = comments.remove(&num).unwrap_or_default();
         if cs.is_empty() || cs[0].num != 0 {
             continue; // never happens: a Thread always has its root
@@ -700,6 +722,8 @@ fn load_threads(conn: &rusqlite::Connection, doc_id: &str, only: Option<u32>) ->
             replies: cs,
             resolved: resolved.map(|(by, at, version)| Resolution { by_handle: handle_of(&hs, &by), by, at, version }),
             updated_at,
+            question,
+            options: options.and_then(|o| serde_json::from_str(&o).ok()),
         });
     }
     Ok(out)
@@ -732,7 +756,9 @@ impl Store {
     /// `anchor.original`; empty spans are refused. `expect_version` ≠ head ⇒ `NotHead`.
     pub fn new_thread(&self, by: &str, doc_id: &str, input: NewThread) -> Result<ThreadView> {
         validate_body(&input.body, input.markup.is_some())?;
+        let question_at_place = input.question.is_some() && input.range.as_deref().is_none_or(|r| r.trim().is_empty());
         let range = match input.subject {
+            ThreadSubject::Span if question_at_place => None,
             ThreadSubject::Span => Some(
                 Range::parse(input.range.as_deref().unwrap_or(""))
                     .map_err(|e| StoreError::InvalidRange(e.to_string()))?,
@@ -752,6 +778,16 @@ impl Store {
             _ => None,
         };
         let markup = input.markup.as_deref().map(|id| self.check_markup(id)).transpose()?;
+        // ---- Questions ----
+        let options = input.options.as_deref().map(crate::questions::check_labels).transpose()?;
+        if input.question.is_some() && (input.subject != ThreadSubject::Span || options.is_some()) {
+            return Err(StoreError::Invalid {
+                what: "question",
+                reason: "a Question's Thread is a span Thread and asks nothing itself".into(),
+            });
+        }
+        let question = input.question.as_deref().map(str::trim).map(str::to_string);
+        // ---- end Questions ----
         let num = self.tx(|tx| {
             let (head, md_hash) = doc_head(tx, doc_id)?;
             if let Some(v) = input.expect_version
@@ -759,6 +795,30 @@ impl Store {
             {
                 return Err(StoreError::NotHead { expected: v, head });
             }
+            // ---- Questions: the Question's Thread anchors at its place on the head ----
+            let mut range = range;
+            if let Some(key) = &question {
+                let qs = crate::questions::questions_in_tx(self, tx, doc_id, head)?;
+                let found = qs.iter().find(|x| &x.key == key).ok_or_else(|| StoreError::QuestionNotFound {
+                    doc: doc_id.to_string(),
+                    key: key.clone(),
+                })?;
+                let taken: Option<i64> = tx
+                    .query_row("SELECT num FROM threads WHERE doc_id = ?1 AND question = ?2", params![doc_id, key], |r| {
+                        r.get(0)
+                    })
+                    .optional()?;
+                if let Some(n) = taken {
+                    return Err(StoreError::QuestionThreadExists { key: key.clone(), thread: thread_id(n as u32) });
+                }
+                if range.is_none() {
+                    let md = self.blobs.read(&md_hash)?.ok_or_else(|| StoreError::BlobMissing(md_hash.clone()))?;
+                    let text = String::from_utf8_lossy(&md);
+                    let (a, b) = found.place.as_ref().map(|p| (p.a, p.b)).unwrap_or((found.row, found.row));
+                    range = Some(whole_lines(&text, a, b));
+                }
+            }
+            // ---- end Questions ----
             let anchor = match (range, &reference) {
                 (Some(r), _) => {
                     let md = self.blobs.read(&md_hash)?.ok_or_else(|| StoreError::BlobMissing(md_hash.clone()))?;
@@ -814,8 +874,8 @@ impl Store {
                 })? as u32;
             let now = time::now();
             tx.execute(
-                "INSERT INTO threads(doc_id, num, subject, anchor, created_by, created_at, created_version)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO threads(doc_id, num, subject, anchor, created_by, created_at, created_version, question, options)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     doc_id,
                     num as i64,
@@ -823,7 +883,9 @@ impl Store {
                     anchor.as_ref().map(serde_json::to_string).transpose()?,
                     by,
                     now,
-                    head as i64
+                    head as i64,
+                    question,
+                    options.as_ref().map(serde_json::to_string).transpose()?,
                 ],
             )?;
             tx.execute(
@@ -842,6 +904,12 @@ impl Store {
             });
             if input.markup.is_some() {
                 payload["markup"] = serde_json::json!(true);
+            }
+            if let Some(key) = &question {
+                payload["question"] = serde_json::json!(key);
+            }
+            if let Some(o) = &options {
+                payload["options"] = serde_json::json!(o);
             }
             append_event(tx, Some(by), "thread.created", Some(doc_id), payload)?;
             Ok(num)

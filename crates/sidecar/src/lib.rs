@@ -415,6 +415,13 @@ mod tests {
                             height: 900,
                             strokes: "d".repeat(64),
                         }),
+                        // Questions: a span Thread may be a Document Question's, a Document-level one may ask.
+                        question: (subject == 1 && mentions.len() == 1).then(|| "D4".into()),
+                        options: if subject == 0 && !mentions.is_empty() {
+                            vec!["Yes".into(), "Not yet".into()]
+                        } else {
+                            Vec::new()
+                        },
                         author,
                         created,
                         body,
@@ -438,9 +445,12 @@ mod tests {
             any::<bool>(),
             // ticket 16: the Action log `[{id, by, at, version, label, intent}]`.
             proptest::collection::vec((arb_handle(), arb_handle(), arb_stamp(), arb_text(), 0usize..3), 0..4),
-            proptest::collection::vec(arb_thread(), 0..4),
+            (
+                proptest::collection::vec(arb_thread(), 0..4),
+                proptest::collection::vec((arb_handle(), arb_stamp(), 0usize..3), 0..3),
+            ),
         )
-            .prop_map(|(members, versions, assets, decls, inherited, log, threads)| {
+            .prop_map(|(members, versions, assets, decls, inherited, log, (threads, answers))| {
                 let mut ms = Members::default();
                 for (h, n) in members {
                     ms.insert(h, MemberEntry { id: "01K2WQ4M8XZ3N6P9RTB0AVYD5E".into(), name: n });
@@ -495,12 +505,23 @@ mod tests {
                             .collect(),
                     },
                     threads,
+                    // Questions: the current Answers.
+                    answers: answers
+                        .into_iter()
+                        .map(|(by, at, o)| AnswerEntry {
+                            key: "D4".into(),
+                            by,
+                            option: ["A", "B", "other"][o].into(),
+                            version: at.version,
+                            at: at.at,
+                        })
+                        .collect(),
                 }
             })
     }
 
     proptest! {
-        // spec: S02-22, S02-23, S16-02
+        // spec: S02-22, S02-23, S16-02, S50-15
         #[test]
         fn projection_emit_parse_emit_is_byte_identical(sc in arb_sidecar()) {
             let once = emit(&sc);
@@ -509,7 +530,7 @@ mod tests {
             let twice = emit(&back);
             prop_assert_eq!(&twice, &once);
             // Every top-level key present appears in the decided order.
-            let order = ["format", "id", "vault", "base_version", "members", "versions", "assets", "actions", "threads"];
+            let order = ["format", "id", "vault", "base_version", "members", "versions", "assets", "actions", "threads", "answers"];
             let mut last = 0;
             for k in top_keys(&once) {
                 let pos = order.iter().position(|o| *o == k).expect("known key");

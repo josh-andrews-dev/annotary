@@ -16,6 +16,7 @@ session loads only `AGENTS.md` and reads the file for the area it is about to to
 | [assets.md](assets.md) | ticket 03: Asset types, caps, manifest, scan rules, media, `/a/{hash}`, `pull --assets` |
 | [threads.md](threads.md) | ticket 04: Threads and Comments |
 | [markup.md](markup.md) | Markup: a drawing on a Comment (store, routes, the card, the CLI) |
+| [questions.md](questions.md) | Questions: the decisions table, Answers, `pull` fills / `push` refuses, the page's controls, `answer` |
 | [actions.md](actions.md) | ticket 05: Actions and status |
 | [access-model.md](access-model.md) | ticket 06: Rights, Grants, Tokens, password, sessions, web auth |
 | [reanchoring.md](reanchoring.md) | ticket 07: re-anchoring across Versions |

@@ -98,7 +98,7 @@ pub const CURRENCY_PASSES: usize = 8;
 
 /// The event stream with offsets; adjacent `Text` events merged (pulldown splits text around
 /// unmatched delimiters, which would cut bare URLs).
-fn collect(md: &str) -> Vec<(Event<'_>, Range<usize>)> {
+pub(crate) fn collect(md: &str) -> Vec<(Event<'_>, Range<usize>)> {
     let mut out: Vec<(Event<'_>, Range<usize>)> = Vec::new();
     for (ev, range) in Parser::new_ext(md, MARKDOWN_OPTIONS).into_offset_iter() {
         if let Event::Text(t) = &ev
@@ -118,12 +118,12 @@ fn collect(md: &str) -> Vec<(Event<'_>, Range<usize>)> {
 }
 
 /// Byte offset → 1-based source line.
-struct Lines {
+pub(crate) struct Lines {
     starts: Vec<usize>,
 }
 
 impl Lines {
-    fn new(md: &str) -> Lines {
+    pub(crate) fn new(md: &str) -> Lines {
         let mut starts = vec![0];
         for (i, b) in md.bytes().enumerate() {
             if b == b'\n' {
@@ -133,13 +133,13 @@ impl Lines {
         Lines { starts }
     }
 
-    fn line_of(&self, offset: usize) -> usize {
+    pub(crate) fn line_of(&self, offset: usize) -> usize {
         self.starts.partition_point(|&s| s <= offset).max(1)
     }
 
     /// The content lines of a block: from the first byte of `range` to its last non-whitespace
     /// byte (a block's range often runs on over the blank line that ends it).
-    fn span(&self, md: &str, range: &Range<usize>) -> (usize, usize) {
+    pub(crate) fn span(&self, md: &str, range: &Range<usize>) -> (usize, usize) {
         let start = self.line_of(range.start);
         let bytes = md.as_bytes();
         let mut end = range.end.min(bytes.len());

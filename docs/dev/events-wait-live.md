@@ -24,3 +24,4 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- M3 (Hermes plan) ---- -->
 - **Embed mode polls this route** (`ui/app.js` `transport.events`): an embedded page asks the live feed's URL as a long-poll with `wait` absent (answer now), from its last `seq`, `limit=200`, every 4 s while visible. A large embedded answer is cut into parts by `embed::parts`; a `text/event-stream` answer never is. See [web-document-view.md](web-document-view.md), "Embed mode".
 <!-- ---- end M3 (Hermes plan) ---- -->
+- **`question.answered {key, option, version}`** ([questions.md](questions.md)): no `wait` word (`classify` → none), so the default `wait` never wakes on it and it is never a mention; the page's live feed lists it and `ui/questions.js` re-reads the Questions on it.

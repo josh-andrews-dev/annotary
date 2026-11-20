@@ -21,24 +21,25 @@ pub const TOP: &str = "\
 Usage: annotary <command> [args] [options]
 
 Documents
-  list [NAME]                 Documents in the Vault (id name vN action open updated), most active first
+  list [NAME]                 Documents, most active first (id name vN action open updated)
   push FILE.md                Upload a new Version (or create the Document); re-anchors Threads
   pull DOC                    Write <name>.md + <name>.annotary into the current dir
   show DOC                    Header + open Threads (what an agent reads first)
   status DOC                  version · action · open Threads · mentions of you · event cursor
   versions DOC                Version list
   delete | restore | purge DOC
-  link DOC [tN]               The URL that opens it (or Thread tN) on another device
+  link DOC [tN]               URL that opens it (or Thread tN) elsewhere
 Threads
   thread list DOC             Open Threads on head, document order, orphaned last
   thread show DOC ID          Full Thread: root, replies, anchor, resolution
   thread new DOC ANCHOR       Start a Thread (\"L:C-L:C\" range, --document, or --asset REF)
   thread reply DOC ID         Reply (add --resolve to close it in the same step)
   thread resolve | reopen | edit | delete DOC ID
-  mentions                    Threads mentioning you, every Document you can read (--since)
+  mentions                    Threads mentioning you, in every Document (--since)
 Actions
   act DOC ACTION              Take an Action on head (--version N guards against a moved head)
   actions DOC                 Action history, newest first
+  answer DOC KEY OPTION       Answer a Question (D4, t7); none withdraws
 Wait
   wait [DOC]                  Block until a new Version, Action or @mention; print it
 Local server
@@ -56,14 +57,14 @@ Members & credentials (owner)
   avatar <cmd>                set | clear | show  (yours)
   pair                        Pair a phone or tablet (QR code)
   login | logout              Get a token with the password / forget it
-  profile <cmd>               list | add | remove  (list shows whose each profile is)
+  profile <cmd>               list | add | remove
   skill install               Write this version's agent skill
 
 Options (every command)
   -p, --profile NAME          Who you are: a profile in ~/.annotary/config.toml (no default;
                               else ANNOTARY_TOKEN, then ANNOTARY_PROFILE)
       --json [FIELDS]         JSON output; FIELDS narrows (comma list), '?' lists fields
-  -q, --quiet                 Result only — no progress, no hints
+  -q, --quiet                 Result only, no progress
       --no-color
       --data-dir DIR          Data dir (default ~/.annotary)  [env ANNOTARY_HOME]
   -h, --help                  Per-command help: annotary <command> --help
@@ -90,6 +91,7 @@ Usage: annotary push FILE.md [options]
                            no web derivative
       --force              Push even if the Sidecar is from another Document id (rebinds it to --doc)
       --discard-head-changes  Push over the changes the head made since your pull (warns; logged)
+      --discard-answers    Push although the Decided cells leave out answers given on head (warns; logged)
 
 Prints one line: `NAME  ID  vN` (or `vN (same content as vK)` / `already vN` when nothing changed);
 on a TTY the web URL follows. Progress and warnings go to stderr (`assets: …`, `threads: … re-anchored`).
@@ -106,6 +108,11 @@ Head moved since your pull (Sidecar base_version < head): your file must already
 changes — merge them in git or by hand. If it does, the push is normal. If not: exit 5 and the
 missing changes as a unified diff on stderr (`--json`: missing[], assets[]); put them in, push again.
 A .annotary left with git conflict markers needs no resolving.
+
+Decisions table (columns Decision, Options, Decided): each row is a Question readers answer with a
+tap. A bad row is a warning (--strict refuses). Answers given on head must be in the Decided cells
+(`pull` writes them in): a row kept with its options and an empty cell is refused, exit 5
+`answers_missing`, with the rows to put in. A removed row or changed options passes with a note.
 ";
 
 pub const PULL: &str = "\
@@ -115,8 +122,11 @@ Usage: annotary pull DOC [options]
       --assets             Also write Assets to their relative paths (off by default)
       --force              Overwrite local edits / differing Asset files
       --out DIR            Directory to write into (default: .)
+      --as-pushed          Write head's Markdown exactly as pushed (no answers filled in)
 
 Writes exactly two files: <name>.md (byte-identical) and <name>.annotary (JSON projection).
+Head with answers to its decisions table: they are written into the empty Decided cells (only
+those change; a note on stderr) — push it to record them. An older Version is always exact.
 Prints `NAME.md  NAME.annotary  vN`; the `N threads, M assets (K missing)` summary goes to stderr.
 Refuses if <name>.md exists and differs from the last pulled/pushed hash — exit 5 — unless --force.
 Agents: do not read the .annotary file; use `show`, `thread list`, `status`.
@@ -139,6 +149,7 @@ Usage: annotary thread <cmd> DOC [ID] [options]
                            A range must match head; the CLI checks the text before posting.
       --version N          Assert head is N (exit 5 if not) — never comment on content you haven't seen
       --markup PNG --strokes JSON   Attach a Markup (the app draws them; for tests and tools); -m optional
+      --ask LABEL          Ask a Question (2 to 6 --ask): answered with a tap, `answer DOC tN A`
   reply DOC ID -m MSG      Reply; MSG may be '-' for stdin (--markup PNG --strokes JSON as for new)
       --resolve            …and resolve in the same call
   resolve DOC ID | reopen DOC ID
@@ -189,6 +200,18 @@ ACTION is an id from the Document's available set (`show DOC` lists them). Actio
 head-only: `--version N` refuses (exit 5) if head ≠ N. Last Action on a Version wins. No note field —
 say why in a Thread. Needs the `action` right on the Vault.
 Prints `NAME  vN  ACTION  by @handle`; `--json` → {name,id,version,action,by,at}.
+";
+
+pub const ANSWER: &str = "\
+Usage: annotary answer DOC KEY OPTION|none [--vault NAME]
+
+KEY is a row of the Document's decisions table (a table with Decision, Options and Decided columns:
+D4) or a Thread that asks a Question (t7, from `thread new … --ask`). OPTION is an option id (A), a
+Thread Question's label, `other` (say what in the Question's Thread) or `none` to withdraw yours.
+One answer per Member; answering again replaces it. An answer is not a mention: it wakes nobody.
+`show DOC` prints them (`questions: D4=B D5=-`); `pull` writes the head's into the Decided cells.
+Exit 5 when the Question is decided (its Decided cell is filled) or head moved. Needs `comment`.
+Prints `KEY  OPTION`; `--json` → {key,option,changed,version}.
 ";
 
 pub const MEMBER: &str = "\
@@ -280,6 +303,7 @@ mod tests {
             (&["wait"], super::WAIT),
             (&["status"], super::STATUS),
             (&["act"], super::ACT),
+            (&["answer"], super::ANSWER),
             (&["member", "add"], super::MEMBER),
             (&["daemon", "install"], super::DAEMON),
             (&["skill", "install"], super::SKILL),

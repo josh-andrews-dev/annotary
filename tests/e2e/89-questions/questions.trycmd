@@ -1,0 +1,113 @@
+spec: S50-10
+
+Questions through the CLI on their own Document `qa-plan`: the `questions:` line of `show` (TTY
+and non-TTY), `answer` (TTY, non-TTY, `--json`, a no-op, `none`), a Question asked with
+`thread new --ask`, `pull` writing the answers in, `push` refusing a file without them. Exit
+paths of `answer`: 1 (an option that is not one), 2 (unknown key, unknown Document), 3 (no
+credential), 5 (decided), 6 (unreachable). Merged stdout+stderr.
+
+```console
+$ annotary -p rowan push qa-plan.md -q
+qa-plan	[..]	v1
+
+$ annotary -p rowan show qa-plan
+qa-plan	[..]	notes	v1 by @rowan [..]	action:-	open:0	actions:approve,send-back
+questions: D1=- D2=-
+
+$ annotary -p rowan answer qa-plan D1 A
+D1	A
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p agent answer qa-plan D1 B
+D1  B
+
+$ annotary -p agent answer qa-plan D1 B --json
+D1: it was already B
+{"key":"D1","option":"B","version":1}
+
+$ annotary -p agent answer qa-plan D2 none
+D2: you had not answered it
+D2	none
+
+$ annotary -p agent answer qa-plan D2 C
+D2	C
+
+$ annotary -p rowan show qa-plan
+qa-plan	[..]	notes	v1 by @rowan [..]	action:-	open:0	actions:approve,send-back
+questions: D1=A@rowan,B@scribe D2=C
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan show qa-plan
+qa-plan  [..]  notes  v1 by @rowan [..]  action:-  open:0  actions:approve,send-back  [URL]/d/[..]
+questions: D1=A@rowan,B@scribe D2=C
+
+$ annotary -p rowan answer qa-plan D1 Z
+? 1
+error: "Z" is not an option of D1: A, B, or other
+
+$ annotary -p rowan answer qa-plan D9 A
+? 2
+error: no Question D9 in qa-plan ([..]) — `annotary show DOC` lists its Questions on the questions: line
+
+$ annotary -p rowan answer no-such-doc D1 A
+? 2
+error: no Document "no-such-doc" — DOC is an id, a Name unique in the Vault, or the path to a pulled .md; `annotary list` shows Documents
+
+$ annotary answer qa-plan D1 A
+? 3
+error: no credential — say who you are: pass -p NAME (`annotary profile list` shows whose each one is), or set ANNOTARY_TOKEN
+profiles in ~/.annotary/config.toml: agent, down, limited, pw, rowan
+
+$ annotary -p down answer qa-plan D1 A
+? 6
+error: server at http://127.0.0.1:1 not reachable — run `annotary serve` or `annotary daemon install`
+
+$ annotary -p agent thread new qa-plan --document -m "Ship on Friday?" --ask Yes --ask "Wait a week"
+t1	document
+
+$ annotary -p rowan answer qa-plan t1 "wait a week"
+t1	B
+
+$ annotary -p rowan thread show qa-plan t1
+t1	open	@scribe	document	created v1 [..]
+  Ship on Friday?
+  asks: A "Yes" B "Wait a week" · B@rowan
+
+$ annotary -p rowan show qa-plan --json questions
+{"questions":[{"key":"D1","source":"table","options":[{"id":"A","place":{"a":10,"b":10,"block":"li"}},{"id":"B","place":{"a":11,"b":11,"block":"li"}}],"rec":"A","row":5,"place":{"a":8,"b":8,"block":"h2"},"lines":[8,11],"answers":[{"by":"rowan","option":"A","at":"[..]","version":1},{"by":"scribe","option":"B","at":"[..]","version":1}]},{"key":"D2","source":"table","options":[{"id":"A","place":{"a":15,"b":15,"block":"li"}},{"id":"B","place":{"a":16,"b":16,"block":"li"}},{"id":"C","place":{"a":17,"b":17,"block":"li"}}],"rec":"B","row":6,"place":{"a":13,"b":13,"block":"h2"},"lines":[13,17],"answers":[{"by":"scribe","option":"C","at":"[..]","version":1}]},{"key":"t1","source":"thread","options":[{"id":"A","label":"Yes"},{"id":"B","label":"Wait a week"}],"thread":"t1","answers":[{"by":"rowan","option":"B","at":"[..]","version":1}]}]}
+
+$ sh edit-qa.sh
+
+$ annotary -p rowan push qa-plan.md
+? 5
+error: D1, D2 answered on v1 are not in the Decided cells of qa-plan.md — put these rows in and push again (`annotary pull` writes them in; --discard-answers pushes without them)
+line 5: | D1 | A, B | A | A (@rowan), B (@scribe) |
+line 6: | D2 | A, B, C | B | C (@scribe, [..]) |
+
+$ annotary -p rowan pull qa-plan --force
+pull: 1 thread, 0 assets
+2 answers written into the decisions table; push to record them
+qa-plan.md	qa-plan.annotary	v1
+
+$ annotary -p rowan push qa-plan.md -q
+qa-plan	[..]	v2
+
+$ annotary -p rowan show qa-plan
+qa-plan	[..]	notes	v2 by @rowan [..]	action:-	open:1	actions:approve,send-back
+questions: D1=decided D2=decided t1=B
+t1	@scribe	document	Ship on Friday?	[..]
+
+$ annotary -p rowan answer qa-plan D1 B
+? 5
+error: D1 is decided in the Document ("A (@rowan), B (@scribe)"); its controls are closed — the Version records the decision; change the Decided cell in a new Version to reopen it
+
+$ annotary answer --help
+Usage: annotary answer DOC KEY OPTION|none [--vault NAME]
+
+KEY is a row of the Document's decisions table (a table with Decision, Options and Decided columns:
+D4) or a Thread that asks a Question (t7, from `thread new … --ask`). OPTION is an option id (A), a
+Thread Question's label, `other` (say what in the Question's Thread) or `none` to withdraw yours.
+One answer per Member; answering again replaces it. An answer is not a mention: it wakes nobody.
+`show DOC` prints them (`questions: D4=B D5=-`); `pull` writes the head's into the Decided cells.
+Exit 5 when the Question is decided (its Decided cell is filled) or head moved. Needs `comment`.
+Prints `KEY  OPTION`; `--json` → {key,option,changed,version}.
+
+```

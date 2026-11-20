@@ -9,7 +9,7 @@
 //! | `DELETE /api/v1/docs/{id}` · `POST …/restore` | write | soft delete / undo |
 //! | `POST /api/v1/docs/{id}/purge` | owner | permanent, with blob GC (ticket 13: + a GC sweep of the whole blob store, `gc_removed`) |
 //! | `GET /api/v1/docs/{id}/versions[/{n}]` | read | Version list / one Version |
-//! | `POST /api/v1/docs/{id}/versions {name, md_hash, manifest?, message?, base_version?, contains_head?, discard_head_changes?, placements?, placements_from?, renderer?, html_hash?, actions_available?}` | write | push (201 new / 200 `already`); ticket 17: with `base_version` behind the head, 409 `head_moved` unless `contains_head` == head (rechecked under `--verify-edge`) or `discard_head_changes` (response `discarded[]`, `head_moved` = what was accepted over); ticket 07: `placements[]` (computed from `placements_from` = the head the pusher saw) are applied to every Thread — spot-verified (400 `invalid_placements` on a mismatch), Threads left out placed by the server; the response carries `reanchored {total, anchored, refined, orphaned, changed, verified, computed}` |
+//! | `POST /api/v1/docs/{id}/versions {name, md_hash, manifest?, message?, base_version?, contains_head?, discard_head_changes?, placements?, placements_from?, renderer?, html_hash?, actions_available?, questions?, discard_answers?}` | write | push (201 new / 200 `already`); Questions: `questions` is checked by `check_questions` (400 `invalid_questions`), and a file whose decisions table leaves out the head's Answers is 409 `answers_missing` with `missing[]` unless `discard_answers`; ticket 17: with `base_version` behind the head, 409 `head_moved` unless `contains_head` == head (rechecked under `--verify-edge`) or `discard_head_changes` (response `discarded[]`, `head_moved` = what was accepted over); ticket 07: `placements[]` (computed from `placements_from` = the head the pusher saw) are applied to every Thread — spot-verified (400 `invalid_placements` on a mismatch), Threads left out placed by the server; the response carries `reanchored {total, anchored, refined, orphaned, changed, verified, computed}` |
 //! | `GET /api/v1/docs/{id}/status` | read | `{name,id,version,action,open_threads,mentions_me,seq}` |
 //! | `GET /api/v1/docs/{id}/sidecar?version=N` | read | the canonical Sidecar text |
 //!
@@ -50,7 +50,34 @@ pub fn version_json(v: &VersionView) -> Value {
         "manifest": v.manifest,
         "renderer": v.renderer,
         "html_hash": v.html_hash,
+        // Questions: the stored JSON (null for a Version from before them, until first read)
+        "questions": v.questions,
     })
+}
+
+/// Questions: check the `questions` a commit sent against the Markdown blob `md_hash` (the
+/// server computes them itself when none were sent, as for a missing render). They must be of
+/// the shape the CLI sends; with `--verify-edge` on they must also equal what this server
+/// computes. Answers what to store.
+fn check_questions(st: &AppState, md_hash: &str, sent: Option<Value>) -> Result<Option<Value>, ApiError> {
+    let Some(sent) = sent else { return Ok(None) };
+    let parsed = annotary_renderer::questions::from_json(&sent).ok_or_else(|| {
+        ApiError::from(annotary_store::StoreError::InvalidQuestions("not the shape the CLI sends".into()))
+    })?;
+    if st.store.verify_edge()
+        && let Some(md) = st.store.read_blob(md_hash)?
+    {
+        let own = annotary_renderer::questions::find(&String::from_utf8_lossy(&md)).questions;
+        if own != parsed {
+            return Err(annotary_store::StoreError::InvalidQuestions(format!(
+                "they do not match the decisions table (the server finds {} Question{})",
+                own.len(),
+                if own.len() == 1 { "" } else { "s" }
+            ))
+            .into());
+        }
+    }
+    Ok(Some(annotary_renderer::questions::to_json(&parsed)))
 }
 
 /// A Document as the API shows it (head fields flattened; the Thread/Action fields are filled by
@@ -294,6 +321,9 @@ pub struct CreateBody {
     /// Per-Document Action declaration from the Sidecar (ticket 05 stores it).
     #[serde(default)]
     pub actions_available: Option<Value>,
+    /// Questions: what the pusher found in the decisions table (`check_questions`).
+    #[serde(default)]
+    pub questions: Option<Value>,
 }
 
 fn push_input(
@@ -337,6 +367,7 @@ pub async fn create(
     input.renderer = body.renderer;
     input.html_hash = body.html_hash;
     input.actions_available = body.actions_available; // ticket 05
+    input.questions = check_questions(&st, &input.md_hash, body.questions)?;
     let doc = st.store.create_document(&auth.0.member_id, &vault.id, input)?;
     tracing::info!("document {} ({}) created in {} by @{}", doc.id, doc.head.name, vault.name, auth.0.handle);
     let mut v = doc_json(&doc);
@@ -372,6 +403,12 @@ pub struct PushBody {
     pub html_hash: Option<String>,
     #[serde(default)]
     pub actions_available: Option<Value>,
+    /// Questions: what the pusher found in the decisions table (`check_questions`).
+    #[serde(default)]
+    pub questions: Option<Value>,
+    /// Questions: `push --discard-answers` (commit although the Decided cells leave out Answers).
+    #[serde(default)]
+    pub discard_answers: bool,
 }
 
 pub async fn push(
@@ -392,6 +429,9 @@ pub async fn push(
     input.renderer = body.renderer;
     input.html_hash = body.html_hash;
     input.actions_available = body.actions_available; // ticket 05
+    input.questions = check_questions(&st, &input.md_hash, body.questions)?;
+    input.discard_answers = body.discard_answers;
+    let body_discards_answers = body.discard_answers;
     // ---- ticket 07: the referencing lines of the new Markdown, for Asset Threads (the blob is
     // already in the store — the commit is refused otherwise).
     if let Some(md) = st.store.read_blob(&input.md_hash)? {
@@ -404,6 +444,9 @@ pub async fn push(
         tracing::info!("document {} v{} pushed by @{}", doc.id, out.version.number, auth.0.handle);
         if !out.discarded.is_empty() {
             tracing::info!("document {} v{}: discarded the changes of {:?}", doc.id, out.version.number, out.discarded);
+        }
+        if body_discards_answers {
+            tracing::info!("document {} v{}: pushed with --discard-answers", doc.id, out.version.number);
         }
         if let Some(r) = &out.reanchored
             && r.total > 0
@@ -463,6 +506,9 @@ pub async fn version(
     auth.require_right(&doc.vault_name, Right::Read)?;
     let v = st.store.version(&doc.id, n)?.ok_or_else(|| ApiError::not_found(format!("Document {id} has no v{n}")))?;
     let mut j = version_json(&v);
+    if v.questions.is_none() {
+        j["questions"] = annotary_renderer::questions::to_json(&st.store.version_questions(&doc.id, n)?);
+    }
     j["id"] = json!(doc.id);
     j["vault"] = json!(doc.vault_name);
     j["head"] = json!(doc.head.number);

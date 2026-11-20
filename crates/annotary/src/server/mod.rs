@@ -31,8 +31,12 @@ pub mod housekeeping;
 // ---- end ticket 13 ----
 // Markup: upload a drawing and serve its blobs (`markups.rs` has the table).
 pub mod markups;
+// Questions: a Version's decisions table, the Threads' Questions and the Answers (`questions.rs` has the table).
 pub mod me_settings;
 pub mod members;
+pub mod questions;
+// Questions on the Document page: the spliced controls and the card's Answer block.
+pub mod qview;
 // The Mentions page (`/mentions`): open Threads that mention the viewer.
 pub mod mentions_page;
 // ---- ticket 18 ----

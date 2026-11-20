@@ -264,6 +264,9 @@ The developer wants one place where humans and agents, with equal standing, can 
 178. As a person mentioned in Threads across many Documents, I want one page of every open Thread that mentions me, newest first, each opening the Document at that Thread, so that I can answer what is waiting on me without opening every Document.
 179. As a Member with the `write` right, I want to delete a Document from its page after a confirm, and restore it in one click from the list's Deleted filter, so that I can tidy the list without the CLI and undo a mistake as easily; purging stays in the CLI.
 180. As a reviewer with an iPad or iPhone, I want a drawing I make over the Document in the app (a Markup) to reach everyone who reads its Thread, shown on the card in the web page, embed mode and the app, and to reach agents as a PNG through the CLI, so that I can cross out, circle and scribble in the margin and leave the interpretation to the agent. (A Markup is the one kind of image a Comment may carry: `docs/decisions.md`, 2026-11-19.)
+181. As an author who puts decisions to my readers, I want the decisions table I already write (columns `Decision`, `Options`, `Decided`) to become controls in the Document, at each decision in the text and in the table itself, so that a reviewer answers each decision with a tap and everyone sees who chose what, and an agent reads the answers through the CLI. (The table is the declaration; `docs/decisions.md`, 2026-11-20.)
+182. As a reviewer or an agent mid-review, I want to ask a Question with a few short answers on a Thread, without pushing a Version, so that a follow-up choice can be put while the review is open and answered with a tap.
+183. As an author, I want `pull` to hand me the Document with the answers written into its `Decided` cells and `push` to refuse a file that leaves them out, so that the Markdown records every decision while Annotary's server never writes Markdown.
 
 ## Implementation Decisions
 

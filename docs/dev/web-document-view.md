@@ -208,3 +208,4 @@ each choice: `docs/decisions.md`, 2026-11-08.
   S40-05, S40-09, S46-01, S46-02), `tests/web/compare.spec.ts` (S40-04…06, S40-08), `tests/web/embed.spec.ts` (S40-07),
   `verify/scenarios/version-diff.spec.ts` (live data).
 <!-- ---- end compare Versions ---- -->
+- **Questions** ([questions.md](questions.md)): `server/qview.rs` splices the Question controls into the rendered HTML before the Thread strips (`cd-qx` elements, no `data-l`), the header gains `#cd-qsum` / `#cd-qaccept`, `#cd-data.questions` appears only with Questions, and `ui::page_for_ex` inlines `questions.css` / `questions.js` only then.

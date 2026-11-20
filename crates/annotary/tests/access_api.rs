@@ -508,6 +508,20 @@ fn endpoints() -> Vec<Endpoint> {
             send(ts, "GET", &format!("/api/v1/docs/{id}/markups/{}", up.markup.image), tok(c).as_deref(), None)
         }),
         // ---- end Markup ----
+        // ---- Questions: read under `read`, answer under `comment` ----
+        ep("GET docs/{id}/questions", Need::Right(Right::Read), move |ts, c, v| {
+            let id = fresh_doc(ts, v);
+            send(ts, "GET", &format!("/api/v1/docs/{id}/questions"), tok(c).as_deref(), None)
+        }),
+        ep("PUT docs/{id}/questions/{key}/answer", Need::Right(Right::Comment), move |ts, c, v| {
+            let id = fresh_doc(ts, v);
+            let mut input = NewThread::document("Ship?");
+            input.options = Some(vec!["Yes".into(), "No".into()]);
+            ts.store.new_thread(&ts.owner_id, &id, input).unwrap();
+            let body = json!({ "option": "A", "version": 1 });
+            send(ts, "PUT", &format!("/api/v1/docs/{id}/questions/t1/answer"), tok(c).as_deref(), Some(&body))
+        }),
+        // ---- end Questions ----
         ep("POST threads/t1/resolve", Need::Right(Right::Comment), move |ts, c, v| {
             let id = doc_with_thread(ts, v, &ts.owner_id);
             send(ts, "POST", &format!("/api/v1/docs/{id}/threads/t1/resolve"), tok(c).as_deref(), None)

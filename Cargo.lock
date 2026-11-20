@@ -91,6 +91,7 @@ version = "0.0.0"
 dependencies = [
  "insta",
  "latex2mathml",
+ "proptest",
  "pulldown-cmark",
  "serde_json",
 ]
@@ -110,6 +111,7 @@ name = "annotary-store"
 version = "0.0.0"
 dependencies = [
  "annotary-diff",
+ "annotary-renderer",
  "annotary-sidecar",
  "argon2",
  "fail",

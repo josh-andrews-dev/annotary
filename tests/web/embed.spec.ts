@@ -518,3 +518,76 @@ test('a Markup on a card arrives through the bridge; the frame loads nothing its
   expect(asked.map((m) => m.path)).toEqual([url]);
   expect(e.requests.filter((u) => u.startsWith(srv.url))).toEqual([]);
 });
+
+// spec: S50-13
+test('a Question is answered through the bridge; the frame asks nothing itself', async ({ page }) => {
+  const md = '# Plan\n\n| Decision | Options | Decided |\n|---|---|---|\n| D1 | A, B | |\n\n## D1. Where\n\n- A. Here.\n- B. There.\n';
+  const doc = seed('emb-q', md);
+  const e = await embed(page, `/d/${doc.id}`);
+  await e.fl.locator('.cd-qrow[data-q="D1"] .cd-qopt[data-o="B"]').click();
+  await expect(e.fl.locator('.cd-qrow[data-q="D1"] .cd-qwho')).toHaveText(/^B @/);
+  await expect.poll(async () => (await api(`/api/v1/docs/${doc.id}/questions`)).questions[0].answers.length).toBe(1);
+  const asked = (await e.msgs()).filter((m) => m.type === 'annotary-req' && (m.path || '').includes('/questions/'));
+  expect(asked.map((m) => m.method)).toContain('PUT');
+  expect(e.requests.filter((u) => u.startsWith(srv.url))).toEqual([]);
+});
+
+const QMD = '# Plan\n\n| Decision | Options | Decided |\n|---|---|---|\n| D1 | A, B | |\n\n## D1. Where\n\n- A. Here.\n- B. There.\n';
+
+// spec: S50-13
+test('a page written over one with Questions acts only on its own Document', async ({ page }) => {
+  const z = seed('emb-qz', QMD);
+  const x = seed('emb-qx', QMD);
+  const y = seed('emb-qy', QMD);
+  const e = await embed(page, `/d/${z.id}`);
+  const fl = e.fl;
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toBeVisible();
+  // Hold the frame callbacks, write X then Y, then let them run: X's stale script must not bind
+  // to the page that is still there (Z's `window.cd`).
+  await e.frame().evaluate(() => {
+    const w = window as any;
+    w.__held = [];
+    w.__realRaf = w.requestAnimationFrame;
+    w.requestAnimationFrame = (f: FrameRequestCallback) => { w.__held.push(f); return 0; };
+  });
+  const pathNow = () => e.frame().evaluate(() => (window as any).__cdEmbedPath as string);
+  await toFrame(page, { type: 'annotary-init', path: `/d/${x.id}` });
+  await expect.poll(pathNow).toBe(`/d/${x.id}`);
+  await toFrame(page, { type: 'annotary-init', path: `/d/${y.id}` });
+  await expect.poll(pathNow).toBe(`/d/${y.id}`);
+  await e.frame().evaluate(() => {
+    const w = window as any;
+    w.requestAnimationFrame = w.__realRaf;
+    w.__held.splice(0).forEach((f: FrameRequestCallback) => f(performance.now()));
+  });
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toHaveAttribute('data-doc', y.id);
+  await fl.locator('.cd-qrow[data-q="D1"] .cd-qopt[data-o="B"]').click();
+  await expect.poll(async () => (await api(`/api/v1/docs/${y.id}/questions`)).questions[0].answers.length).toBe(1);
+  await page.waitForTimeout(500);
+  expect((await api(`/api/v1/docs/${z.id}/questions`)).questions[0].answers).toEqual([]);
+  expect((await api(`/api/v1/docs/${x.id}/questions`)).questions[0].answers).toEqual([]);
+  // A page without Questions keeps no hook of the one before.
+  const plain = seed('emb-qplain', PLAN);
+  await toFrame(page, { type: 'annotary-init', path: `/d/${plain.id}` });
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready')).toHaveAttribute('data-doc', plain.id);
+  expect(await e.frame().evaluate(() => (window as any).cdq ?? null)).toBeNull();
+});
+
+// spec: S50-13
+test('a Question asked while the page is open in the frame answers from its card', async ({ page }) => {
+  const doc = seed('emb-qlive', QMD);
+  const e = await embed(page, `/d/${doc.id}`);
+  const fl = e.fl;
+  await expect(fl.locator('.cd-app.cd-docpage.cd-ready.cd-live')).toBeVisible({ timeout: 10_000 });
+  cliAs(['thread', 'new', doc.id, '--document', '-m', 'Ship?', '--ask', 'Yes', '--ask', 'No']);
+  await toFrame(page, { type: 'annotary-event', payload: { type: 'thread.created', doc: doc.id } });
+  const card = fl.locator('.cd-thread[data-t="t1"]');
+  await expect(card).toBeVisible({ timeout: 10_000 });
+  await card.click();
+  await card.locator('.cd-qopt[data-o="B"]').click();
+  await expect(card.locator('.cd-qwho')).toHaveText(/^No @/);
+  const t1 = async () => (await api(`/api/v1/docs/${doc.id}/questions`)).questions.find((q: any) => q.key === 't1');
+  await expect.poll(async () => (await t1()).answers.map((a: any) => a.option)).toEqual(['B']);
+  expect(e.requests.filter((u) => u.startsWith(srv.url))).toEqual([]);
+});
+

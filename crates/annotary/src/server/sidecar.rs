@@ -9,8 +9,8 @@
 //! `base_version` is, the projection is the whole Document); 07 anchor history.
 
 use annotary_sidecar::{
-    ActionEvent, Actions, AssetEntry, MarkupEntry, MemberEntry, Members, Reply, Resolution, Sidecar, Stamp, Thread,
-    Tombstone, VersionEntry,
+    ActionEvent, Actions, AnswerEntry, AssetEntry, MarkupEntry, MemberEntry, Members, Reply, Resolution, Sidecar,
+    Stamp, Thread, Tombstone, VersionEntry,
 };
 use annotary_store::{
     CommentView, DocumentView, Store, ThreadFilter, ThreadStatusFilter, ThreadView, VersionView, time,
@@ -58,6 +58,11 @@ pub fn build(store: &Store, doc: &DocumentView, base_version: u32) -> Result<Sid
             referenced.push(&r.by_handle);
         }
     }
+    // Questions: the current Answers; their Members are listed too.
+    let answers = store.answers(&doc.id, None)?;
+    for a in &answers {
+        referenced.push(&a.handle);
+    }
     let mut members = Members::default();
     for m in store.list_members()? {
         if referenced.contains(&m.handle.as_str()) {
@@ -75,6 +80,16 @@ pub fn build(store: &Store, doc: &DocumentView, base_version: u32) -> Result<Sid
         assets: assets_of(base),
         actions: Actions { available, inherited, log: log.iter().map(action_entry).collect() },
         threads: threads.iter().map(thread_entry).collect(),
+        answers: answers
+            .iter()
+            .map(|a| AnswerEntry {
+                key: a.key.clone(),
+                by: a.handle.clone(),
+                option: a.option.clone(),
+                version: a.version,
+                at: time::to_seconds(&a.at),
+            })
+            .collect(),
     })
 }
 
@@ -88,6 +103,8 @@ pub fn thread_entry(t: &ThreadView) -> Thread {
         created: Stamp { at: time::to_seconds(&t.root.at), version: t.root.version },
         body: t.root.body.clone(),
         markup: markup_entry(&t.root),
+        question: t.question.clone(),
+        options: t.options.clone().unwrap_or_default(),
         mentions: t.root.mention_handles.clone(),
         edited_at: t.root.edited_at.as_deref().map(time::to_seconds),
         deleted: tombstone(&t.root),

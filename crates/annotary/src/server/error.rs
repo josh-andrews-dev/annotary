@@ -266,6 +266,24 @@ impl From<StoreError> for ApiError {
                 err
             }
             // ---- end CMD-23 ----
+            // ---- Questions ----
+            StoreError::QuestionNotFound { .. } => ApiError::not_found(e.to_string()),
+            StoreError::InvalidAnswer(_) => ApiError::new(StatusCode::BAD_REQUEST, "invalid_answer", e.to_string()),
+            StoreError::QuestionDecided { .. } => ApiError::new(StatusCode::CONFLICT, "decided", e.to_string())
+                .hint("the Version records the decision; change the Decided cell in a new Version to reopen it"),
+            StoreError::QuestionThreadExists { .. } => ApiError::conflict(e.to_string()),
+            StoreError::InvalidQuestions(_) => ApiError::new(StatusCode::BAD_REQUEST, "invalid_questions", e.to_string())
+                .hint("questions are computed by the same annotary build the server runs — upgrade it, or push without them"),
+            StoreError::AnswersMissing { ref missing, .. } => {
+                let mut err = ApiError::new(StatusCode::CONFLICT, "answers_missing", e.to_string()).hint(
+                    "pull to get the file with the answers written in, or put these rows in and push again (--discard-answers pushes without them)",
+                );
+                err.extra = Some(Box::new(json!({
+                    "missing": missing.iter().map(|m| json!({ "key": m.key, "row": m.row, "text": m.text })).collect::<Vec<_>>(),
+                })));
+                err
+            }
+            // ---- end Questions ----
             StoreError::NotSetUp => ApiError::internal("store is not set up"),
             other => {
                 tracing::error!("store error: {other}");

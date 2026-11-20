@@ -26,7 +26,7 @@ export async function selectText(page: Page | Frame, within: string, text: strin
     const root = document.querySelector(sel as string);
     if (!root) throw new Error('no element ' + sel);
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (n) => (n.parentElement && n.parentElement.closest('.cd-strip') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      acceptNode: (n) => (n.parentElement && n.parentElement.closest('.cd-strip, .cd-qx') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
     });
     const nodes: Text[] = [];
     let n: Node | null;

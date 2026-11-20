@@ -48,6 +48,18 @@ _Avoid_: Response, child comment, answer
 A drawing a Member makes over the rendered Document in the app, kept on a Comment as an image of the marked region and the strokes. Every surface shows the image on its Thread's card; agents read it through the CLI. A Comment with a Markup may have no words.
 _Avoid_: Attachment, annotation, sketch
 
+**Question**:
+A choice put to the Document's readers, known by a key that stays the same across Versions (`D4`). It comes from the Document's decisions table (a table with `Decision`, `Options` and `Decided` columns) or is asked on a Thread (its key is then the Thread id, `t7`). Its conversation is an ordinary Thread.
+_Avoid_: Poll, vote, ballot
+
+**Option**:
+One choice of a Question, known by a short id (`A`, `B`).
+_Avoid_: Choice, alternative
+
+**Answer**:
+One Member's current choice for a Question: an Option, Other, or none. Changing it replaces it; the log keeps the history. An Answer is not a Mention and wakes nobody; `pull` writes the head's into the `Decided` cells.
+_Avoid_: Vote, response, reply
+
 **Mention**:
 An `@handle` in a Comment naming a Member. Resolved to that Member when the Comment is posted; it makes the Thread show up in that Member's mentions and can wake their wait.
 _Avoid_: Tag, ping, notification

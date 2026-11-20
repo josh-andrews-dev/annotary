@@ -220,3 +220,17 @@ fn the_skill_says_how_to_read_a_markup() {
     }
     assert!(skill.lines().count() <= 60);
 }
+
+// spec: S50-14
+#[test]
+fn the_skill_says_a_decisions_table_is_tappable() {
+    let skill = include_str!("../skill/SKILL.md").replace('\n', " ");
+    for needle in [
+        "A table with Decision, Options, Decided columns is tappable",
+        "`pull` writes the answers in",
+        "an answer is not a mention",
+    ] {
+        assert!(skill.contains(needle), "SKILL.md lacks {needle:?}");
+    }
+    assert!(include_str!("../skill/SKILL.md").lines().count() <= 60);
+}

@@ -6,6 +6,8 @@
 //! seq:N` (`action` = the last Action on head, ticket 05; `--json` `action {id, by, at} | null`).
 //! Deleted Documents are hidden from both unless `--deleted`. On a TTY `show` appends the web URL
 //! (ticket 18: the server's public link — `annotary link` — when a public URL is set).
+//! Questions: when the head has any, one line follows the header, `questions: D4=B D5=- t9=A`
+//! (`questions::show_line`), and `--json` carries `questions` as the API gives them.
 
 use clap::Args;
 use serde_json::{Map, Value, json};
@@ -28,10 +30,36 @@ pub struct ShowArgs {
 
 pub const SHOW_FIELDS: FieldSpec = FieldSpec {
     all: &[
-        "name", "id", "vault", "version", "by", "at", "message", "action", "open", "actions", "threads", "same_as",
-        "deleted", "url",
+        "name",
+        "id",
+        "vault",
+        "version",
+        "by",
+        "at",
+        "message",
+        "action",
+        "open",
+        "actions",
+        "threads",
+        "questions",
+        "same_as",
+        "deleted",
+        "url",
     ],
-    default: &["name", "id", "vault", "version", "by", "at", "message", "action", "open", "actions", "threads"],
+    default: &[
+        "name",
+        "id",
+        "vault",
+        "version",
+        "by",
+        "at",
+        "message",
+        "action",
+        "open",
+        "actions",
+        "threads",
+        "questions",
+    ],
 };
 
 pub const STATUS_FIELDS: FieldSpec = FieldSpec {
@@ -71,6 +99,8 @@ pub fn show(ctx: &Ctx, a: ShowArgs) -> CliResult<()> {
     // The open Threads on head (ticket 04) — the same rows as `thread list DOC`.
     let threads_body = api.get(&format!("/api/v1/docs/{id}/threads"))?;
     let threads = threads_body["threads"].as_array().cloned().unwrap_or_default();
+    // Questions: the head's, with their Answers (an older server has none).
+    let questions = super::questions::fetch(&api, &id, None)?.unwrap_or_default();
     if ctx.out.is_json() {
         let mut rec = Map::new();
         rec.insert("name".into(), json!(s("name")));
@@ -87,6 +117,7 @@ pub fn show(ctx: &Ctx, a: ShowArgs) -> CliResult<()> {
             "threads".into(),
             json!(threads.iter().map(|t| Value::Object(thread::list_record(t))).collect::<Vec<_>>()),
         );
+        rec.insert("questions".into(), json!(questions));
         rec.insert("same_as".into(), d["same_as"].clone());
         rec.insert("deleted".into(), json!(!d["deleted_at"].is_null()));
         // ticket 18: the public link when the server has one; `url` is in `all` only, so `health`
@@ -116,6 +147,9 @@ pub fn show(ctx: &Ctx, a: ShowArgs) -> CliResult<()> {
         ctx.out.line(&format!("{}  {}", fields.join("  "), api.display_link(&id))); // ticket 18: public link
     } else {
         ctx.out.line(&fields.join("\t"));
+    }
+    if let Some(line) = super::questions::show_line(&questions) {
+        ctx.out.line(&line);
     }
     let now = jiff::Timestamp::now();
     thread::print_rows(

@@ -7,6 +7,12 @@
 //! with the same hash is left alone, a differing file refuses the whole pull (exit 5) unless
 //! `--force`, missing Assets are skipped with a note. stdout: `name.md name.annotary vN`; the
 //! summary (`pull: N threads, M assets (K missing: …); W written, U unchanged`) goes to stderr.
+//!
+//! Questions (decision D2): pulling the head writes its Answers into the empty `Decided` cells of
+//! the decisions table (`annotary_renderer::questions::fill_decided`, only those cells change)
+//! with a note on stderr; the file then differs from the Sidecar's base, a local edit for `push`
+//! (which records them), but not for the next `pull`, which would write the same bytes.
+//! `--as-pushed` writes the exact bytes; an older Version is always exact.
 
 use std::path::{Path, PathBuf};
 
@@ -38,10 +44,13 @@ pub struct PullArgs {
     /// Overwrite local edits / differing asset files
     #[arg(long)]
     pub force: bool,
+    /// Write the head's Markdown exactly as pushed (no answers filled into the Decided cells)
+    #[arg(long)]
+    pub as_pushed: bool,
 }
 
 pub const FIELDS: FieldSpec = FieldSpec {
-    all: &["md", "sidecar", "version", "name", "id", "vault", "threads", "assets", "written"],
+    all: &["md", "sidecar", "version", "name", "id", "vault", "threads", "assets", "written", "answers"],
     default: &["md", "sidecar", "version"],
 };
 
@@ -72,6 +81,19 @@ pub fn run(ctx: &Ctx, a: PullArgs) -> CliResult<()> {
         return Err(CliError::internal(format!("blob {md_hash} did not verify")));
     }
     let sc_text = api.get_bytes(&format!("/api/v1/docs/{id}/sidecar?version={n}"))?;
+    // Questions (decision D2): the head comes with its Answers written into the empty Decided
+    // cells (the server never writes Markdown); `--as-pushed` and an older Version are exact.
+    let mut filled = 0usize;
+    let bytes = match std::str::from_utf8(&bytes) {
+        Ok(text) if n == head && !a.as_pushed => {
+            let fills =
+                super::questions::fetch(&api, &id, None)?.map(|qs| super::questions::fills(&qs)).unwrap_or_default();
+            let (out, count) = annotary_renderer::questions::fill_decided(text, &fills);
+            filled = count;
+            out.into_bytes()
+        }
+        _ => bytes,
+    };
 
     let out_dir = a.out.clone().unwrap_or_else(|| PathBuf::from("."));
     std::fs::create_dir_all(&out_dir)
@@ -94,6 +116,9 @@ pub fn run(ctx: &Ctx, a: PullArgs) -> CliResult<()> {
                 let local_hash = sha256_hex(&local);
                 match b.matches_base(&local_hash) {
                     Some(true) => {}
+                    // The file a pull filled with Answers, as it would be filled again, is no
+                    // local edit (any other file differing from the base still is).
+                    Some(false) if filled > 0 && local == bytes => {}
                     Some(false) => {
                         let pulled = std::fs::metadata(&sc_path)
                             .and_then(|m| m.modified())
@@ -217,6 +242,13 @@ pub fn run(ctx: &Ctx, a: PullArgs) -> CliResult<()> {
         summary.push_str("; assets not written (--assets)");
     }
     ctx.out.note(&summary);
+    if filled > 0 {
+        ctx.out.note(&format!(
+            "{filled} answer{} written into the decisions table; push to record {}",
+            plural(filled),
+            if filled == 1 { "it" } else { "them" }
+        ));
+    }
     if n != head {
         ctx.out.note(&format!("(name on v{n} was \"{name}\"; Threads as they were on v{n}; head is v{head})"));
     }
@@ -232,6 +264,7 @@ pub fn run(ctx: &Ctx, a: PullArgs) -> CliResult<()> {
         rec.insert("threads".into(), json!(threads));
         rec.insert("assets".into(), json!(assets));
         rec.insert("written".into(), json!(written));
+        rec.insert("answers".into(), json!(filled));
         return ctx.out.json_records(&FIELDS, vec![rec], true);
     }
     if ctx.out.tty {

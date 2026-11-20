@@ -522,12 +522,41 @@ pub fn map_status(status: u16, body: &Value) -> CliError {
             ));
         }
     }
+    // Questions: `answers_missing` from the commit (an Answer given after `push` checked) names
+    // the rows to put in, as `push`'s own check does: detail lines, and `missing[]` in the JSON.
+    if let Some(missing) = body.get("missing").and_then(Value::as_array) {
+        for m in missing {
+            let row = m.get("row").and_then(Value::as_u64).unwrap_or(0);
+            err = err.detail(format!("line {row}: {}", m.get("text").and_then(Value::as_str).unwrap_or("")));
+        }
+        let mut extra = serde_json::Map::new();
+        extra.insert("missing".into(), Value::Array(missing.clone()));
+        err.extra = Some(Box::new(extra));
+    }
     err
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // spec: S50-06
+    #[test]
+    fn a_servers_answers_missing_keeps_its_rows() {
+        let body = serde_json::json!({
+            "error": "answers_missing",
+            "message": "D1 answered on v1 is not in the Decided cells",
+            "hint": "pull",
+            "missing": [{ "key": "D1", "row": 5, "text": "| D1 | A, B | A | A (@rowan, 2026-11-19) |" }],
+        });
+        let e = map_status(409, &body);
+        assert_eq!((e.exit, e.kind.as_str()), (Exit::Refused, "answers_missing"));
+        assert_eq!(e.detail, ["line 5: | D1 | A, B | A | A (@rowan, 2026-11-19) |"]);
+        assert_eq!(e.json()["missing"], body["missing"]);
+        // A 409 without rows gains nothing.
+        let e = map_status(409, &serde_json::json!({ "error": "conflict", "message": "x" }));
+        assert!(e.detail.is_empty() && e.extra.is_none() && e.json().get("missing").is_none());
+    }
 
     fn cfg(dir: &tempfile::TempDir, text: &str) -> std::path::PathBuf {
         let p = dir.path().join("config.toml");

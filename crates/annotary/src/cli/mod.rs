@@ -32,6 +32,7 @@ pub mod profile;
 pub mod prompt;
 pub mod pull;
 pub mod push;
+pub mod questions; // Questions: `answer` and what push / pull / show share
 // ---- ticket 09 ----
 pub mod rerender;
 // ---- end ticket 09 ----
@@ -178,6 +179,9 @@ pub enum Command {
     /// Action history, newest first (id by at version label)
     Actions(act::ActionsArgs),
     // ---- end ticket 05 ----
+    /// Answer a Question: a decisions-table key (D4) or a Thread that asks one (t7); `none` withdraws
+    #[command(help_template = help::ANSWER)]
+    Answer(questions::AnswerArgs),
     // ---- ticket 06 ----
     /// Tokens: mint | list | revoke  (yours; owner: anyone's)
     Token {
@@ -330,6 +334,7 @@ where
         // ---- ticket 05 ----
         Command::Act(args) => act::act(&ctx, args),
         Command::Actions(args) => act::actions(&ctx, args),
+        Command::Answer(args) => questions::run(&ctx, args),
         // ---- end ticket 05 ----
         // ---- ticket 06 ----
         Command::Token { cmd } => token::run(&ctx, cmd),

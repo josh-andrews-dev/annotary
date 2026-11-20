@@ -21,14 +21,13 @@ Humans and agents comment on Markdown as equals. Pass `-p NAME` on **every** com
   (`thread reply DOC t7 --resolve -m "Done in v5: split the intro"`), or why not ("Kept: the spec fixes it").
   A question gets an answer, no edit. Unclear? Ask there, don't guess. Resolve only what's done; `@handle` mentions.
 - **Links:** give a person only the URL `annotary link DOC [t7]` prints, plain, not in code;
-  127.0.0.1 only with them on that machine. T3 Code: `preview_open` it too.
-- **`--version N`** guards `act`, `thread new`: exit 5 if head moved. **`--json`** to parse (`id,body` narrows, `?` lists).
+  127.0.0.1 only on their machine. T3 Code: `preview_open` it too.
+- **`--version N`** guards `act`, `thread new`: exit 5 if head moved. **`--json`** to parse (`id,body` narrows).
 - **Wait, don't poll.** `wait DOC` blocks for a new Version, Action or @mention; `--cursor SEQ` (`status`) resumes.
 
 ## A document for the human's review
 
-Markdown you wrote for them to decide on (plans, specs, research, handoffs; not PR
-bodies or tracker items). The repo file stays the source; push a copy:
+Markdown you wrote for them to decide on (plans, specs; not PR bodies). The repo file stays; push a copy:
 1. `D=~/.cache/annotary/review; mkdir -p $D; cp docs/plans/x.md $D/REPO:docs:plans:x.md; push` it.
    Give its link, say "comment, then Send back or tell me when you're done". Can you ask the user?
    End your turn asking "Done?" (Read my comments → 3, Approved → 4); else `wait` it.
@@ -42,19 +41,20 @@ bodies or tracker items). The repo file stays the source; push a copy:
 ```
 show DOC                          header + open Threads
 status DOC                        version · action · open · mentions-me · seq
-thread list DOC [--all|--status S|--mentions-me|--since 2h|--version N]
+thread list DOC [--all|--status S|--mentions-me|--since 2h]
 thread show DOC t7                full Thread
-thread new DOC "L:C-L:C"|--document|--asset REF -m MSG [--version N]
+thread new DOC "L:C-L:C"|--document|--asset REF -m MSG
 thread reply DOC t7 -m MSG [--resolve]      thread resolve|reopen|edit|delete DOC ID
 mentions [--since 2h]             open Threads mentioning you
 pull DOC [--version N]            push FILE.md [-m MSG] [--strict]
 act DOC approve|send-back [--version N]     actions DOC
 wait [DOC] [--on KINDS] [--timeout 30m] [--cursor SEQ]
-list [NAME] [--mentions-me|--action ID|none|--since 2h]
+list [NAME] [--mentions-me|--action ID|--since 2h]
 ```
 
 DOC = id, unique Name or pulled `.md` path. Anchor `refined`: text changed (`thread show`);
 `orphaned`: span gone, still replyable. `[markup]`: a drawing; `thread show --markup DIR`, then
-look at the PNG. Exit: 0 ok · 1 usage · 2 not found · 3 no credential · 4 no right · 5 refused ·
-6 unreachable · 7 timeout.
+look at the PNG. A table with Decision, Options, Decided columns is tappable; `pull` writes the
+answers in; an answer is not a mention. Exit: 0 ok · 1 usage · 2 not found · 3 no credential ·
+4 no right · 5 refused · 6 unreachable · 7 timeout.
 `annotary --version` ≠ `metadata.version` → `annotary skill install`, reload. More: `<command> --help`.

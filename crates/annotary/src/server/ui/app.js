@@ -30,6 +30,7 @@
   }
 function main() {
   if (bootEmbed && !bootEmbed.current()) return;
+  window.cdq = null; // a previous embed page's Questions hook
   var app = document.querySelector('.cd-app');
   if (!app) return;
   var dataEl = document.getElementById('cd-data');
@@ -403,7 +404,7 @@ function main() {
     var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         var p = n.parentElement;
-        if (!p || p.closest('.cd-strip')) return NodeFilter.FILTER_REJECT;
+        if (!p || p.closest('.cd-strip,.cd-qx')) return NodeFilter.FILTER_REJECT;
         if (p.closest('script,style')) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
@@ -1836,6 +1837,18 @@ function main() {
     }
     return { start: start, end: end };
   }
+  /* Inside Question chrome (`.cd-qx`), a script or a style: not the Document's text. */
+  function inQx(n) {
+    var p = n.nodeType === 1 ? n : n.parentElement;
+    return !p || !!p.closest('script,style,.cd-qx');
+  }
+  /* A range's text without Question chrome (`.cd-qx`), which is not the Document's. */
+  function docText(r) {
+    if (inQx(r.commonAncestorContainer)) return '';
+    var f = r.cloneContents();
+    f.querySelectorAll('.cd-qx').forEach(function (e) { e.remove(); });
+    return f.textContent;
+  }
   /* The selection as a source range: {range: "L:C-L:C", exact, line, end, text} or null. */
   function mapSelection(range, lines) {
     var sb = mapBlock(range.startContainer), eb = mapBlock(range.endContainer);
@@ -1871,7 +1884,8 @@ function main() {
     var exact = extract(start, end);
     // Verify: the selected text's visible characters all occur, in order, in the source range,
     // which starts and ends with the same characters as the selection.
-    var sel = Array.from(range.toString()).filter(function (c) { return !isWs(c); });
+    var shown = docText(range);
+    var sel = Array.from(shown).filter(function (c) { return !isWs(c); });
     var src = Array.from(exact).filter(function (c) { return !isWs(c); });
     var decoded = decodeEntity(exact.replace(/</g, '&lt;')) || exact;
     var srcDec = Array.from(decoded).filter(function (c) { return !isWs(c); });
@@ -1889,7 +1903,7 @@ function main() {
     var bal = balanceDelimiters(lines, start, end);
     start = bal.start; end = bal.end;
     exact = extract(start, end);
-    return { range: start.line + ':' + start.col + '-' + end.line + ':' + end.col, exact: exact, line: start.line, end: end.line, text: range.toString() };
+    return { range: start.line + ':' + start.col + '-' + end.line + ':' + end.col, exact: exact, line: start.line, end: end.line, text: shown };
   }
 
   /* ---------- the pill ---------- */
@@ -1923,16 +1937,13 @@ function main() {
      a list item) ends the selection at offset 0 of the next block — an `h2`, the next `li` — and
      mapping that end would fail. Only blank edges are trimmed: when the selection takes in any
      text of a card (or an editor) it is returned as it is, so the strip check below still
-     refuses it. null when it covers no text. */
+     refuses it. `.cd-qx` counts as blank. null when it covers no text. */
   function tightRange(range) {
     var anc = range.commonAncestorContainer;
     var root = anc.nodeType === 1 ? anc : anc.parentElement;
     if (!root) return null;
     var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: function (n) {
-        var p = n.parentElement;
-        return !p || p.closest('script,style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
-      }
+      acceptNode: function (n) { return inQx(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; }
     });
     var sc = range.startContainer;
     if (sc.nodeType === 3) w.currentNode = sc;
@@ -1942,7 +1953,7 @@ function main() {
     var n = w.currentNode.nodeType === 3 ? w.currentNode : w.nextNode();
     for (; n; n = w.nextNode()) {
       if (range.comparePoint(n, 0) > 0) break; // starts after the range
-      if (!range.intersectsNode(n)) continue;
+      if (inQx(n) || !range.intersectsNode(n)) continue; // the start node skips acceptNode
       var v = n.nodeValue;
       var s = n === range.startContainer ? range.startOffset : 0;
       var e = n === range.endContainer ? range.endOffset : v.length;
@@ -1974,7 +1985,7 @@ function main() {
     // A selection that crosses a card is not a span of the Document.
     var frag = range.cloneContents();
     if (frag.querySelector && frag.querySelector('.cd-strip')) { hidePill(); return; }
-    var text = range.toString();
+    var text = docText(range);
     if (!text.trim()) {
       // Only media inside? → a whole-Asset Thread.
       var live = $$('img,video,audio,object', docEl).filter(function (m) { return range.intersectsNode(m); })[0];
@@ -2024,11 +2035,14 @@ function main() {
       return;
     }
     if (existing) closeEditor(existing);
-    if (p.kind === 'document') {
+    if (p.kind === 'document' || p.kind === 'question') {
+      // Questions: a Question's first Comment anchors at its place (the server finds the range).
+      var q = p.kind === 'question';
       var dtid = 'new' + (++newSeq);
-      var dcard = composerCard(dtid, '<span class="cd-kind">whole document</span>', 'cd-doclevel');
-      dcard.cdPending = { subject: 'document' };
-      var dStrip = docStrip();
+      var dcard = composerCard(dtid, '<span class="cd-kind">' + (q ? esc(p.key) : 'whole document') + '</span>', q ? '' : 'cd-doclevel');
+      if (q) dcard.setAttribute('data-line', String(p.line));
+      dcard.cdPending = q ? { subject: 'span', question: p.key, line: p.line, done: p.done } : { subject: 'document' };
+      var dStrip = q ? stripFor(p.line) : docStrip();
       dStrip.appendChild(dcard);
       syncStripHidden(dStrip);
       dcard.classList.add('cd-open');
@@ -2124,7 +2138,7 @@ function main() {
     scheduleLayout();
     var bodyJson = p.subject === 'asset' ? { subject: 'asset', ref: p.ref, body: text, version: D.head }
       : p.subject === 'document' ? { subject: 'document', body: text, version: D.head }
-        : { subject: 'span', range: p.range, body: text, version: D.head };
+        : { subject: 'span', range: p.range, question: p.question, body: text, version: D.head };
     var op = beginOp('created', null);
     api('POST', docApi('threads'), bodyJson).then(function (r) {
       if (!r.ok) {
@@ -2155,6 +2169,7 @@ function main() {
       var it = D.threads[itemIndex(tid)]; if (it) it.id = real;
       if (selected === tid) selected = real;
       refreshCard(real);
+      if (p.done) p.done(real);
     });
   }
 
@@ -2369,6 +2384,7 @@ function main() {
   function onLiveEvent(ev) {
     if (!ev || ev.doc !== D.id) return;
     if (ev.seq) D.seq = Math.max(D.seq || 0, ev.seq);
+    if (window.cdq) window.cdq(ev); // Questions (ui/questions.js)
     newsLive(ev);
     var p = ev.payload || {};
     switch (ev.type) {
@@ -2398,7 +2414,7 @@ function main() {
       es = transport.events('/api/v1/events?doc=' + encodeURIComponent(D.id) + '&since=' + (D.seq || 0) + '&me=1',
         ['thread.created', 'thread.replied', 'thread.resolved', 'thread.reopened', 'comment.edited', 'comment.deleted',
           'action.taken', 'version.pushed', 'document.actions_declared', 'document.deleted', 'document.restored',
-          'setting.changed'], {
+          'setting.changed', 'question.answered'], {
           ready: function (j) {
             app.classList.add('cd-live');
             if (j && j.seq) D.seq = Math.max(D.seq || 0, j.seq);
@@ -2557,6 +2573,7 @@ function main() {
     refreshCard: refreshCard, setResolved: setResolved, openComposer: openComposer,
     live: function () { return app.classList.contains('cd-live'); },
     data: function () { return D; },
+    api: api, toast: showToast, app: app, // Questions
     // ticket 12: the owner screens localize the <time> tags of freshly drawn cards
     localize: localizeTimes,
     // CMD-23: re-read the Member's settings and apply them to `.cd-app` (the Settings screen calls it)

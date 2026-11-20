@@ -53,6 +53,8 @@ pub mod markup;
 pub mod meta;
 pub mod migrations;
 pub mod model;
+// Questions: the stored Questions of a Version and the Answers (schema v8).
+pub mod questions;
 // ---- ticket 09 ----
 pub mod render;
 // ---- end ticket 09 ----
@@ -97,6 +99,7 @@ pub use markup::{Markup, MarkupUpload, markup_id, parse_markup_id};
 pub use meta::Meta;
 pub use migrations::SCHEMA_VERSION;
 pub use model::*;
+pub use questions::{AnswerOutcome, AnswerView, LABEL_MAX, check_labels, thread_option_ids};
 pub use store::{SetupInput, SetupOutcome, Store, hash_password, verify_password};
 // ---- ticket 12 ----
 pub use vaults::{ProfileVault, VaultCount, validate_vault_name};

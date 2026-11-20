@@ -1,4 +1,4 @@
-//! `push FILE.md [-m MSG] [--doc ID] [--vault V] [--force] [--strict] [--discard-head-changes] [-q]`.
+//! `push FILE.md [-m MSG] [--doc ID] [--vault V] [--force] [--strict] [--discard-head-changes] [--discard-answers] [-q]`.
 //!
 //! Compute at the edge, then two-phase upload: hash the Markdown, scan it for Assets (manifest
 //! with dimensions and web-safe derivatives — `crate::assets`), check the caps, ask the server
@@ -28,6 +28,12 @@
 //! hunks on stderr (`--json`: `missing[]`, `assets[]`). `--discard-head-changes` skips the check
 //! and pushes over them with a warning. A Sidecar left with git conflict markers is read side by
 //! side (`Binding`: the lower `base_version`) and rewritten clean after the push.
+//!
+//! Questions (`docs/dev/questions.md`): the decisions table is parsed here too and its Questions
+//! sent as `questions` (warnings on stderr, refused under `--strict`). Onto an existing Document,
+//! the head's Answers must be in the file's `Decided` cells (`questions::recorded`): a row that
+//! keeps its Options and an empty cell is refused (exit 5 `answers_missing`, the rows to put in)
+//! before any upload, unless `--discard-answers`.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -70,6 +76,10 @@ pub struct PushArgs {
     /// event log records what was discarded). Without it a push whose file lacks them is refused
     #[arg(long)]
     pub discard_head_changes: bool,
+    /// Push although the decisions table leaves out Answers given on the head (warns; logged).
+    /// Without it such a push is refused with the rows to put in
+    #[arg(long)]
+    pub discard_answers: bool,
 }
 
 pub const FIELDS: FieldSpec = FieldSpec {
@@ -189,6 +199,30 @@ pub fn run(ctx: &Ctx, a: PushArgs) -> CliResult<()> {
     }
     let manifest = scan.manifest_json();
 
+    // Questions (compute at the edge, like the render): the decisions table and its places.
+    let found = annotary_renderer::questions::find(&String::from_utf8_lossy(&bytes));
+    if a.strict && !found.warnings.is_empty() {
+        let hint = "fix the decisions table or push without --strict";
+        let mut e = CliError::new(
+            Exit::Refused,
+            "strict",
+            format!(
+                "{} decisions table warning{} (--strict)",
+                found.warnings.len(),
+                if found.warnings.len() == 1 { "" } else { "s" }
+            ),
+        )
+        .hint(hint);
+        for w in &found.warnings {
+            e = e.detail(format!("  {w}"));
+        }
+        return Err(e);
+    }
+    for w in &found.warnings {
+        ctx.out.note(&format!("warning: {w}"));
+        warnings.push(w.clone());
+    }
+
     // Compute at the edge (ticket 09): render to viewer-agnostic HTML with the manifest.
     let html = {
         let text = String::from_utf8_lossy(&bytes);
@@ -251,6 +285,23 @@ pub fn run(ctx: &Ctx, a: PushArgs) -> CliResult<()> {
                         head_text = Some(ht);
                     }
                 }
+                // Questions (decision D2): the head's Answers must be in the Decided cells —
+                // checked here, before any upload, like the head's changes above.
+                if !identical && let Some(head_qs) = super::questions::fetch(&api, id, None)? {
+                    let r = super::questions::recorded(&head_qs, &local_text, &found.questions);
+                    for n in &r.notes {
+                        ctx.out.note(&format!("note: {n}"));
+                    }
+                    if !r.missing.is_empty() {
+                        if !a.discard_answers {
+                            return Err(super::questions::missing_error(ctx, &a.file, head, &r));
+                        }
+                        let keys: Vec<&str> = r.missing.iter().map(|m| m.key.as_str()).collect();
+                        let w = format!("discarding the answers to {} given on v{head}", keys.join(", "));
+                        ctx.out.note(&format!("warning: {w}"));
+                        warnings.push(w);
+                    }
+                }
                 reanchor_for(&api, id, &doc, &md_hash, &manifest, &local_text, head_text)?
             }
             None => None,
@@ -289,6 +340,7 @@ pub fn run(ctx: &Ctx, a: PushArgs) -> CliResult<()> {
     let mut body = json!({
         "name": name, "md_hash": md_hash, "manifest": manifest, "message": a.message,
         "html_hash": html_hash, "renderer": annotary_renderer::RENDERER_VERSION,
+        "questions": annotary_renderer::questions::to_json(&found.questions),
     });
     if let Some(av) = actions_available {
         body["actions_available"] = av;
@@ -302,11 +354,18 @@ pub fn run(ctx: &Ctx, a: PushArgs) -> CliResult<()> {
             if a.discard_head_changes {
                 body["discard_head_changes"] = json!(true);
             }
+            if a.discard_answers {
+                body["discard_answers"] = json!(true); // Questions
+            }
             if let Some(r) = &reanchor {
                 body["placements"] = json!(r.placements);
                 body["placements_from"] = json!(r.from);
             }
-            api.post(&format!("/api/v1/docs/{id}/versions"), &body).map_err(|e| {
+            api.post(&format!("/api/v1/docs/{id}/versions"), &body).map_err(|mut e| {
+                if e.kind == "answers_missing" && ctx.out.is_json() {
+                    // As `missing_error`: the rows are in `missing[]`, not folded into the hint.
+                    e.detail.clear();
+                }
                 if e.exit == Exit::NotFound && binding.as_ref().is_some_and(|b| &b.id == id) && a.doc.is_none() {
                     CliError::not_found(format!("no Document {id} (from {})", sc_path.display()))
                         .hint("was it purged? `push --doc ID` rebinds; delete the Sidecar to create a new Document")

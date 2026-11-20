@@ -11,3 +11,4 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- ticket 05 ---- -->
 
 - **Markup** ([markup.md](markup.md)): a Comment may carry a drawing (`CommentView.markup`, schema v7 `comment_markups`, left-joined by `COMMENT_SELECT`); `NewThread.markup` / `Store::reply_with_markup` attach one by the id `POST …/markups` answered, and then the body may be empty; tombstoning drops it; `thread.created` / `thread.replied` carry `markup: true`; `comment_json` adds `markup {image, width, height, strokes}` when there is one.
+- **Questions** ([questions.md](questions.md)): `threads.question` (a Document Question's key) and `threads.options` (an asked Question's labels), schema v8; `NewThread.question` without a range anchors at the Question's place; `NewThread.options` asks one; Thread JSON adds `question` / `options` / `answers` only when set.
