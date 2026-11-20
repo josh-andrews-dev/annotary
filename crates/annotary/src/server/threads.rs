@@ -86,12 +86,18 @@ pub fn thread_json(t: &ThreadView) -> Value {
 }
 
 /// Questions: `answers [{by, option, at}]` on each Thread JSON in `out` that asked a Question,
-/// read once for the Document (nothing is read when none did).
-pub fn add_answers(st: &AppState, doc_id: &str, threads: &[ThreadView], out: &mut [Value]) -> Result<(), ApiError> {
+/// read once for the Document (nothing is read when none did); `upto` as `Store::answers`.
+pub fn add_answers(
+    st: &AppState,
+    doc_id: &str,
+    upto: Option<u32>,
+    threads: &[ThreadView],
+    out: &mut [Value],
+) -> Result<(), ApiError> {
     if !threads.iter().any(|t| t.options.is_some()) {
         return Ok(());
     }
-    let answers = st.store.answers(doc_id, None)?;
+    let answers = st.store.answers(doc_id, upto)?;
     for (t, v) in threads.iter().zip(out.iter_mut()) {
         if t.options.is_some() {
             v["answers"] = json!(
@@ -231,7 +237,9 @@ pub async fn list(
         _ => 0,
     };
     let mut items: Vec<Value> = threads.iter().map(thread_json).collect();
-    add_answers(&st, &doc.id, &threads, &mut items)?;
+    // An older Version's slice shows the Answers as they stood then, as `GET …/questions?version=N`.
+    let upto = (version != doc.head.number).then_some(version);
+    add_answers(&st, &doc.id, upto, &threads, &mut items)?;
     Ok(Json(json!({
         "id": doc.id,
         "name": doc.head.name,
@@ -340,7 +348,7 @@ pub async fn get(
         .thread(&doc.id, num)?
         .ok_or_else(|| ApiError::not_found(format!("no Thread {tid} in {} ({})", doc.head.name, doc.id)))?;
     let mut v = [thread_json(&t)];
-    add_answers(&st, &doc.id, std::slice::from_ref(&t), &mut v)?;
+    add_answers(&st, &doc.id, None, std::slice::from_ref(&t), &mut v)?;
     let [mut v] = v;
     v["doc"] = json!(doc.id);
     v["name"] = json!(doc.head.name);

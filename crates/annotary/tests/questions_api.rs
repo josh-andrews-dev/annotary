@@ -125,6 +125,9 @@ fn commits_carry_questions_and_the_server_enforces_the_recording_rule() {
     let reworded = edited.replace("| D1 | A, B | A | |", "| D1 | A, B, C | A | |");
     let (s, v) = push(&ts, &id, &reworded, json!({ "base_version": 1 }));
     assert_eq!(s, 201, "{v}");
+    // An Answer sent for v1 now that v2 is the head is refused: the viewer has not seen v2.
+    let (s, v) = answer(&ts, &tok, &id, "D1", json!("B"), 1);
+    assert_eq!((s, v["error"].as_str()), (409, Some("not_head")), "{v}");
     let (_, q) = ts.get(&format!("/api/v1/docs/{id}/questions"), Some(&tok));
     assert_eq!(q["questions"][0]["answers"][0]["changed"], true, "{q}");
     // The time-slice: v1 shows the Answer as it stood, unchanged there.
@@ -205,4 +208,35 @@ fn a_question_thread_the_sidecar_and_purge() {
     ts.store.delete_document(&ts.owner_id, &id).unwrap();
     ts.store.purge_document(&ts.owner_id, &id).unwrap();
     assert!(ts.store.answers(&id, None).unwrap().is_empty());
+}
+
+// spec: S50-09
+#[test]
+fn a_threads_time_slice_shows_the_answers_as_they_stood() {
+    let ts = TestServer::start();
+    let tok = ts.owner_token.clone();
+    let id = create(&ts, "plan", PLAN);
+    let (s, t) = ts.post(
+        &format!("/api/v1/docs/{id}/threads"),
+        Some(&tok),
+        &json!({ "subject": "document", "body": "Ship?", "options": ["Yes", "No"], "version": 1 }),
+    );
+    assert_eq!(s, 201, "{t}");
+    assert_eq!(answer(&ts, &tok, &id, "t1", json!("A"), 1).0, 200);
+    let (s, v) = push(&ts, &id, &PLAN.replace("The box.", "The box!"), json!({ "base_version": 1 }));
+    assert_eq!(s, 201, "{v}");
+    assert_eq!(answer(&ts, &tok, &id, "t1", json!("B"), 2).0, 200);
+    let opt = |v: &Value| v["threads"][0]["answers"][0]["option"].as_str().map(str::to_string);
+    let (_, v1) = ts.get(&format!("/api/v1/docs/{id}/threads?version=1"), Some(&tok));
+    assert_eq!(opt(&v1).as_deref(), Some("A"), "{v1}");
+    let (_, q1) = ts.get(&format!("/api/v1/docs/{id}/questions?version=1"), Some(&tok));
+    let t1 = q1["questions"].as_array().unwrap().iter().find(|q| q["key"] == "t1").unwrap();
+    assert_eq!(t1["answers"][0]["option"], "A", "{q1}");
+    // The head and the one Thread read the current Answer.
+    let (_, v2) = ts.get(&format!("/api/v1/docs/{id}/threads"), Some(&tok));
+    assert_eq!(opt(&v2).as_deref(), Some("B"), "{v2}");
+    let (_, v2) = ts.get(&format!("/api/v1/docs/{id}/threads?version=2"), Some(&tok));
+    assert_eq!(opt(&v2).as_deref(), Some("B"), "{v2}");
+    let (_, one) = ts.get(&format!("/api/v1/docs/{id}/threads/t1"), Some(&tok));
+    assert_eq!(one["answers"][0]["option"], "B", "{one}");
 }
