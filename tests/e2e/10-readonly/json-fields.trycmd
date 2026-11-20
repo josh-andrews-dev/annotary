@@ -59,7 +59,7 @@ $ annotary -p down thread delete x t1 --json ?
 id thread state version doc
 
 $ annotary -p down mentions --json ?
-doc id thread author anchor body mentions replies created updated version vault
+doc id thread author anchor body markup mentions replies created updated version vault
 
 $ annotary -p down wait --json ?
 seq kind doc name action version thread comment message excerpt by at type label intent same_as discarded mentions vault

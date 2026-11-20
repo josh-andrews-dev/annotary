@@ -24,10 +24,10 @@ pub struct MentionsArgs {
 
 pub const FIELDS: FieldSpec = FieldSpec {
     all: &[
-        "doc", "id", "thread", "author", "anchor", "body", "mentions", "replies", "created", "updated", "version",
-        "vault",
+        "doc", "id", "thread", "author", "anchor", "body", "markup", "mentions", "replies", "created", "updated",
+        "version", "vault",
     ],
-    default: &["doc", "id", "thread", "author", "anchor", "body", "replies", "created"],
+    default: &["doc", "id", "thread", "author", "anchor", "body", "markup", "replies", "created"],
 };
 
 pub fn run(ctx: &Ctx, a: MentionsArgs) -> CliResult<()> {
@@ -55,7 +55,8 @@ pub fn run(ctx: &Ctx, a: MentionsArgs) -> CliResult<()> {
                 r.insert("doc".into(), h["doc"]["name"].clone());
                 r.insert("id".into(), h["doc"]["id"].clone());
                 r.insert("thread".into(), t.get("id").cloned().unwrap_or(Value::Null));
-                for k in ["author", "anchor", "body", "mentions", "replies", "created", "updated", "version"] {
+                for k in ["author", "anchor", "body", "markup", "mentions", "replies", "created", "updated", "version"]
+                {
                     r.insert(k.into(), t.get(k).cloned().unwrap_or(Value::Null));
                 }
                 r.insert("vault".into(), h["doc"]["vault"].clone());

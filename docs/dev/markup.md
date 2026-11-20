@@ -19,12 +19,21 @@ read it through the CLI; the app draws it, and nothing here draws. Why each choi
   `image` base64, `strokes` the JSON object; body limit `markups::BODY_MAX` 4 MiB) checks both files
   and stores them as blobs with **no row and no event**, then answers `{id, image, width, height,
   strokes, image_size, strokes_size}` with `id` = `<image hash>.<strokes hash>`. `POST …/threads` and
-  `…/replies` take `markup: ID`; the Comment's transaction reads both blobs, checks them again
-  (whoever stored them: `PUT /api/v1/blobs` could have), writes the row, and its
-  `thread.created` / `thread.replied` carries `markup: true`. A re-upload of bytes already stored
-  touches the blob (`BlobStore::touch`) so the GC's grace period starts again.
+  `…/replies` take `markup: ID`; before the Comment's transaction `Store::check_markup` reads both
+  blobs and checks them again (whoever stored them: `PUT /api/v1/blobs` could have), so no decode
+  runs under the store's lock; the transaction only checks both blobs are still there (else 409
+  `markup_missing`), writes the row, and its `thread.created` / `thread.replied` carries
+  `markup: true`. The upload checks first, then takes the connection, checks the Document is still
+  live and writes the blobs under it: `gc_sweep` holds that connection from its listing to its last
+  removal, so a re-upload of an old unattached blob is never swept between `put` and the `touch`
+  that restarts its grace period (`tests/markup_gc_race.rs`, failpoint
+  `markup.between_put_and_touch`).
 - **The checks.** The PNG is decoded whole with the `png` crate (every row, then `finish` to
-  `IEND`): signature, size, dimensions (both sides 1 to 4096), damage. The strokes are
+  `IEND`): signature, size, dimensions (both sides 1 to 4096, read from `IHDR` before any other
+  chunk), damage. `iCCP` and text chunks are skipped unread (a compressed one could inflate to the
+  decoder's limit; the stored bytes keep them), and the decoder may allocate at most 1 MiB: its
+  limit charges row buffers and kept chunks, never the frame (`tests/markup_decode.rs` measures
+  it). The strokes are
   `{"strokes": [{color, width, tool?, points}]}` and nothing else (`check_strokes` has the exact
   rules); `x` / `y` are the PNG's pixels from its top left, `t` seconds since the Markup's first
   point. They are stored as the server wrote the JSON (compact), not the client's bytes.
@@ -44,19 +53,23 @@ read it through the CLI; the app draws it, and nothing here draws. Why each choi
   full size; an embedder opens it outside its frame) around `img.cd-mk-img` with the image's `width`
   / `height`, between `.cd-who` and `.cd-cbody`. It keeps a white ground in the dark theme: the image
   is a crop of the light page. A root that is only a Markup shows "Markup" in the narrow row's
-  snippet. An embed render writes the URL as `data-cd-mk` (no `src`), which `loadAvatars` in
+  snippet, and the mentions page (`view::comment_snippet`) says "Markup" for a Reply that is only
+  one. An embed render writes the URL as `data-cd-mk` (no `src`), which `loadAvatars` in
   `app.js` fetches through the transport as a blob; above `embed::IMAGE_MAX` it writes only the link.
   The web has no drawing UI.
 - **CLI.** `show` / `thread list` / `mentions` rows start the body with `[markup]` when the root or
   a Reply holds one (`thread::has_markup`), and their `--json` has `markup: true`. `thread show`
   prints `[markup] W×H` above each such Comment's body (an empty body is left out), and `--markup
-  DIR` writes `DIR/t7.png` / `DIR/t7.1.png` (DIR made, the bytes checked against the hash), puts the
+  DIR` writes `DIR/t7.png` / `DIR/t7.1.png` (DIR made, the bytes checked against the hash; a Comment
+  id or hash from the server that is not one is refused before any request or write), puts the
   path on that line and adds `path` to the JSON's `markup`. `thread new` / `thread reply` take
   `--markup PNG --strokes JSON` (uploaded first; `-m` then optional; an image over 2 MiB is refused
   before sending, exit 5). The skill names only `thread show --markup DIR`.
 - **Errors** (`server/error.rs`): 400 `invalid_markup` → exit 1; 413 `too_large` → 5; 409
   `markup_missing` (an id whose blobs are gone) → 5; 409 `deleted` for a deleted Document.
-- **Tests:** `markup.rs` unit tests (S49-01, S49-02), `tests/markup_api.rs` (S49-03…06), the
+- **Tests:** `markup.rs` unit tests and `crates/store/tests/markup_decode.rs` (S49-01, S49-02;
+  the iCCP bomb, Adam7, palette, 4,096² 16-bit), `tests/markup_api.rs` (S49-03…06, the mentions
+  page, the embed link above the cap), `tests/markup_gc_race.rs`, the
   Markup rows in `tests/access_api.rs`, `tests/cli_threads.rs` and `tests/e2e/89-markup/` (S49-09),
   `tests/web/markup.spec.ts` (S49-07), the Markup test in `tests/web/embed.spec.ts` (S49-08),
   `tests/cli_skill.rs` (S49-10); the live scenario `verify/scenarios/markup.spec.ts`.

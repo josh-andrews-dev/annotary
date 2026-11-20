@@ -324,3 +324,145 @@ fn the_card_shows_the_markup_above_the_body() {
     assert!(embed.contains(&format!("<img class=\"cd-mk-img\" data-cd-mk=\"{url}\" width=\"480\"")));
     assert!(!embed.contains(&format!("src=\"{url}\"")));
 }
+
+/// A valid `w`×`h` RGBA PNG of `w * h * 4` zero bytes, its data in stored (uncompressed) blocks, so
+/// its size is about its pixels'.
+fn stored_png(w: u32, h: u32) -> Vec<u8> {
+    fn crc32(kind: &[u8], data: &[u8]) -> u32 {
+        let mut c = !0u32;
+        for b in kind.iter().chain(data) {
+            c ^= u32::from(*b);
+            for _ in 0..8 {
+                c = if c & 1 == 1 { 0xedb8_8320 ^ (c >> 1) } else { c >> 1 };
+            }
+        }
+        !c
+    }
+    fn chunk(out: &mut Vec<u8>, kind: &[u8], data: &[u8]) {
+        out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        out.extend_from_slice(kind);
+        out.extend_from_slice(data);
+        out.extend_from_slice(&crc32(kind, data).to_be_bytes());
+    }
+    let raw = vec![0u8; (h * (1 + w * 4)) as usize];
+    let mut z = vec![0x78, 0x01];
+    let mut blocks = raw.chunks(65535).peekable();
+    while let Some(b) = blocks.next() {
+        z.push(u8::from(blocks.peek().is_none()));
+        z.extend_from_slice(&(b.len() as u16).to_le_bytes());
+        z.extend_from_slice(&(!(b.len() as u16)).to_le_bytes());
+        z.extend_from_slice(b);
+    }
+    let b = raw.iter().fold(0u32, |b, _| (b + 1) % 65521); // adler32 of zeros: a stays 1
+    z.extend_from_slice(&((b << 16) | 1).to_be_bytes());
+    let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+    let mut ihdr = w.to_be_bytes().to_vec();
+    ihdr.extend_from_slice(&h.to_be_bytes());
+    ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+    chunk(&mut out, b"IHDR", &ihdr);
+    chunk(&mut out, b"IDAT", &z);
+    chunk(&mut out, b"IEND", &[]);
+    out
+}
+
+// spec: S49-06
+#[test]
+fn an_embed_render_of_a_markup_over_the_bridge_cap_is_only_the_link() {
+    let ts = TestServer::start();
+    let doc = create(&ts, "mk-big-embed");
+    let png = stored_png(600, 400);
+    assert!(png.len() as u64 > annotary::server::embed::IMAGE_MAX && png.len() < 2 * 1024 * 1024);
+    let (s, up) = ts.post(
+        &format!("/api/v1/docs/{doc}/markups"),
+        Some(&ts.owner_token),
+        &json!({ "image": b64(&png), "strokes": strokes() }),
+    );
+    assert_eq!(s, 201, "{up}");
+    let (s, t) = ts.post(
+        &format!("/api/v1/docs/{doc}/threads"),
+        Some(&ts.owner_token),
+        &json!({ "subject": "document", "body": "Big", "markup": up["id"] }),
+    );
+    assert_eq!(s, 201, "{t}");
+    let url = format!("/api/v1/docs/{doc}/markups/{}", up["image"].as_str().unwrap());
+    let page = |embed: bool| {
+        let mut req = ureq::get(format!("{}/d/{doc}", ts.url))
+            .header("Authorization", format!("Bearer {}", ts.owner_token))
+            .header("Accept", "text/html");
+        if embed {
+            req = req.header("X-Annotary-Embed", "1");
+        }
+        req.call().unwrap().body_mut().read_to_string().unwrap()
+    };
+    let embed = page(true);
+    assert!(embed.contains(&format!("<a class=\"cd-mk\" href=\"{url}\" target=\"_blank\"")), "the link");
+    assert!(embed.contains("Open the Markup (600×400)</a>"));
+    assert!(!embed.contains("<img class=\"cd-mk-img\""), "no image to fetch through the bridge");
+    // Outside an embed the same Markup is the image.
+    assert!(page(false).contains(&format!("<img class=\"cd-mk-img\" src=\"{url}\" width=\"600\"")));
+}
+
+// spec: S49-06, S49-09
+#[test]
+fn mentions_say_markup_for_a_drawing_only_reply() {
+    let ts = TestServer::start();
+    let doc = create(&ts, "mk-mentions");
+    let (agent_id, agent) = ts.add_member("scribe");
+    let new = |body: &str| {
+        let (s, t) = ts.post(
+            &format!("/api/v1/docs/{doc}/threads"),
+            Some(&agent),
+            &json!({ "subject": "document", "body": body }),
+        );
+        assert_eq!(s, 201, "{t}");
+        t["id"].as_str().unwrap().to_string()
+    };
+    let plain = new("@rowan no drawing");
+    let inked = new("@rowan see the drawing");
+    let (_, up) = upload(&ts, &agent, &doc);
+    let (s, r) = ts.post(
+        &format!("/api/v1/docs/{doc}/threads/{inked}/replies"),
+        Some(&agent),
+        &json!({ "body": "", "markup": up["id"] }),
+    );
+    assert_eq!(s, 201, "{r}");
+
+    let page = || {
+        ureq::get(format!("{}/mentions", ts.url))
+            .header("Authorization", format!("Bearer {}", ts.owner_token))
+            .header("Accept", "text/html")
+            .call()
+            .unwrap()
+            .body_mut()
+            .read_to_string()
+            .unwrap()
+    };
+    let said = |html: &str, tid: &str| {
+        let row = &html[html.find(&format!("data-t=\"{tid}\"")).expect("the row")..];
+        let at = row.find("class=\"cd-msaid\"").unwrap();
+        row[at..row[at..].find("</div>").unwrap() + at].to_string()
+    };
+    let html = page();
+    assert!(said(&html, &inked).ends_with("</b> Markup"), "{}", said(&html, &inked));
+    assert!(said(&html, &plain).ends_with("</b> @rowan no drawing"), "{}", said(&html, &plain));
+
+    // `mentions --json`: `markup: true` on the Thread with one, left out on the other.
+    let home = tempfile::tempdir().unwrap();
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_annotary"))
+        .args(["mentions", "--json", "thread,markup"])
+        .env("HOME", home.path())
+        .env("ANNOTARY_HOME", home.path().join(".annotary"))
+        .env("ANNOTARY_TOKEN", &ts.owner_token)
+        .env("ANNOTARY_SERVER", &ts.url)
+        .env_remove("ANNOTARY_PROFILE")
+        .env_remove("ANNOTARY_TTY")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    let got: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(got, json!([{ "thread": inked, "markup": true }, { "thread": plain }]));
+
+    // A deleted Reply still says so.
+    ts.store.delete_comment(&agent_id, false, &doc, &format!("{inked}.1")).unwrap();
+    assert!(said(&page(), &inked).ends_with("</b> (deleted)"), "{}", said(&page(), &inked));
+}

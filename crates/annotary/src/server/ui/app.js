@@ -1548,7 +1548,7 @@ function main() {
     var cid = cEl.getAttribute('data-c');
     var tid = card.getAttribute('data-t');
     var text = $('textarea', ed).value.trim();
-    if (!text) { $('textarea', ed).focus(); return; }
+    if (!text && !$('.cd-mk', cEl)) { $('textarea', ed).focus(); return; }
     var orig = ed.cdOrig;
     ed.remove();
     clearError(card);

@@ -675,6 +675,20 @@ fn comment_html(c: &CommentView, viewer: &Viewer, doc_id: &str) -> String {
     )
 }
 
+/// The snippet of a Comment for a one-line row: `(deleted)` for a tombstone, `Markup` (and its
+/// words, if any) for one holding a Markup, else its body's [`snippet`].
+pub(super) fn comment_snippet(c: &CommentView) -> String {
+    if c.is_deleted() {
+        return "(deleted)".to_string();
+    }
+    let snip = snippet(&c.body);
+    match (&c.markup, snip.is_empty()) {
+        (None, _) => snip,
+        (Some(_), true) => "Markup".to_string(),
+        (Some(_), false) => format!("Markup · {snip}"),
+    }
+}
+
 /// A short plain-text snippet of a body for the narrow row.
 pub(super) fn snippet(body: &str) -> String {
     let flat: String = body.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -715,14 +729,7 @@ fn thread_card(it: &Item, viewer: &Viewer, version: u32) -> String {
         ThreadSubject::Asset => classes.push_str(" cd-asset"),
         ThreadSubject::Span => {}
     }
-    let root_snip = if t.root.is_deleted() {
-        "(deleted)".to_string()
-    } else if t.root.markup.is_some() {
-        let snip = snippet(&t.root.body);
-        if snip.is_empty() { "Markup".to_string() } else { format!("Markup · {snip}") }
-    } else {
-        snippet(&t.root.body)
-    };
+    let root_snip = comment_snippet(&t.root);
     let replies = t.replies.len();
     let last_at = t.replies.last().map(|r| r.at.as_str()).unwrap_or(t.root.at.as_str());
     let meta = format!(

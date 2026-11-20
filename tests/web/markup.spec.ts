@@ -67,3 +67,30 @@ for (const scheme of ['light', 'dark'] as const) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }
+
+// spec: S49-03
+test('an edit may empty the body of a Comment with a Markup, and only of one', async ({ page }) => {
+  const id = scene('mk-web-edit');
+  cli(harness().owner, ['thread', 'reply', id, 't1', '-m', 'Plain words.']);
+  await openDoc(page, id, { width: 1280 });
+  const card = page.locator('.cd-thread[data-t="t1"]');
+  await card.click();
+  const replies = () => JSON.parse(cli(harness().owner, ['thread', 'show', id, 't1', '--json']))[0].replies;
+
+  const inked = card.locator('.cd-c[data-c="t1.1"]');
+  await inked.locator('.cd-who').hover();
+  await inked.locator('[data-act="edit"]').click();
+  await inked.locator('.cd-editor-edit textarea').fill('');
+  await page.keyboard.press('Control+Enter');
+  await expect(inked.locator('.cd-editor-edit')).toHaveCount(0);
+  await expect.poll(() => replies()[0].body ?? '').toBe(''); // --json leaves an empty body out
+  await expect(inked.locator('img.cd-mk-img')).toBeVisible();
+
+  const plain = card.locator('.cd-c[data-c="t1.2"]');
+  await plain.locator('.cd-who').hover();
+  await plain.locator('[data-act="edit"]').click();
+  await plain.locator('.cd-editor-edit textarea').fill('  ');
+  await page.keyboard.press('Control+Enter');
+  await expect(plain.locator('.cd-editor-edit textarea')).toBeFocused();
+  expect(replies()[1].body).toBe('Plain words.');
+});

@@ -23,9 +23,10 @@ pub const IMAGE_MAX: u64 = 2 * 1024 * 1024;
 pub const STROKES_MAX: u64 = 512 * 1024;
 /// Largest width or height of a Markup image, in pixels.
 pub const MAX_SIDE: u32 = 4096;
-/// Most bytes the PNG decoder may allocate while checking an image (a 4,096 px square in 16-bit
-/// RGBA is 128 MiB; the decoder holds rows, not the frame, but its limit counts the frame).
-const DECODE_LIMIT: usize = 160 * 1024 * 1024;
+/// Most bytes the PNG decoder may allocate while checking an image. It charges row buffers and
+/// ancillary chunks it keeps (`eXIf`, a few KiB), never the frame: a 4,096 px 16-bit RGBA row
+/// is 32 KiB. `iCCP` and text chunks are skipped unread, so a compressed one cannot inflate.
+const DECODE_LIMIT: usize = 1024 * 1024;
 
 /// A Markup on a Comment, as read back.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,15 +74,18 @@ pub fn check_png(bytes: &[u8]) -> Result<(u32, u32)> {
         return Err(invalid("the Markup image is not a PNG"));
     }
     let damaged = |_| invalid("the Markup image cannot be read as a PNG (damaged or cut short)");
-    let decoder = png::Decoder::new_with_limits(std::io::Cursor::new(bytes), png::Limits { bytes: DECODE_LIMIT });
-    let mut reader = decoder.read_info().map_err(damaged)?;
-    let (width, height) = reader.info().size();
+    let mut decoder = png::Decoder::new_with_limits(std::io::Cursor::new(bytes), png::Limits { bytes: DECODE_LIMIT });
+    // Only the pixels are checked; the stored bytes keep these chunks (a Display P3 profile).
+    decoder.set_ignore_iccp_chunk(true);
+    decoder.set_ignore_text_chunk(true);
+    let (width, height) = decoder.read_header_info().map_err(damaged)?.size();
     if width == 0 || height == 0 {
         return Err(invalid("the Markup image has no width or height"));
     }
     if width > MAX_SIDE || height > MAX_SIDE {
         return Err(invalid(format!("the Markup image is {width}×{height}; the most is {MAX_SIDE}×{MAX_SIDE}")));
     }
+    let mut reader = decoder.read_info().map_err(damaged)?;
     while reader.next_row().map_err(damaged)?.is_some() {}
     reader.finish().map_err(damaged)?;
     Ok((width, height))
@@ -164,26 +168,24 @@ impl Store {
     /// Version's blobs before its commit). A blob that was already stored gets a fresh grace
     /// period ([`crate::BlobStore::touch`]).
     pub fn upload_markup(&self, doc_id: &str, image: &[u8], strokes: &[u8]) -> Result<MarkupUpload> {
-        {
-            let conn = self.conn();
-            let deleted: Option<Option<String>> =
-                conn.query_row("SELECT deleted_at FROM documents WHERE id = ?1", [doc_id], |r| r.get(0)).optional()?;
-            match deleted {
-                None => return Err(StoreError::DocumentNotFound(doc_id.to_string())),
-                Some(Some(_)) => return Err(StoreError::DocumentDeleted(doc_id.to_string())),
-                Some(None) => {}
-            }
-        }
+        self.live_document(&self.conn(), doc_id)?;
         let (width, height) = check_png(image)?;
         check_strokes(strokes)?;
-        let (image_hash, made) = self.blobs.put(image)?;
-        if !made {
-            self.blobs.touch(&image_hash)?;
-        }
-        let (strokes_hash, made) = self.blobs.put(strokes)?;
-        if !made {
-            self.blobs.touch(&strokes_hash)?;
-        }
+        // Written under the connection `gc_sweep` holds from its listing to its last removal, so
+        // a re-upload of an old unattached blob is never removed between `put` and `touch`.
+        let conn = self.conn();
+        self.live_document(&conn, doc_id)?;
+        let keep = |bytes: &[u8]| -> Result<String> {
+            let (hash, made) = self.blobs.put(bytes)?;
+            fail::fail_point!("markup.between_put_and_touch");
+            if !made {
+                self.blobs.touch(&hash)?;
+            }
+            Ok(hash)
+        };
+        let image_hash = keep(image)?;
+        let strokes_hash = keep(strokes)?;
+        drop(conn);
         Ok(MarkupUpload {
             id: markup_id(&image_hash, &strokes_hash),
             markup: Markup {
@@ -194,6 +196,36 @@ impl Store {
                 strokes: strokes_hash,
                 strokes_size: strokes.len() as u64,
             },
+        })
+    }
+
+    fn live_document(&self, conn: &rusqlite::Connection, doc_id: &str) -> Result<()> {
+        let deleted: Option<Option<String>> =
+            conn.query_row("SELECT deleted_at FROM documents WHERE id = ?1", [doc_id], |r| r.get(0)).optional()?;
+        match deleted {
+            None => Err(StoreError::DocumentNotFound(doc_id.to_string())),
+            Some(Some(_)) => Err(StoreError::DocumentDeleted(doc_id.to_string())),
+            Some(None) => Ok(()),
+        }
+    }
+
+    /// Read and check the blobs of Markup `id` before a Comment's transaction (whoever stored
+    /// them: `PUT /api/v1/blobs` could have), so the decode never runs under the store's lock.
+    pub(crate) fn check_markup(&self, id: &str) -> Result<Markup> {
+        let (image_hash, strokes_hash) = parse_markup_id(id)
+            .ok_or_else(|| invalid(format!("{id:?} is not a Markup id (upload it: POST …/markups)")))?;
+        let missing = || StoreError::MarkupMissing(id.trim().to_string());
+        let image = self.blobs.read(image_hash)?.ok_or_else(missing)?;
+        let strokes = self.blobs.read(strokes_hash)?.ok_or_else(missing)?;
+        let (width, height) = check_png(&image)?;
+        check_strokes(&strokes)?;
+        Ok(Markup {
+            image: image_hash.to_string(),
+            width,
+            height,
+            image_size: image.len() as u64,
+            strokes: strokes_hash.to_string(),
+            strokes_size: strokes.len() as u64,
         })
     }
 
@@ -213,24 +245,20 @@ impl Store {
         Ok(found.map(|k| if k == "image" { IMAGE_TYPE } else { STROKES_TYPE }))
     }
 
-    /// Attach Markup `id` to Comment `(thread_num, comment_num)` inside the Comment's own
-    /// transaction: both blobs must be in the store (else `MarkupMissing`) and pass the checks
-    /// again, whoever stored them.
+    /// Attach a Markup [`Store::check_markup`] passed to Comment `(thread_num, comment_num)` inside
+    /// the Comment's own transaction. The blobs are content-addressed, so they need only still be
+    /// there (else `MarkupMissing`); the GC cannot remove them while the transaction holds the lock.
     pub(crate) fn attach_markup(
         &self,
         tx: &Transaction,
         doc_id: &str,
         thread_num: u32,
         comment_num: u32,
-        id: &str,
+        m: &Markup,
     ) -> Result<()> {
-        let (image_hash, strokes_hash) = parse_markup_id(id)
-            .ok_or_else(|| invalid(format!("{id:?} is not a Markup id (upload it: POST …/markups)")))?;
-        let missing = || StoreError::MarkupMissing(id.trim().to_string());
-        let image = self.blobs.read(image_hash)?.ok_or_else(missing)?;
-        let strokes = self.blobs.read(strokes_hash)?.ok_or_else(missing)?;
-        let (width, height) = check_png(&image)?;
-        check_strokes(&strokes)?;
+        if !self.blobs.has(&m.image) || !self.blobs.has(&m.strokes) {
+            return Err(StoreError::MarkupMissing(markup_id(&m.image, &m.strokes)));
+        }
         tx.execute(
             "INSERT INTO comment_markups(doc_id, thread_num, comment_num, image_hash, image_size, width, height, strokes_hash, strokes_size)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -238,12 +266,12 @@ impl Store {
                 doc_id,
                 thread_num as i64,
                 comment_num as i64,
-                image_hash,
-                image.len() as i64,
-                width as i64,
-                height as i64,
-                strokes_hash,
-                strokes.len() as i64
+                m.image,
+                m.image_size as i64,
+                m.width as i64,
+                m.height as i64,
+                m.strokes,
+                m.strokes_size as i64
             ],
         )?;
         Ok(())

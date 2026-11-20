@@ -649,16 +649,26 @@ fn show(ctx: &Ctx, a: ShowArgs) -> CliResult<()> {
 /// Write a Comment's Markup PNG to `DIR/<comment id>.png` (DIR made if missing) and record the
 /// path on the Comment's `markup` as `path`.
 fn save_markup(api: &Api, doc_id: &str, dir: &std::path::Path, c: &mut Value) -> CliResult<()> {
-    let Some(hash) = c["markup"]["image"].as_str().map(str::to_string) else { return Ok(()) };
+    let Some((hash, path)) = markup_target(dir, c)? else { return Ok(()) };
     let bytes = api.get_bytes(&format!("/api/v1/docs/{doc_id}/markups/{hash}"))?;
     if sha256_hex(&bytes) != hash {
         return Err(CliError::internal(format!("Markup {hash} did not verify")));
     }
     std::fs::create_dir_all(dir).map_err(|e| CliError::usage(format!("cannot make {}: {e}", dir.display())))?;
-    let path = dir.join(format!("{}.png", s(c, "id")));
     std::fs::write(&path, &bytes).map_err(|e| CliError::usage(format!("cannot write {}: {e}", path.display())))?;
     c["markup"]["path"] = json!(path.display().to_string());
     Ok(())
+}
+
+/// The image hash and file of a Comment's Markup, if it has one. The id and the hash come from
+/// the server and name a file and a URL, so only a Comment id and a blob hash pass.
+fn markup_target(dir: &std::path::Path, c: &Value) -> CliResult<Option<(String, std::path::PathBuf)>> {
+    let Some(hash) = c["markup"]["image"].as_str() else { return Ok(None) };
+    let id = s(c, "id");
+    if annotary_store::parse_comment_id(&id).is_none() || !annotary_store::blobs::is_blob_hash(hash) {
+        return Err(CliError::internal(format!("the server sent a Markup with Comment id {id:?} and hash {hash:?}")));
+    }
+    Ok(Some((hash.to_string(), dir.join(format!("{id}.png")))))
 }
 
 fn comment_record(c: &Value) -> Map<String, Value> {
@@ -1016,6 +1026,24 @@ mod tests {
     }
 
     // spec: S04-11, S04-12
+    // spec: S49-09
+    #[test]
+    fn a_markup_file_is_named_only_by_a_comment_id_and_a_hash() {
+        let hash = "a".repeat(64);
+        let c = |id: &str, h: &str| json!({"id": id, "markup": {"image": h}});
+        let dir = std::path::Path::new("out/ink");
+        let ok = |id: &str| markup_target(dir, &c(id, &hash)).unwrap().unwrap();
+        assert_eq!(ok("t7"), (hash.clone(), dir.join("t7.png")));
+        assert_eq!(ok("t7.1").1, std::path::Path::new("out/ink/t7.1.png"));
+        assert_eq!(markup_target(dir, &json!({"id": "t7", "markup": null})).unwrap(), None);
+        for id in ["../../evil", "/etc/evil", "t7/../../x", "t7.1/x", "", "t07"] {
+            assert!(markup_target(dir, &c(id, &hash)).is_err(), "{id:?}");
+        }
+        for h in ["../../../api/v1/admin", "A".repeat(64).as_str(), "abc", &format!("{hash}?x=1")] {
+            assert!(markup_target(dir, &c("t7", h)).is_err(), "{h:?}");
+        }
+    }
+
     #[test]
     fn anchor_and_body_cells_follow_the_prototype() {
         let t = span("We ship the CLI before the web UI", "16:0-16:33", "anchored");

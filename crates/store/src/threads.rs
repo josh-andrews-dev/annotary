@@ -751,6 +751,7 @@ impl Store {
             ),
             _ => None,
         };
+        let markup = input.markup.as_deref().map(|id| self.check_markup(id)).transpose()?;
         let num = self.tx(|tx| {
             let (head, md_hash) = doc_head(tx, doc_id)?;
             if let Some(v) = input.expect_version
@@ -830,8 +831,8 @@ impl Store {
                  VALUES (?1, ?2, 0, ?3, ?4, ?5, ?6, ?7)",
                 params![doc_id, num as i64, by, input.body, serde_json::to_string(&mentions)?, now, head as i64],
             )?;
-            if let Some(id) = &input.markup {
-                self.attach_markup(tx, doc_id, num, 0, id)?;
+            if let Some(m) = &markup {
+                self.attach_markup(tx, doc_id, num, 0, m)?;
             }
             bump_activity(tx, doc_id, &now)?;
             let mut payload = serde_json::json!({
@@ -873,6 +874,7 @@ impl Store {
         markup: Option<&str>,
     ) -> Result<(ThreadView, CommentView)> {
         validate_body(body, markup.is_some())?;
+        let checked = markup.map(|id| self.check_markup(id)).transpose()?;
         let num = self.tx(|tx| {
             let (head, _) = doc_head(tx, doc_id)?;
             if !thread_exists(tx, doc_id, thread_num)? {
@@ -891,8 +893,8 @@ impl Store {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![doc_id, thread_num as i64, num as i64, by, body, serde_json::to_string(&mentions)?, now, head as i64],
             )?;
-            if let Some(id) = markup {
-                self.attach_markup(tx, doc_id, thread_num, num, id)?;
+            if let Some(m) = &checked {
+                self.attach_markup(tx, doc_id, thread_num, num, m)?;
             }
             bump_activity(tx, doc_id, &now)?;
             let mut payload = serde_json::json!({
