@@ -1,6 +1,7 @@
 # Plan: Pencil markup and structured questions
 
-Status: draft for the maintainer's review, 2026-11-19. Nothing built.
+Status: decisions answered 2026-11-19 (D1 E, D2 as worked out in chat, D3 A). One step left in M1.
+Nothing built.
 
 ## What the maintainer asked for
 
@@ -159,63 +160,60 @@ as a drafted edit to the Markdown (reads as the person editing the Document).
 
 ## Decisions
 
-**D1. Which structured-question design to build.** The four designs above each get one thing
-right. The recommendation combines them into one model: a **Question** has a stable key, its
-**Options**, and one **Answer** per Member; it can come from the Document or from a Thread; its
-conversation is an ordinary Thread created by the first Comment.
-- **Recommended: E, the combination.** A marked list in the Document becomes the choices (Option
-  2), stored under the question's key so answers survive later Versions (Needle). The first
-  Comment or "Other" opens a normal Thread on that list. `thread new --ask` asks mid-review
-  without a push, in a card (Option 1). The header shows "3 of 5 answered" and **Accept
-  recommended**, and the answers arrive with the Action that wakes the agent (the ballot). You
-  get in-Document controls with no duplication, the thread feel, and one-tap "all recommended".
-- A. Option 1 only. Smallest build; every question is a card that repeats or abbreviates the
-  prose, and each is an open Thread.
-- B. Option 2 only, with the lazy Thread. No mid-review questions.
-- C. Option 3, the ballot strip. Fastest to answer; options named twice; resets each Version.
-- D. Option 4, Needle. Your current plans light up with no change; fragile for anyone else.
+**D1. Which structured-question design to build.** *Decided 2026-11-19: E (the maintainer).* One
+model built from the four designs: a **Question** has a stable key, its **Options**, and one
+**Answer** per Member; it can come from the Document or from a Thread; its conversation is an
+ordinary Thread created by the first Comment. Rejected: A (Option 1 only), B (Option 2 only), C
+(the ballot strip), D (Needle).
 
-**D2. How the agent marks a question in Markdown** (applies to E, B and D). The mark must be
-invisible or harmless on GitHub and in an editor.
-- **Recommended: A, an HTML comment before the list:** `<!-- ask D4 -->`, or
-  `<!-- ask D4 rec=1 -->` to name the recommended item. Explicit, invisible on GitHub, fails
-  closed, and works for any author's style. The plan-review skill's template gains the line.
-- B. Infer it from the `D4.` / `Q4.` shape (Needle). Nothing to write, but it only fits documents
-  written in that style, and a near miss fails silently.
-- C. YAML front matter (`decisions:`). One place lists every question, at the cost of naming the
-  options a second time, far from the prose.
+**D2. How a question is declared, and where its answer is recorded.** *Decided 2026-11-19 (the
+maintainer), replacing the three options first offered (an HTML comment, inference, front
+matter).* The maintainer's requirements: no syntax written for Annotary in the Markdown; the
+Markdown is the source of truth and must record the decision; Annotary's server does not author
+content. The answer:
+- The author's own **decisions table** declares the Questions. Any table with columns named
+  `Decision`, `Options` and `Decided` counts; other columns (a title, `Recommended`, an owner,
+  notes) are free, in any order. It reads as ordinary content anywhere.
+- The ids in the table are found in the prose as whole words, wherever and however they are
+  written, and the controls appear there too.
+- A tap stores the Answer in Annotary. `pull` hands the Markdown back with the Answers written
+  into the `Decided` cells, and `push` refuses a file that leaves one out. The server never writes
+  Markdown.
+- A Document keeps one decisions summary: if it has one, that is the table. List-shaped summaries
+  are not recognized.
 
-**D3. What one Markup becomes.** You draw in several places, then send. Either each group of
-strokes is its own Thread, or the whole session is one.
-- **Recommended: A, one Thread per group of strokes,** anchored to the source lines it covers.
-  The crossed-out paragraph and the margin note become two cards the agent answers and resolves
-  one by one ("Done in v5: cut the paragraph"), they follow their text across Versions, and each
-  image is a small crop the model can read. Before sending you see the groups outlined and can
-  merge two.
-- B. One Document-level Thread per session, holding every page image. Simpler to build; the agent
-  gets one long reply to write, nothing re-anchors, and the images are the tall kind models read
-  badly.
+Rejected along the way: declaring the ids only in the Sidecar or on the `push` command (the
+decision would not be in the Markdown); the server writing a new Version at the Action (the first
+content the server would author, a rights rule for reviewers without `write`, and a stale local
+file every review); writing on every tap (a new Version per tap interrupts the review).
+
+**D3. What one Markup becomes.** *Decided 2026-11-19: A (the maintainer).* One Thread per group of
+strokes, anchored to the source lines it covers; before sending, the groups are shown outlined
+and two can be merged. Rejected: B, one Document-level Thread per drawing session.
 
 ## M1: from the maintainer
 
-- Answer D1, D2 and D3.
-- Approve one review board of mocks (the app's rules require it; the `ux-mocks` flow). It is
-  drawn after D1 to D3 are answered and shows: the markup mode on iPad and iPhone (Pencil draws at
-  once on iPad while a finger scrolls; a Markup button lets a finger draw; the grouped preview
-  before sending), a Markup in a Thread card on the app and the web, and the question controls on
-  the web (wide and narrow), in the app and in the Hermes page. About 10 minutes of your time.
+- D1, D2 and D3: answered.
+- **Open: the review board of mocks.** The app's rules require a board before a feature that
+  neither the web nor its requirements describe. Either approve one (drawn next; about 10 minutes
+  of the maintainer's time), or waive it for this run. It would show: the markup mode on iPad and
+  iPhone (Pencil draws at once on iPad while a finger scrolls; a Markup button lets a finger draw;
+  the grouped preview before sending), a Markup in a Thread card on the app and the web, and the
+  question controls on the web (wide and narrow), in the app and in the Hermes page.
+- **Open: a TestFlight build at the end,** so the maintainer can try a real Pencil. Simulators
+  have no Pencil, so the run's own drawings are synthetic strokes.
 
 Everything after M1 runs without the maintainer.
 
-## The design (as recommended; a different answer to D1 to D3 changes the marked parts)
+## The design
 
 ### Glossary additions (`docs/CONTEXT.md`)
 
 - **Markup**: a drawing a Member makes over the rendered Document in the app, kept on a Comment as
   an image of the marked region and the strokes. *Avoid:* attachment, annotation, sketch.
 - **Question**: a choice put to the Document's readers, known by a key that stays the same across
-  Versions (`D4`). It comes from a marked list in the Markdown or from a Thread.
-- **Option**: one choice of a Question. For a Question in the Document it is a list item.
+  Versions (`D4`). It comes from the Document's decisions table or from a Thread.
+- **Option**: one choice of a Question, known by a short id (`A`, `B`).
 - **Answer**: one Member's current choice for a Question: an Option, or none. Changing it replaces
   it; the log keeps the history.
 
@@ -265,45 +263,77 @@ order to avoid two runs editing the same lines:
   `_multimodal` envelope, with the saved file's path in `text_summary` for models that take a
   path. The embed page shows the image through the new pin.
 
-### Questions (design E)
+### Questions
 
-- **Asking in the Document.** `<!-- ask KEY -->` or `<!-- ask KEY rec=N -->` on its own line,
-  directly before a list of 2 to 6 items. `KEY` is letters, digits and `-`, at most 16 characters,
-  unique in the Document; `N` is the recommended item's number. Anything else (no list, one item,
-  a repeated key) is not a Question, and `push` prints a warning that `--strict` refuses. The
-  renderer puts `data-q="KEY"` and `data-rec="N"` on the list (renderer version bump); the Version
-  records `questions: [{key, lines, rec, options: [{n, quote}]}]`.
+- **Asking in the Document.** The author writes a decisions table:
+
+  ```markdown
+  | Decision | Options | Recommended | Decided |
+  |---|---|---|---|
+  | D1 | A, B | A | |
+  | D4 | A, B, C | B | |
+  ```
+
+  A table is the decisions table when it has columns named `Decision`, `Options` and `Decided`
+  (case-insensitive; other columns free; `Recommended` optional). `Decision` holds the key
+  (letters, digits and `-`, at most 16 characters, unique). `Options` holds 2 to 6 option ids
+  separated by commas. One decisions table per Document. A table with those three columns and a
+  bad row (a repeated key, one option, an id not found in the prose) gets a `push` warning that
+  `--strict` refuses; it is never guessed at. The Version records `questions: [{key, options,
+  rec, decided, lines, places}]`, computed by the pusher like the render.
+- **Finding a Question in the prose.** The key is searched as a whole word outside the table and
+  outside code. Its first block is the Question's place. Within that Question's section (up to the
+  next key or a heading of the same or a higher level), an Option id that starts a block (a list
+  item, a table row, a heading; leading emphasis and a word such as "Recommended:" or "Option"
+  allowed) is that Option's place. An Option with no such block has no place of its own.
 - **Asking mid-review.** `thread new DOC RANGE|--document -m "Question" --ask "Label" --ask
   "Label"` (2 to 6 short labels). The Question's key is the Thread's id (`t7`). Any Member with
-  `comment` may ask, through the CLI or the API.
-- **Answering.** `PUT /api/v1/docs/{id}/questions/{key}/answer {option: N|null, version}` (the
+  `comment` may ask, through the CLI or the API. Its Answer lives in the Thread and is not
+  written into the Markdown.
+- **Answering.** `PUT /api/v1/docs/{id}/questions/{key}/answer {option: ID|null, version}` (the
   `comment` Right; `null` withdraws). One current Answer per Member per key; table `answers` is
-  append-only with the Option's quote at the time. Event `question.answered {key, option,
-  version}`; it is not in `wait`'s default set and never wakes Hermes. `annotary answer DOC KEY
-  N|none` is the CLI form, so an agent can answer a person's Question.
-- **Across Versions.** Answers follow the key. Same Option text: the Answer stands. Changed text:
-  it stands and is flagged `changed`. Key or item gone: shown under the header as a past Answer
-  with its quote, never silently dropped.
-- **What a person sees.** Each Option gets a choice mark at its leading edge (a real radio control
-  with the item's text as its name; the item's text itself stays selectable for a normal Comment).
-  Under the list: who chose what, **Other…** and **Comment**, both of which open the composer for
-  that Question's Thread (created on the first Comment, anchored to the list, carrying `question:
-  KEY`). The card of that Thread leads with the Answer ("@rowan chose 2: B. A new VM"). A
-  mid-review Question shows its labels as buttons in its card. The header shows "3 of 5 answered"
-  and **Accept recommended (2)**, which answers every unanswered Question that names a
-  recommendation. Actions are never blocked by unanswered Questions. Web: spliced on the server,
-  so the first paint is final. App: `document.js` finds `[data-q]` and reports taps over the
-  existing bridge; state comes from `GET /api/v1/docs/{id}/questions`.
-- **The agent.** `show` gains one line, left out when there are no Questions: `questions: D4=2
-  D5=- D7=1* t9=other` (`-` unanswered, `*` changed since answered, `other` a Comment and no
-  Option; with two reviewers `D4=2@rowan,1@sam`). `--json questions` gives quotes and Thread ids.
-  `wait`'s Action line is unchanged; the agent reads `show` when it comes back, as today. Skill:
-  one sentence, "`<!-- ask D4 -->` before a list makes it tappable; `show` prints the answers;
-  an answer is not a mention."
-- **Hermes.** No new tool for Document Questions (the Markdown mark is enough); `annotary_comment`
-  gains an optional `options` list for mid-review asks; `annotary_threads` and the wake-up digest
-  carry the `questions:` line; the embed page gets the controls with the new pin. Answers do not
-  wake a Bot; Send back and Approve do, as now.
+  append-only. Event `question.answered {key, option, version}`; it is not in `wait`'s default
+  set and never wakes Hermes. `annotary answer DOC KEY OPTION|none` is the CLI form, so an agent
+  can answer a person's Question.
+- **Recording.** The server never writes Markdown.
+  - The page shows each Answer in the `Decided` cell at once (`B (@rowan, 2026-11-19)`), drawn
+    apart from text the Version itself holds.
+  - `pull` of the head Version writes the Answers into the `Decided` cells of the file it hands
+    back, changing only those cells, and says so on stderr ("2 answers written into the decisions
+    table; push to record them"). `--as-pushed` gives the Version's exact bytes; an older Version
+    is always exact.
+  - `push` refuses (exit 5, `answers_missing`) a file in which a Question's row is unchanged and
+    its `Decided` cell does not hold the Answer given on the head, and prints the rows to put in,
+    as it does for `head_moved`. A row that was removed, or whose `Options` changed, is let
+    through with a note. `--discard-answers` is the long, logged escape.
+  - A filled `Decided` cell in a Version makes the Question decided: its controls are closed and
+    the cell is the truth. An "Other" answer is recorded as `Other: t7` plus the author's words.
+  - Two Members who answer differently are both written (`A (@rowan), B (@sam)`); the author
+    settles it in the next Version.
+- **Across Versions.** Answers follow the key. An Answer given on an earlier Version and not yet
+  recorded still shows, flagged `changed` when the Question's row or its section's text changed.
+- **What a person sees.** In the prose, a row of the Option ids sits at the Question's place:
+  `[A] [B] [Other]`, with who chose what. Where an Option has a place of its own, its control sits
+  at that block's leading edge instead (a real radio control named by the block's text; the text
+  stays selectable for a normal Comment). **Other…** and **Comment** open the composer for that
+  Question's Thread (created on the first Comment, anchored to the Question's place, carrying
+  `question: KEY`). The card of that Thread leads with the Answer. The decisions table itself is
+  tappable, which gives every Question on one screen. A mid-review Question shows its labels as
+  buttons in its card. The header shows "3 of 5 answered" and, when the table has a `Recommended`
+  column, **Accept recommended (2)**. Actions are never blocked by unanswered Questions. Web:
+  spliced on the server from the Version's `questions`, so the first paint is final. App:
+  `document.js` places the controls from the same data over the existing bridge; state comes from
+  `GET /api/v1/docs/{id}/questions`.
+- **The agent.** `show` gains one line, left out when there are no Questions: `questions: D4=B
+  D5=- D7=A* t9=other` (`-` unanswered, `*` changed since answered; with two reviewers
+  `D4=B@rowan,A@sam`). `--json questions` gives places and Thread ids. Skill: one sentence, "a
+  table with Decision, Options, Decided columns is tappable; `pull` writes the answers in; an
+  answer is not a mention."
+- **Hermes.** No new tool for Document Questions (the table is enough); `annotary_comment` gains
+  an optional `options` list for mid-review asks; `annotary_read` and `annotary_push_version`
+  carry the recording rule (read hands back the filled file; a refused push returns the rows);
+  `annotary_threads` and the wake-up digest carry the `questions:` line; the embed page gets the
+  controls with the new pin. Answers do not wake a Bot; Send back and Approve do, as now.
 
 ## M2: server, Markup (this repo)
 
@@ -321,14 +351,15 @@ sees it in the card; merged and deployed, `make server-health` ok.
 
 ## M3: server, Questions (this repo), then release
 
-Same shape, after M2 merges (they edit the same files). Build the Questions section: the renderer
-mark and version bump (snapshots, `make wasm-check`), `questions` on the Version, the `answers`
-table, routes, the splice and `app.js` controls on every web state in `docs/dev/surfaces.md`
+Same shape, after M2 merges (they edit the same files). Build the Questions section: the decisions table
+parser and the search for keys as a pure crate function the CLI and the server share (`make
+wasm-check`), `questions` on the Version, the `answers` table, routes, the fill in `pull` and the
+refusal in `push` (with `docs/dev/concurrent-edits.md` as the model), the splice and `app.js` controls on every web state in `docs/dev/surfaces.md`
 (wide, narrow, dark, an older Version read-only, Compare unaffected, embed mode), `thread new
 --ask`, `answer`, the `show` line, the new verb's checklist from `AGENTS.md`, the skill sentence.
 
-Done when: as M2, with a live scenario that pushes a Document with a marked list, answers it and
-reads `show`. Then tag the release (`docs/dev/releases.md`); the plugin and the app build against
+Done when: as M2, with a live scenario that pushes a Document with a decisions table, answers it,
+reads `show`, pulls the filled file and pushes it. Then tag the release (`docs/dev/releases.md`); the plugin and the app build against
 it.
 
 ## M4: the app (its own repo, on a Mac)
@@ -340,8 +371,8 @@ pose, fixtures for the new routes, `make lint test ui-test`, light and dark scre
 pull request.
 
 Done when: on a real server, a Pencil drawing made on an iPad simulator build (and a finger
-drawing on iPhone) arrives as Threads an agent can read with `thread show --markup`; a marked
-list is answered in the app and `show` prints it; the pull request is merged.
+drawing on iPhone) arrives as Threads an agent can read with `thread show --markup`; a
+Question is answered in the app and `show` prints it; the pull request is merged.
 
 The reading test is part of this milestone: five real drawings (a cross-out, a margin note, an
 arrow, a reworked diagram, small handwriting) are read by Claude, Gemini and Grok through the
@@ -360,8 +391,7 @@ after Send back, and describes a Markup's image; merged.
 
 ## M6: close
 
-The plan-review skill's decision template gains `<!-- ask Dn rec=1 -->` (its own repo's pull
-request). This plan moves to `docs/archive/`. Every thread this run started is settled.
+The plan-review skill's plan template gains the decisions table (its own repo's pull request). This plan moves to `docs/archive/`. Every thread this run started is settled.
 
 ## Stop rules
 
@@ -386,6 +416,8 @@ It carries on through waits for CI, review and simulator leases.
 - A PDF of the marked-up Document: no provider documents that its PDF input draws annotations.
 - General image attachments from the web composer or `thread new --attach`: the route would allow
   it later; nothing asked for it.
+- Recognizing a list-shaped decisions summary, or a second decisions table.
+- The server writing a Version to record an Answer.
 - Multiple-choice Questions, Questions that depend on other Answers, blocking an Action on
   unanswered Questions, a web form for a person to compose a mid-review Question (the CLI and the
   API can), answer buttons inside the Hermes chat card (it keeps its Open button), collapsing the
@@ -422,10 +454,19 @@ It carries on through waits for CI, review and simulator leases.
   changed; rejected resetting them with each Version because a typo fix would discard ten answers.
 - An Answer never wakes an agent; it is read after the Action. Rejected waking on each tap because
   it fights the review handoff decision of 2026-11-19.
-- An Option's control is a mark at the item's edge; rejected making the whole item tappable
+- An Option's control is a mark at its block's edge; rejected making the whole block tappable
   because it would fight text selection for ordinary Comments.
-- Options are numbered by position and reported with the Answer's quote; rejected parsing a
-  letter out of each item's text because it guesses at the author's style.
+- A row of Option ids at the Question's place is always shown, and a control moves onto an
+  Option's own block only when the id starts a block; rejected requiring every Option to be
+  found, because a one-letter id is also an ordinary word.
+- `push` refuses to drop an Answer by default; rejected a warning because agents that ignore
+  stderr would lose decisions.
+- `pull` fills the `Decided` cells by default at the head; rejected a flag because the approve
+  step of the skill already pulls, so the record arrives with no new words in the skill.
+- After Approve the agent commits the pulled, filled file and does not push it; the approved
+  Version's stored Markdown keeps empty cells while the page shows the Answers. Rejected carrying
+  the Approve over to a record-only Version because an Action belongs to the Version it was
+  taken on.
 - "Other" is a Comment on the Question's Thread, not a text field on the Answer; that is what
   keeps the thread feel.
 - Gemini's ballot contributes the progress count and **Accept recommended**, not draft answers
@@ -434,4 +475,6 @@ It carries on through waits for CI, review and simulator leases.
 
 ## Run log
 
-- 2026-11-19: research and the two outside design reports done; plan drafted. Waiting on M1.
+- 2026-11-19: research and the two outside design reports done; plan drafted.
+- 2026-11-19: D1 to D3 answered; D2 reworked in chat into the decisions table. Waiting on the
+  two open M1 items.
