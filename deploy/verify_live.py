@@ -448,7 +448,10 @@ def main() -> int:
     signal.signal(signal.SIGTERM, on_signal)
     try:
         extract(snapshot, data, remote)
-        env = clean_env({"HOME": work})
+        # The copy holds the live hooks: it may call only a scenario's loopback receiver, never
+        # a live agent's webhook (`server/hooks.rs`, ONLY_HOSTS).
+        env = clean_env({"HOME": work, "ANNOTARY_HOOK_ONLY_HOSTS": "127.0.0.1",
+                         "ANNOTARY_HOOK_ALLOW_HOSTS": "127.0.0.1"})
         r = subprocess.run([a.bin, "-q", "--data-dir", data, "password", "--clear"], env=env, capture_output=True, text=True)
         if r.returncode != 0:
             raise RuntimeError(f"password --clear on the copy failed: {r.stderr.strip()}")

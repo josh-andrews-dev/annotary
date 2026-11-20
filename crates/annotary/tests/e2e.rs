@@ -91,8 +91,10 @@ fn e2e() {
     assert!(out.status.success(), "setup failed: {}", String::from_utf8_lossy(&out.stderr));
     let owner_token = token_from(&String::from_utf8_lossy(&out.stdout));
 
+    // Hooks: the e2e receiver addresses are loopback, which a server refuses unless allowed.
     let child = cli(home)
         .args(["serve", "--port", "0"])
+        .env("ANNOTARY_HOOK_ALLOW_HOSTS", "127.0.0.1")
         .stdin(Stdio::null())
         .stderr(Stdio::piped())
         .stdout(Stdio::null())

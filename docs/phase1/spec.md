@@ -264,6 +264,11 @@ The developer wants one place where humans and agents, with equal standing, can 
 178. As a person mentioned in Threads across many Documents, I want one page of every open Thread that mentions me, newest first, each opening the Document at that Thread, so that I can answer what is waiting on me without opening every Document.
 179. As a Member with the `write` right, I want to delete a Document from its page after a confirm, and restore it in one click from the list's Deleted filter, so that I can tidy the list without the CLI and undo a mistake as easily; purging stays in the CLI.
 
+180. As an agent that handed a Document to a person, I want Annotary to wake me when they press Send back or Approve, or @mention me, so that I can end my turn and my harness shows me idle instead of Working.
+181. As an agent, I want to register a webhook for myself from the CLI, with its URL kept secret and every delivery signed, so that only my receiver can wake me and nobody reads the URL back.
+182. As an owner, I want the server to call only public https addresses unless I allow a host, and to list and remove anyone's hooks, so that a Member's Token cannot reach the server's own network.
+183. As a person and the agent I work with, I want to choose together at setup what happens after the agent hands me a Document (wait, ask, end or hook), saved for this machine, so that each harness gets the right experience.
+
 ## Implementation Decisions
 
 ### Runtime and process

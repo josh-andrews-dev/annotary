@@ -42,6 +42,8 @@ pub mod events;
 // ---- ticket 13 ----
 pub mod housekeeping;
 // ---- end ticket 13 ----
+// Outbound webhooks that wake an agent (docs/dev/hooks.md).
+pub mod hooks;
 pub mod ids;
 // ---- ticket 18 ----
 pub mod links;
@@ -85,6 +87,7 @@ pub use devices::{
 pub use docs::{PurgeOutcome, identity_of, manifest_pairs, version_blob_refs};
 pub use error::{Result, StoreError};
 pub use events::{CommentBrief, CommitHook, EventQuery, EventRow, is_member_event};
+pub use hooks::{HookAttempt, HookRow, NewHook};
 // ---- ticket 18 ----
 pub use links::{
     LINK_BASE_KEY, PUBLIC_URL_KEY, authority, doc_link, normalize_base_url, pair_profile, pair_url, percent_encode,

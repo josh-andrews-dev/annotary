@@ -43,7 +43,7 @@ cat > "$tmp/bin/curl" <<'CURL'
 #!/bin/sh
 for a in "$@"; do last=$a; done
 case "$last" in
-  http://127.0.0.1:*) [ -n "${STUB_DOWN:-}" ] || printf '{"ok":true,"set_up":true,"password_set":true%s}' "${STUB_URL:+,\"public_url\":\"$STUB_URL\"}" ;;
+  http://127.0.0.1:*) [ -n "${STUB_DOWN:-}" ] || printf '{"ok":true,"set_up":true,"password_set":true%s%s}' "${STUB_URL:+,\"public_url\":\"$STUB_URL\"}" "${STUB_HOOKS:+,\"hooks\":$STUB_HOOKS}" ;;
   *) [ -n "${STUB_FAR_DOWN:-}" ] || printf '{"ok":true}' ;;
 esac
 CURL
@@ -78,6 +78,18 @@ echo 'ANNOTARY_URL="'$U'"' > "$tmp/env"
 check "a quoted URL is the URL" test "$(url_problem STUB_URL=$U)" = none
 echo "ANNOTARY_URL=none" > "$tmp/env"
 check "a server that does not answer is the API's problem, not this one" test "$(url_problem STUB_DOWN=1)" = none
+
+# Hooks: counted in the loopback health answer; failing or disabled ones are a warning.
+hooks_problem() { # hooks_problem [ENV=value...]: the "hooks" problems' severities, or "none"
+  local verdict sev
+  verdict=$(env "$@" PATH="$tmp/bin:$PATH" ANNOTARY_DATA="$tmp/data" ANNOTARY_ENV_FILE="$tmp/env" bash "$here/healthcheck.sh" 2>/dev/null)
+  sev=$(grep -o '"severity":"[a-z]*","check":"hooks"' <<< "$verdict" | cut -d'"' -f4 | sort -u | tr '\n' ' ')
+  echo "${sev:-none}"
+}
+check "no hooks answer, no hooks check" test "$(hooks_problem)" = none
+check "live hooks are fine" test "$(hooks_problem 'STUB_HOOKS={"live":3,"failing":0,"disabled":0}')" = none
+check "a failing hook is a warning" test "$(hooks_problem 'STUB_HOOKS={"live":3,"failing":1,"disabled":0}')" = "warning "
+check "a disabled hook is a warning" test "$(hooks_problem 'STUB_HOOKS={"live":0,"failing":0,"disabled":2}')" = "warning "
 
 if [ "$fails" -gt 0 ]; then echo "$fails failed"; exit 1; fi
 echo "all passed"

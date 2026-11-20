@@ -41,7 +41,7 @@ pub enum SettingsCmd {
 
 #[derive(Args, Debug, Default)]
 pub struct ListArgs {
-    /// Resolve device settings for this Device (id or name) instead of All devices
+    /// Resolve device settings for this Device (id, name, or `this`) instead of All devices
     #[arg(long, value_name = "NAME")]
     pub device: Option<String>,
 }
@@ -50,7 +50,7 @@ pub struct ListArgs {
 pub struct GetArgs {
     /// The setting's key (`annotary settings list` shows them)
     pub key: String,
-    /// Resolve for this Device (id or name) instead of All devices
+    /// Resolve for this Device (id, name, or `this` = this install) instead of All devices
     #[arg(long, value_name = "NAME")]
     pub device: Option<String>,
 }
@@ -60,7 +60,7 @@ pub struct Where {
     /// A device setting: change All devices (every Device follows)
     #[arg(long, conflicts_with = "device")]
     pub all_devices: bool,
-    /// A device setting: change this Device's own value (id or name)
+    /// A device setting: change this Device's own value (id, name, or `this` = this install)
     #[arg(long, value_name = "NAME")]
     pub device: Option<String>,
 }
@@ -104,12 +104,58 @@ pub fn run(ctx: &Ctx, cmd: Option<SettingsCmd>) -> CliResult<()> {
     }
 }
 
-/// `--device NAME` → the Device's id (exit 2 for an unknown or ambiguous one).
-fn device_id(api: &Api, device: Option<&str>) -> CliResult<Option<String>> {
+/// `--device NAME` → the Device's id (exit 2 for an unknown or ambiguous one). `this` is this
+/// install's own Device of kind `cli` ([`this_device`]).
+fn device_id(ctx: &Ctx, api: &Api, device: Option<&str>) -> CliResult<Option<String>> {
     match device {
         None => Ok(None),
+        Some(d) if d.trim() == THIS => Ok(Some(this_device(ctx, api)?)),
         Some(d) => Ok(Some(devices::resolve(api, d)?["id"].as_str().unwrap_or("").to_string())),
     }
+}
+
+/// The `--device` word for this install's own Device.
+pub const THIS: &str = "this";
+
+/// This install's Device (kind `cli`, named after the host): its id is `config.toml`'s
+/// `device`, made and saved on first use; a settings request naming it makes it on the server
+/// (only settings routes make a Device).
+fn this_device(ctx: &Ctx, api: &Api) -> CliResult<String> {
+    let path = ctx.data.config_toml();
+    let mut cfg = crate::config::Config::load(&path)?;
+    let id = match cfg.device.clone().filter(|d| settings::is_device_id(d)) {
+        Some(id) => id,
+        None => {
+            let id = settings::new_device_id();
+            cfg.device = Some(id.clone());
+            cfg.save(&path)?;
+            id
+        }
+    };
+    let info = format!("kind=cli; name={}", host_name());
+    api.get_with_headers("/api/v1/me/settings", &[("X-Annotary-Device", &id), ("X-Annotary-Device-Info", &info)])?;
+    Ok(id)
+}
+
+/// The host's name for a Device name: letters, digits, `.` and `-`, at most 40; else `CLI`.
+fn host_name() -> String {
+    let mut buf = [0u8; 256];
+    // SAFETY: the buffer is valid for its length; gethostname NUL-terminates within it or fails.
+    let ok = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) } == 0;
+    let raw = if ok {
+        String::from_utf8_lossy(&buf[..buf.iter().position(|b| *b == 0).unwrap_or(0)]).to_string()
+    } else {
+        String::new()
+    };
+    let name: String = raw
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .take(40)
+        .collect();
+    if name.is_empty() { "CLI".to_string() } else { name }
 }
 
 /// `GET /api/v1/me/settings[?device=ID]` → `(settings[], vaults[])`.
@@ -185,7 +231,7 @@ fn list(ctx: &Ctx, a: ListArgs) -> CliResult<()> {
         return ctx.out.json_records(&LIST_FIELDS, Vec::new(), false);
     }
     let api = ctx.api()?;
-    let device = device_id(&api, a.device.as_deref())?;
+    let device = device_id(ctx, &api, a.device.as_deref())?;
     let (rows, vaults) = fetch(&api, device.as_deref())?;
     let records: Vec<Map<String, Value>> = rows.iter().map(|r| record(r, &vaults, device.as_deref())).collect();
     if ctx.out.is_json() {
@@ -202,7 +248,7 @@ fn get(ctx: &Ctx, a: GetArgs) -> CliResult<()> {
     }
     let key = a.key.trim();
     let api = ctx.api()?;
-    let device = device_id(&api, a.device.as_deref())?;
+    let device = device_id(ctx, &api, a.device.as_deref())?;
     let rec = one(&api, key, device.as_deref())?;
     if ctx.out.is_json() {
         return ctx.out.json_records(&LIST_FIELDS, vec![rec], true);
@@ -222,7 +268,7 @@ enum Target {
     Unsaid,
 }
 
-fn target(api: &Api, verb: &str, key: &str, at: &Where) -> CliResult<Target> {
+fn target(ctx: &Ctx, api: &Api, verb: &str, key: &str, at: &Where) -> CliResult<Target> {
     let kind = settings::setting(key).map(|d| d.kind);
     match (kind, at.all_devices, at.device.as_deref()) {
         (Some(SettingKind::User), false, None) => Ok(Target::User),
@@ -236,7 +282,7 @@ fn target(api: &Api, verb: &str, key: &str, at: &Where) -> CliResult<Target> {
                 .hint("`annotary devices list` shows your Devices"))
         }
         (_, true, _) => Ok(Target::All),
-        (_, false, Some(d)) => Ok(Target::Device(device_id(api, Some(d))?.unwrap_or_default())),
+        (_, false, Some(d)) => Ok(Target::Device(device_id(ctx, api, Some(d))?.unwrap_or_default())),
         (None, false, None) => Ok(Target::Unsaid),
     }
 }
@@ -290,7 +336,7 @@ fn set(ctx: &Ctx, a: SetArgs) -> CliResult<()> {
     }
     let key = a.key.trim();
     let api = ctx.api()?;
-    let t = target(&api, "set", key, &a.at)?;
+    let t = target(ctx, &api, "set", key, &a.at)?;
     let value = json_value(&api, key, &a.value)?;
     let mut body = json!({ "key": key, "value": value });
     match &t {
@@ -312,7 +358,7 @@ fn reset(ctx: &Ctx, a: ResetArgs) -> CliResult<()> {
     }
     let key = a.key.trim();
     let api = ctx.api()?;
-    let t = target(&api, "reset", key, &a.at)?;
+    let t = target(ctx, &api, "reset", key, &a.at)?;
     let query = match &t {
         Target::User => "?scope=user".to_string(),
         Target::All => "?scope=all".to_string(),

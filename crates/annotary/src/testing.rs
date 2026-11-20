@@ -68,7 +68,21 @@ impl TestServer {
         Self::try_start_with(ip, allow_remote, None)
     }
 
+    /// Start like [`TestServer::start`] with this hook policy (allowlist a local receiver).
+    pub fn start_hooks(cfg: server::hooks::HookConfig) -> TestServer {
+        Self::try_start_full("127.0.0.1".parse().unwrap(), false, None, cfg).expect("test server starts")
+    }
+
     fn try_start_with(ip: IpAddr, allow_remote: bool, password: Option<&str>) -> Result<TestServer, server::BindError> {
+        Self::try_start_full(ip, allow_remote, password, server::hooks::HookConfig::from_env())
+    }
+
+    fn try_start_full(
+        ip: IpAddr,
+        allow_remote: bool,
+        password: Option<&str>,
+        hooks: server::hooks::HookConfig,
+    ) -> Result<TestServer, server::BindError> {
         let tmp = tempfile::tempdir().expect("tempdir");
         let dd = DataDir::new(tmp.path().join(".annotary"));
         dd.ensure().expect("data dir");
@@ -84,9 +98,16 @@ impl TestServer {
         let (listener, addr) = rt.block_on(server::bind(ip, 0, allow_remote))?;
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
         let sj = dd.server_json();
-        let task = rt.spawn(server::run(store.clone(), listener, sj.clone(), dd.root.clone(), async move {
-            let _ = rx.await;
-        }));
+        let task = rt.spawn(server::run_with(
+            store.clone(),
+            listener,
+            sj.clone(),
+            dd.root.clone(),
+            async move {
+                let _ = rx.await;
+            },
+            hooks,
+        ));
         // Wait until the server answers.
         let url = server::url_for(addr);
         for _ in 0..200 {

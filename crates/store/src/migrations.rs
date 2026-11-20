@@ -235,6 +235,33 @@ pub const MIGRATIONS: &[&str] = &[
     CREATE INDEX member_avatars_static ON member_avatars(static_hash);
     "#,
     // ---- end Member avatars ----
+    // ---- Hooks ----
+    // v7 — outbound webhooks that wake an agent (docs/dev/hooks.md). `url` and `secret` are
+    // secrets: the API returns neither (the secret once, at creation). `cursor_seq` is the last
+    // event considered; a removed hook's row is deleted (the events log keeps the history).
+    r#"
+    CREATE TABLE hooks (
+        n               INTEGER PRIMARY KEY AUTOINCREMENT,
+        member_id       TEXT NOT NULL REFERENCES members(id),
+        token_id        TEXT REFERENCES tokens(id),
+        doc_id          TEXT,
+        kinds           TEXT NOT NULL,
+        once            INTEGER NOT NULL DEFAULT 0,
+        url             TEXT NOT NULL,
+        secret          TEXT NOT NULL,
+        cursor_seq      INTEGER NOT NULL,
+        expires_at      TEXT,
+        created_at      TEXT NOT NULL,
+        last_status     TEXT,
+        last_attempt_at TEXT,
+        failures        INTEGER NOT NULL DEFAULT 0,
+        failing_since   TEXT,
+        next_attempt_at TEXT,
+        disabled_at     TEXT
+    );
+    CREATE INDEX hooks_member ON hooks(member_id);
+    "#,
+    // ---- end Hooks ----
 ];
 
 /// The schema version this binary writes.

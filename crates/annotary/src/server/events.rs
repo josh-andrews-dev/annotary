@@ -216,7 +216,7 @@ impl Filter {
     }
 
     /// The SQL `type IN (…)` list (None = no type filter).
-    fn sql_types(&self) -> Option<Vec<String>> {
+    pub(crate) fn sql_types(&self) -> Option<Vec<String>> {
         if self.any() {
             return None;
         }
@@ -234,7 +234,7 @@ impl Filter {
 
     /// May the caller read this row? Document events need `read` on the Vault; events without
     /// a Document (members, tokens, vaults — or a purged Document) are the owner's.
-    fn readable(&self, row: &EventRow) -> bool {
+    pub(crate) fn readable(&self, row: &EventRow) -> bool {
         // CMD-23: a Member's settings and Devices are theirs alone, owners included, and only
         // on a feed that asked for them (`&me=1`).
         if annotary_store::is_member_event(&row.event.kind) {
@@ -248,7 +248,7 @@ impl Filter {
 
     /// Does the row pass the kind / action narrowing? `Some(kind)` = yes, with the kind to report
     /// (`mention` when the caller asked for mentions and it is one); `None` = skip.
-    fn admit(&self, e: &Event) -> Option<(Option<Kind>, bool)> {
+    pub(crate) fn admit(&self, e: &Event) -> Option<(Option<Kind>, bool)> {
         if annotary_store::is_member_event(&e.kind) {
             return Some((None, false));
         }

@@ -69,6 +69,16 @@ else
   fi
 fi
 
+# Hooks (outbound webhooks that wake agents): the health answer to this loopback request counts
+# them. A hook whose receiver keeps failing, or one the server gave up on, is a warning.
+hooks=$(grep -o '"hooks":{[^}]*}' <<< "$health" || true)
+if [ -n "$hooks" ]; then
+  failing=$(grep -o '"failing":[0-9]*' <<< "$hooks" | cut -d: -f2)
+  disabled=$(grep -o '"disabled":[0-9]*' <<< "$hooks" | cut -d: -f2)
+  [ "${failing:-0}" -gt 0 ] && problem warning hooks "$failing hooks are failing: their receivers do not answer 2xx" P8
+  [ "${disabled:-0}" -gt 0 ] && problem warning hooks "$disabled hooks are disabled: the server stopped calling them" P8
+fi
+
 # That URL (what links and paired devices use) answers too.
 if [ -n "$public" ] && ! curl -sS --max-time 10 "$public/api/v1/health" 2>/dev/null | grep -q '"ok":true'; then
   problem warning public "$public/api/v1/health does not answer ok" P3

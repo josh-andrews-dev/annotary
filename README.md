@@ -89,6 +89,12 @@ The reply appears in your browser right away. `--resolve` on a reply also closes
 agent can block with `annotary -p scribe wait plan`, so it spends no tokens while it waits. It wakes on a new Version, an
 Action or a comment that @mentions it, so write `@scribe` in a reply it should see.
 
+When an agent hands you a Document to review, it asks you once what it should do next, and saves the
+answer for that machine: block on `wait` in a terminal you watch, end its turn on a question, or end
+its turn and be woken when you press Send back or Approve, through a hook (a signed webhook, for
+example to a T3 Code thread) or a background `wait` in Claude Code. `annotary help setup` has the
+choices and the recipes, including how any other tool builds its own.
+
 From here: `annotary --help` lists everything, and the [guide](docs/annotary-guide.html) walks through
 what it does (open the file in a browser; the examples in it are interactive).
 

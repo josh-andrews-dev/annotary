@@ -1,0 +1,52 @@
+# spec: S49-13
+# `help setup`: what an agent and its person choose once, and the recipes that wake the agent.
+bin.name = "annotary"
+args = ["help", "setup"]
+status = "success"
+stdout = """
+Setup: choose with the person, once, what happens after you hand them a Document to review.
+It is saved for this machine as the device setting review_handoff (review_wake for hook).
+
+  annotary -p ME settings get review_handoff --device this
+      SOURCE `default` = nobody has chosen yet: ask the person, one line per choice below.
+  annotary -p ME settings set review_handoff hook --device this   (--all-devices: everywhere)
+      `this` is this install's own Device, made the first time a command names it.
+
+What review_handoff can be
+  wait   Block on `wait DOC --on action,mention`. Right for a terminal the person watches.
+  ask    End the turn asking "Done?" (the default). The harness shows a question, not Working.
+  end    End the turn: "tell me in chat when you're done". For a harness with no questions.
+  hook   End the turn; Annotary wakes you on Send back, Approve or an @mention of you.
+         review_wake names how: t3-webhook, background-wait, or the name of your own recipe.
+
+What each looks like
+  T3 Code      ask: a question card · hook: t3-webhook or background-wait (the thread is idle)
+  Claude Code  ask: its question · hook: background-wait (the idle session is re-invoked)
+  A terminal   wait: the person sees it block · end
+  Hermes       annotary-hermes maps review_handoff onto Hermes's own wake
+
+Recipe t3-webhook (T3 Code, needs T3 Connect)
+  1. S=$(openssl rand -hex 24). Create a webhook trigger bound to this thread (schedule_task,
+     bindToCurrentThread true) with signature {header X-Annotary-Signature, encoding hex,
+     prefix "sha256=", secret S}, dedupe {replayKey "{{body.seq}}"} and the prompt
+     "Annotary: {{body.kind}} {{body.action}} on {{body.doc}} v{{body.version}} by {{body.by}}.
+     Continue the review." The body reaches the woken turn only through such templates.
+  2. printf '%s/n%s/n' "$URL" "$S" | annotary -p ME hook add DOC --once --on action,mention
+  3. End the turn. When woken: delete the trigger, then continue at "Review over". After that
+     push, arm again (1 and 2) for the Approve. Skip `hook test` here: it wakes this thread now.
+Recipe background-wait (Claude Code; T3 Code too, no T3 Connect)
+  Start `annotary -p ME wait DOC --on action,mention --timeout 7d` in the background
+  (Bash run_in_background; never t3_background_wait, which shows Working) and end the turn.
+  Its exit wakes you with one line, SEQ KIND DOC DETAIL. Exit 7 = timed out: say so, stop.
+Build your own (any other tool)
+  It needs a way to resume you on an HTTPS POST to a public URL, or when a background
+  command exits. Annotary POSTs JSON, no Comment text: v (1) kind (version|action|mention|
+  test) doc name version thread action by seq at link hook. Fields are only ever added.
+  X-Annotary-Signature: sha256=<hex HMAC-SHA256 of the raw body, keyed by the secret>;
+  X-Annotary-Seq: dedupe on it. 2xx = delivered; 404 or 410 disables the hook; anything else
+  is retried for 24 h. `hook add` prints ID SECRET (a second stdin line gives your own secret).
+  Prove it now: `annotary -p ME hook test ID` (exit 0 = your receiver took a signed body).
+  Write the steps where your tool keeps its instructions, then save the recipe's name:
+  annotary -p ME settings set review_wake NAME --device this
+"""
+stderr = ""

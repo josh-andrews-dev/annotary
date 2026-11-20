@@ -1,0 +1,97 @@
+spec: S49-11, S49-12, S49-13
+
+The setup an agent does once and the `hook` verbs, for their own Member @hookie (profile
+`hookie`). `--device this` is this install's own `cli` Device, made the first time a command
+names it; `review_handoff` reads `default` until someone saves a value. `hook add` reads the URL
+from stdin (here with the receiver's own secret on a second line, so the golden can spell it);
+nothing prints the URL back. The receiver is a loopback port nobody listens on, which the
+harness server allows (`ANNOTARY_HOOK_ALLOW_HOSTS`), so `hook test` fails with exit 5. Every
+exit path: 1 (no URL, bad kinds, bad expiry, bad value, unknown topic), 2 (unknown Document or
+hook), 3 (no credential), 5 (refused address, failed test), 6 (unreachable). Merged
+stdout+stderr.
+
+```console
+$ sh setup.sh
+Hookie has hk-plan
+
+$ annotary -p hookie settings get review_handoff --device this
+review_handoff	ask	default	device
+
+$ annotary -p hookie settings set review_handoff hook --device this
+review_handoff	hook	device	device
+
+$ annotary -p hookie settings set review_wake t3-webhook --device this
+review_wake	t3-webhook	device	device
+
+$ annotary -p hookie settings get review_handoff
+review_handoff	ask	default	device
+
+$ annotary -p hookie settings set review_wake "two words" --device this
+? 1
+error: [..]
+
+$ sh -c "printf 'http://127.0.0.1:9/hook/tok3n\nreceivers-own-secret-0123456789\n' | annotary -p hookie hook add hk-plan --once"
+h1	receivers-own-secret-0123456789
+h1 → 127.0.0.1 on action,mention; the secret signs every delivery (X-Annotary-Signature) and is not shown again
+
+$ annotary -p hookie hook list
+h1	action,mention once	hk-plan	live	127.0.0.1	-	in [..]
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p hookie hook list
+ID  ON                   DOC      STATE  HOST       LAST  EXPIRES
+h1  action,mention once  hk-plan  live   127.0.0.1  -     in [..]
+
+$ annotary -p hookie hook list --json id,on,once,doc,name,state,host
+[{"id":"h1","on":"action,mention","once":true,"doc":"[..]","name":"hk-plan","state":"live","host":"127.0.0.1"}]
+
+$ annotary -p hookie hook test h1
+? 5
+h1	[..]	failed
+error: the receiver did not take the test body ([..]) — check the URL and the receiver's signature secret; `annotary hook list` shows the host
+
+$ sh -c "annotary -p hookie hook add hk-plan < /dev/null"
+? 1
+error: no URL on stdin — pipe it in, never on the command line: `printf '%s/n' "$URL" | annotary hook add DOC --once`
+
+$ sh -c "printf 'https://localhost:9/x\n' | annotary -p hookie hook add"
+? 5
+error: localhost resolves to [..], which is not a public address — hooks call public https URLs; an owner can allow a private host with ANNOTARY_HOOK_ALLOW_HOSTS
+
+$ sh -c "printf 'http://127.0.0.1:9/x\n' | annotary -p hookie hook add --on reply"
+? 1
+error: "reply" is not a hook kind: use version,action,mention
+
+$ sh -c "printf 'http://127.0.0.1:9/x\n' | annotary -p hookie hook add --expires 0"
+? 1
+error: --expires 0: a hook always expires (at most 30d)
+
+$ sh -c "printf 'http://127.0.0.1:9/x\n' | annotary -p hookie hook add no-such-doc"
+? 2
+error: [..]
+
+$ annotary -p hookie hook remove h9
+? 2
+error: no hook h9 — `annotary hook list` shows yours
+
+$ annotary -p hookie hook remove h1
+h1	removed
+
+$ annotary -p hookie hook list
+
+$ annotary hook list
+? 3
+error: [..]
+profiles in ~/.annotary/config.toml: agent, down, hookie, limited, pw, rowan
+
+$ annotary -p down hook list
+? 6
+error: server at http://127.0.0.1:1 not reachable — run `annotary serve` or `annotary daemon install`
+
+$ annotary help nope
+? 1
+error: no help topic "nope" — topics: setup; per command: annotary <command> --help
+
+$ annotary -p rowan -q profile remove hookie
+profile "hookie" removed → [..]/config.toml
+
+```

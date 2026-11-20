@@ -21,16 +21,16 @@ pub const TOP: &str = "\
 Usage: annotary <command> [args] [options]
 
 Documents
-  list [NAME]                 Documents in the Vault (id name vN action open updated), most active first
+  list [NAME]                 Documents in the Vault, most active first
   push FILE.md                Upload a new Version (or create the Document); re-anchors Threads
   pull DOC                    Write <name>.md + <name>.annotary into the current dir
   show DOC                    Header + open Threads (what an agent reads first)
   status DOC                  version · action · open Threads · mentions of you · event cursor
   versions DOC                Version list
   delete | restore | purge DOC
-  link DOC [tN]               The URL that opens it (or Thread tN) on another device
+  link DOC [tN]               The URL that opens it on another device
 Threads
-  thread list DOC             Open Threads on head, document order, orphaned last
+  thread list DOC             Open Threads on head, orphaned last
   thread show DOC ID          Full Thread: root, replies, anchor, resolution
   thread new DOC ANCHOR       Start a Thread (\"L:C-L:C\" range, --document, or --asset REF)
   thread reply DOC ID         Reply (add --resolve to close it in the same step)
@@ -41,11 +41,13 @@ Actions
   actions DOC                 Action history, newest first
 Wait
   wait [DOC]                  Block until a new Version, Action or @mention; print it
+  hook <cmd>                  add | list | remove | test
+  help setup                  After a review handoff: wait, ask, end or hook
 Local server
   serve                       Run the server in the foreground (127.0.0.1:7377)
   daemon <cmd>                install | uninstall | status | start | stop | restart (macOS LaunchAgent)
   export FILE.tar             Archive the store
-  password --clear | --set    Change a local password (stopped data dir)
+  password --clear | --set    Change a local password
   rerender DOC | --all        Re-render after an upgrade
 Members & credentials (owner)
   member <cmd>                add | list | rename | disable | enable | grant | role
@@ -54,9 +56,9 @@ Members & credentials (owner)
   settings <cmd>              list | get | set | reset  (yours)
   devices <cmd>               list | rename | forget  (yours)
   avatar <cmd>                set | clear | show  (yours)
-  pair                        Pair a phone or tablet (QR code)
+  pair                        Pair a phone or tablet
   login | logout              Get a token with the password / forget it
-  profile <cmd>               list | add | remove  (list shows whose each profile is)
+  profile <cmd>               list | add | remove
   skill install               Write this version's agent skill
 
 Options (every command)
@@ -74,6 +76,71 @@ Every line number printed is stamped with its Version (v4:16). Quote Thread id +
 Exit codes: 0 ok · 1 usage · 2 not found/ambiguous · 3 no credential · 4 missing right ·
             5 conflict/refused · 6 server unreachable · 7 wait timed out
 ";
+
+/// `annotary help setup`: what an agent and its person choose once (`review_handoff`), and the
+/// recipes that wake an agent for `hook`. Printed as is, not a clap template.
+pub const SETUP: &str = "\
+Setup: choose with the person, once, what happens after you hand them a Document to review.
+It is saved for this machine as the device setting review_handoff (review_wake for hook).
+
+  annotary -p ME settings get review_handoff --device this
+      SOURCE `default` = nobody has chosen yet: ask the person, one line per choice below.
+  annotary -p ME settings set review_handoff hook --device this   (--all-devices: everywhere)
+      `this` is this install's own Device, made the first time a command names it.
+
+What review_handoff can be
+  wait   Block on `wait DOC --on action,mention`. Right for a terminal the person watches.
+  ask    End the turn asking \"Done?\" (the default). The harness shows a question, not Working.
+  end    End the turn: \"tell me in chat when you're done\". For a harness with no questions.
+  hook   End the turn; Annotary wakes you on Send back, Approve or an @mention of you.
+         review_wake names how: t3-webhook, background-wait, or the name of your own recipe.
+
+What each looks like
+  T3 Code      ask: a question card · hook: t3-webhook or background-wait (the thread is idle)
+  Claude Code  ask: its question · hook: background-wait (the idle session is re-invoked)
+  A terminal   wait: the person sees it block · end
+  Hermes       annotary-hermes maps review_handoff onto Hermes's own wake
+
+Recipe t3-webhook (T3 Code, needs T3 Connect)
+  1. S=$(openssl rand -hex 24). Create a webhook trigger bound to this thread (schedule_task,
+     bindToCurrentThread true) with signature {header X-Annotary-Signature, encoding hex,
+     prefix \"sha256=\", secret S}, dedupe {replayKey \"{{body.seq}}\"} and the prompt
+     \"Annotary: {{body.kind}} {{body.action}} on {{body.doc}} v{{body.version}} by {{body.by}}.
+     Continue the review.\" The body reaches the woken turn only through such templates.
+  2. printf '%s\\n%s\\n' \"$URL\" \"$S\" | annotary -p ME hook add DOC --once --on action,mention
+  3. End the turn. When woken: delete the trigger, then continue at \"Review over\". After that
+     push, arm again (1 and 2) for the Approve. Skip `hook test` here: it wakes this thread now.
+Recipe background-wait (Claude Code; T3 Code too, no T3 Connect)
+  Start `annotary -p ME wait DOC --on action,mention --timeout 7d` in the background
+  (Bash run_in_background; never t3_background_wait, which shows Working) and end the turn.
+  Its exit wakes you with one line, SEQ KIND DOC DETAIL. Exit 7 = timed out: say so, stop.
+Build your own (any other tool)
+  It needs a way to resume you on an HTTPS POST to a public URL, or when a background
+  command exits. Annotary POSTs JSON, no Comment text: v (1) kind (version|action|mention|
+  test) doc name version thread action by seq at link hook. Fields are only ever added.
+  X-Annotary-Signature: sha256=<hex HMAC-SHA256 of the raw body, keyed by the secret>;
+  X-Annotary-Seq: dedupe on it. 2xx = delivered; 404 or 410 disables the hook; anything else
+  is retried for 24 h. `hook add` prints ID SECRET (a second stdin line gives your own secret).
+  Prove it now: `annotary -p ME hook test ID` (exit 0 = your receiver took a signed body).
+  Write the steps where your tool keeps its instructions, then save the recipe's name:
+  annotary -p ME settings set review_wake NAME --device this
+";
+
+/// `annotary help [TOPIC]`.
+pub fn topic(topic: Option<&str>) -> crate::exit::CliResult<()> {
+    match topic.map(str::trim) {
+        None | Some("") => {
+            let _ = super::command().print_help();
+            Ok(())
+        }
+        Some("setup") => {
+            print!("{SETUP}");
+            Ok(())
+        }
+        Some(other) => Err(crate::exit::CliError::usage(format!("no help topic {other:?}"))
+            .hint("topics: setup; per command: annotary <command> --help")),
+    }
+}
 
 pub const PUSH: &str = "\
 Upload a Version. The heavy verb by design: hashes, scans assets, records image/video dimensions,

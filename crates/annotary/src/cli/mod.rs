@@ -15,6 +15,7 @@ pub mod export;
 // ---- end ticket 13 ----
 // ---- ticket 14 ----
 pub mod help;
+pub mod hook; // hooks: wake an agent after a review handoff
 // ---- end ticket 14 ----
 pub mod lifecycle;
 // ---- ticket 18 ----
@@ -223,6 +224,16 @@ pub enum Command {
         cmd: profile::ProfileCmd,
     },
     // ---- end ticket 06 ----
+    /// Hooks that wake an agent: add (URL on stdin) | list | remove | test
+    Hook {
+        #[command(subcommand)]
+        cmd: hook::HookCmd,
+    },
+    /// Help topics: `help` (this list) or `help setup` (how an agent hands over a review)
+    Help {
+        /// The topic: setup
+        topic: Option<String>,
+    },
     // ---- ticket 14 ----
     /// Agent skill file: `skill install [--dir DIR]` writes this CLI version's SKILL.md
     #[command(help_template = help::SKILL)]
@@ -345,6 +356,8 @@ where
         // ---- ticket 14 ----
         Command::Skill { cmd } => skill::run(&ctx, cmd),
         // ---- end ticket 14 ----
+        Command::Hook { cmd } => hook::run(&ctx, cmd),
+        Command::Help { topic } => help::topic(topic.as_deref()),
     };
     match result {
         Ok(()) => Exit::Ok.code(),

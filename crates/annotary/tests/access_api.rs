@@ -143,6 +143,23 @@ fn own_device(ts: &TestServer, c: &Caller) -> String {
     id
 }
 
+/// A hook of the caller's, made through the store, pointing at an address the deliverer refuses.
+fn own_hook(ts: &TestServer, c: &Caller) -> String {
+    ts.store
+        .add_hook(annotary_store::NewHook {
+            member_id: c.id.clone(),
+            token_id: None,
+            doc_id: Some(fresh_doc(ts, "notes")),
+            kinds: vec!["mention".into()],
+            once: false,
+            url: "https://192.0.2.1/hook".into(),
+            expires_in: None,
+            secret: None,
+        })
+        .unwrap()
+        .id()
+}
+
 fn member_with(ts: &TestServer, handle: &str, grants: Vec<Grant>) -> (String, String) {
     let (id, tok) = ts.add_member(handle);
     ts.store.set_grants(&ts.owner_id, &id, grants).unwrap();
@@ -215,6 +232,25 @@ fn endpoints() -> Vec<Endpoint> {
         ep("DELETE me/settings/{key}", Need::Any, move |ts, c, _| {
             send(ts, "DELETE", "/api/v1/me/settings/times?scope=user", tok(c).as_deref(), None)
         }),
+        // Hooks: every Member, for itself; the owner lists everyone's. The POST URL is a public
+        // address literal (no lookup) on a Document nothing mentions anyone in, so nothing is sent;
+        // the store-made hooks point at a documentation address the deliverer refuses.
+        // A hook on one Document needs `read` on its Vault.
+        ep("POST me/hooks", Need::Right(Right::Read), move |ts, c, vault| {
+            let doc = fresh_doc(ts, vault);
+            let body = json!({ "url": "https://1.1.1.1/hook", "on": "mention", "doc": doc });
+            send(ts, "POST", "/api/v1/me/hooks", tok(c).as_deref(), Some(&body))
+        }),
+        ep("GET me/hooks", Need::Any, move |ts, c, _| send(ts, "GET", "/api/v1/me/hooks", tok(c).as_deref(), None)),
+        ep("DELETE me/hooks/{id}", Need::Any, move |ts, c, _| {
+            let id = own_hook(ts, c);
+            send(ts, "DELETE", &format!("/api/v1/me/hooks/{id}"), tok(c).as_deref(), None)
+        }),
+        ep("POST me/hooks/{id}/test", Need::Any, move |ts, c, _| {
+            let id = own_hook(ts, c);
+            send(ts, "POST", &format!("/api/v1/me/hooks/{id}/test"), tok(c).as_deref(), None)
+        }),
+        ep("GET hooks", Need::Owner, move |ts, c, _| send(ts, "GET", "/api/v1/hooks", tok(c).as_deref(), None)),
         ep("GET me/devices", Need::Any, move |ts, c, _| send(ts, "GET", "/api/v1/me/devices", tok(c).as_deref(), None)),
         ep("PATCH me/devices/{id}", Need::Any, move |ts, c, _| {
             let id = own_device(ts, c);

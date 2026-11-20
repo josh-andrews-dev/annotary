@@ -28,9 +28,9 @@ pub struct Config {
     #[serde(default, rename = "default", skip_serializing)]
     pub legacy_default: Option<String>,
     /// CMD-23: this CLI install's Device id (26 characters of Crockford base32), one for every
-    /// profile and server, as iOS keeps one id across servers. Read and kept, never written yet:
-    /// the CLI makes its Device only when a device setting applies to it (none in the starter
-    /// set); the first command that reads one will write this line, read-only verbs never do.
+    /// profile and server, as iOS keeps one id across servers. Written by the first `settings …
+    /// --device this` (`cli/settings.rs::this_device`, for `review_handoff`); no other verb
+    /// writes it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device: Option<String>,
     /// `false` turns the update notice off (`crate::update`). Set by hand, kept when the CLI writes.

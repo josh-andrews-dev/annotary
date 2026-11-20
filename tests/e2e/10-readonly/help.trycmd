@@ -15,16 +15,16 @@ annotary 0.0.0 — share Markdown with humans and agents; comment on it; act on 
 Usage: annotary <command> [args] [options]
 
 Documents
-  list [NAME]                 Documents in the Vault (id name vN action open updated), most active first
+  list [NAME]                 Documents in the Vault, most active first
   push FILE.md                Upload a new Version (or create the Document); re-anchors Threads
   pull DOC                    Write <name>.md + <name>.annotary into the current dir
   show DOC                    Header + open Threads (what an agent reads first)
   status DOC                  version · action · open Threads · mentions of you · event cursor
   versions DOC                Version list
   delete | restore | purge DOC
-  link DOC [tN]               The URL that opens it (or Thread tN) on another device
+  link DOC [tN]               The URL that opens it on another device
 Threads
-  thread list DOC             Open Threads on head, document order, orphaned last
+  thread list DOC             Open Threads on head, orphaned last
   thread show DOC ID          Full Thread: root, replies, anchor, resolution
   thread new DOC ANCHOR       Start a Thread ("L:C-L:C" range, --document, or --asset REF)
   thread reply DOC ID         Reply (add --resolve to close it in the same step)
@@ -35,11 +35,13 @@ Actions
   actions DOC                 Action history, newest first
 Wait
   wait [DOC]                  Block until a new Version, Action or @mention; print it
+  hook <cmd>                  add | list | remove | test
+  help setup                  After a review handoff: wait, ask, end or hook
 Local server
   serve                       Run the server in the foreground (127.0.0.1:7377)
   daemon <cmd>                install | uninstall | status | start | stop | restart (macOS LaunchAgent)
   export FILE.tar             Archive the store
-  password --clear | --set    Change a local password (stopped data dir)
+  password --clear | --set    Change a local password
   rerender DOC | --all        Re-render after an upgrade
 Members & credentials (owner)
   member <cmd>                add | list | rename | disable | enable | grant | role
@@ -48,9 +50,9 @@ Members & credentials (owner)
   settings <cmd>              list | get | set | reset  (yours)
   devices <cmd>               list | rename | forget  (yours)
   avatar <cmd>                set | clear | show  (yours)
-  pair                        Pair a phone or tablet (QR code)
+  pair                        Pair a phone or tablet
   login | logout              Get a token with the password / forget it
-  profile <cmd>               list | add | remove  (list shows whose each profile is)
+  profile <cmd>               list | add | remove
   skill install               Write this version's agent skill
 
 Options (every command)

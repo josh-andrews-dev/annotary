@@ -60,6 +60,16 @@ settings [web-document-view.md](web-document-view.md), the CLI verbs
   the catalog is the one list (a new setting = an entry in `CATALOG` + client behavior); light
   Purple and Blue are the presets nearest refined (ΔE 9.6 / 10.6), so `MIN_REFINED_DELTA_E` is 9
   and refined keeps its dotted underline.
+- **`cli_only` settings** (`SettingDef::cli_only`: a device setting whose `device_kinds` is
+  exactly `cli`): `review_handoff` (`wait|ask|end|hook`, default `ask`) and `review_wake` (a
+  `Word`, default empty), read by the agent skill ([hooks.md](hooks.md)). They sit in group
+  `agents`, which no screen has, and stay out of `catalog_json`, `settings_matrix`, `device_sync`
+  and the web search (`device_settings()` leaves them out); `GET /api/v1/me/settings` still
+  resolves them for every Device. The CLI's own Device is `settings … --device this`.
+- **Every setting costs each page:** `WebPrefs::load` resolves the screens' settings on every page
+  render (two statements per device setting), and `perf/BUDGETS.md` caps the statements per page, so
+  a new catalog entry runs `make size-check` (part of `make check`, not of `make test`); a setting no
+  page applies stays out through `resolved_screen_settings`.
 - **Tests:** `tests/settings_store.rs`, `tests/settings_api.rs`, the CMD-23 rows in
   `tests/access_api.rs`; spec ids S29-01…S29-15.
 

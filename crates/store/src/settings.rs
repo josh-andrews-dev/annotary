@@ -49,6 +49,8 @@ pub enum ValueType {
     Vault,
     /// The Member's display name (stored on `members`, written through rename).
     Name,
+    /// A short word an agent's tool chose (`[A-Za-z0-9._-]`, at most `max`), or empty.
+    Word { max: usize },
 }
 
 impl ValueType {
@@ -59,6 +61,7 @@ impl ValueType {
             ValueType::Color { .. } => "color",
             ValueType::Vault => "vault",
             ValueType::Name => "name",
+            ValueType::Word { .. } => "word",
         }
     }
 }
@@ -107,12 +110,27 @@ impl SettingDef {
     pub fn applies_to(&self, kind: &str) -> bool {
         self.device_kinds.contains(&kind)
     }
+
+    /// A setting only the CLI reads (an agent's harness): the screens never show, sync or
+    /// apply it, so it stays out of the catalog they render from.
+    pub fn cli_only(&self) -> bool {
+        self.kind == SettingKind::Device && self.device_kinds == CLI
+    }
 }
 
 /// Device kinds a Device row may have.
 pub const DEVICE_KINDS: &[&str] = &["iphone", "ipad", "web", "cli"];
 const SCREENS: &[&str] = &["web", "iphone", "ipad"];
 const KEYBOARDS: &[&str] = &["web", "ipad"];
+const CLI: &[&str] = &["cli"];
+
+/// `review_handoff`'s values: what an agent does after it hands a Document to a person.
+pub const REVIEW_HANDOFFS: &[(&str, &str)] = &[
+    ("wait", "Wait: block on `annotary wait` (a terminal the person watches)"),
+    ("ask", "Ask: end the turn with a question in the harness"),
+    ("end", "End: end the turn; the person says when they are done"),
+    ("hook", "Hook: end the turn; Annotary wakes the agent (`review_wake` names how)"),
+];
 
 /// Text size steps, in percent (100% is the web UI's 15 px Document text).
 pub const TEXT_SIZES: &[i64] = &[80, 90, 100, 115, 130, 150, 175, 200];
@@ -241,6 +259,29 @@ pub const CATALOG: &[SettingDef] = &[
         default: "\"system\"",
         device_kinds: &[],
     },
+    // Agents: read by the CLI's skill, never by a screen (`cli_only`).
+    SettingDef {
+        key: "review_handoff",
+        kind: SettingKind::Device,
+        label: "Review handoff",
+        help: "What an agent does after it hands you a Document: wait, ask, end or hook (`annotary help setup`).",
+        group: "agents",
+        order: 1,
+        ty: ValueType::Choice(REVIEW_HANDOFFS),
+        default: "\"ask\"",
+        device_kinds: CLI,
+    },
+    SettingDef {
+        key: "review_wake",
+        kind: SettingKind::Device,
+        label: "Review wake recipe",
+        help: "How a hook handoff wakes the agent: t3-webhook, background-wait, or a recipe its tool named.",
+        group: "agents",
+        order: 2,
+        ty: ValueType::Word { max: 64 },
+        default: "\"\"",
+        device_kinds: CLI,
+    },
 ];
 
 /// The catalog entry for `key`.
@@ -249,8 +290,10 @@ pub fn setting(key: &str) -> Option<&'static SettingDef> {
 }
 
 /// Device settings, in catalog order.
+/// The device settings the screens sync and show (the matrix, iOS sync, copying a Device's
+/// settings); `cli_only` ones are left out.
 pub fn device_settings() -> impl Iterator<Item = &'static SettingDef> {
-    CATALOG.iter().filter(|d| d.kind == SettingKind::Device)
+    CATALOG.iter().filter(|d| d.kind == SettingKind::Device && !d.cli_only())
 }
 
 // ---------------------------------------------------------------- highlight colors
@@ -483,6 +526,13 @@ pub fn validate(def: &SettingDef, value: &Value) -> Result<Value, Refusal> {
             }
             Ok(json!(s))
         }
+        ValueType::Word { max } => {
+            let s = value.as_str().ok_or_else(|| bad("use a word".into()))?.trim();
+            if s.len() > max || !s.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b)) {
+                return Err(bad(format!("use at most {max} letters, digits, `.`, `_` or `-`")));
+            }
+            Ok(json!(s))
+        }
     }
 }
 
@@ -498,7 +548,8 @@ fn steps_words(steps: &[i64]) -> String {
 pub fn catalog_json() -> Value {
     let groups: Vec<Value> =
         GROUPS.iter().enumerate().map(|(i, g)| json!({ "slug": g.slug, "label": g.label, "order": i + 1 })).collect();
-    let settings: Vec<Value> = CATALOG.iter().map(setting_json).collect();
+    // The screens render from this: `cli_only` settings are not theirs.
+    let settings: Vec<Value> = CATALOG.iter().filter(|d| !d.cli_only()).map(setting_json).collect();
     let presets: Vec<Value> = PRESETS
         .iter()
         .map(|p| {
@@ -527,6 +578,7 @@ pub fn setting_json(d: &SettingDef) -> Value {
         }
         ValueType::Steps(steps) => v["steps"] = json!(steps),
         ValueType::Color { dark } => v["appearance"] = json!(if dark { "dark" } else { "light" }),
+        ValueType::Word { max } => v["max"] = json!(max),
         ValueType::Vault | ValueType::Name => {}
     }
     v
@@ -643,7 +695,8 @@ mod tests {
             assert!(g.slug != "server" && g.slug != "vaults", "{}", g.slug);
         }
         for d in CATALOG {
-            assert!(GROUPS.iter().any(|g| g.slug == d.group), "{} has an unknown group", d.key);
+            // A screen's setting sits in a screen group; a `cli_only` one in none of them.
+            assert_eq!(GROUPS.iter().any(|g| g.slug == d.group), !d.cli_only(), "{} has the wrong group", d.key);
             validate(d, &d.default_value())
                 .or_else(|e| if d.key == "display_name" { Ok(json!("")) } else { Err(e) })
                 .unwrap();

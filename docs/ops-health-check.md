@@ -217,3 +217,17 @@ Into a fresh data dir, never over `/srv/annotary/data`: on the host, `mkdir /tmp
 (for example `ANNOTARY_SERVER=http://127.0.0.1:7390 annotary list`). A restore of
 `/srv` brings the snapshots folder back with it; use the tar in it, not the restored `store/`
 files.
+
+### P8: hooks failing or disabled
+
+A hook is an agent's outbound webhook (`docs/dev/hooks.md`). `failing` means its receiver has not
+answered 2xx since its last delivery and the server is retrying with backoff; `disabled` means the
+server stopped calling it: the receiver said 404 or 410, it kept failing for 24 hours, or the Token
+that added it is gone. Neither harms the server, and an agent can always be told in chat. A
+disabled hook stays listed until it expires or is removed.
+
+1. Report it to the owner with the hooks' rows, which an owner Token reads from
+   `GET /api/v1/hooks` (`curl -sS -H "Authorization: Bearer $T" "$ANNOTARY_URL/api/v1/hooks"`):
+   each row's `member`, `host`, `state` and `last_status`. The hook's own Member can remove it
+   (`annotary hook remove ID`).
+2. **stop**

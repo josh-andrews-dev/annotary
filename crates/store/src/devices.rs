@@ -608,11 +608,26 @@ impl Store {
     /// Every setting resolved for `device` (`None`: no Device — device settings resolve from All
     /// devices, else the default): the Device's own value, else All devices, else the default.
     pub fn resolved_settings(&self, member_id: &str, device: Option<&str>) -> Result<Vec<Resolved>> {
+        self.resolve_where(member_id, device, |_| true)
+    }
+
+    /// [`Store::resolved_settings`] without the `cli_only` ones: what a page applies. Every page
+    /// render calls it, and each setting costs statements the perf budgets count.
+    pub fn resolved_screen_settings(&self, member_id: &str, device: Option<&str>) -> Result<Vec<Resolved>> {
+        self.resolve_where(member_id, device, |d| !d.cli_only())
+    }
+
+    fn resolve_where(
+        &self,
+        member_id: &str,
+        device: Option<&str>,
+        keep: impl Fn(&settings::SettingDef) -> bool,
+    ) -> Result<Vec<Resolved>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let m = load_member(&tx, member_id)?.ok_or(StoreError::MemberNotFound)?;
         let mut out = Vec::new();
-        for def in settings::CATALOG {
+        for def in settings::CATALOG.iter().filter(|d| keep(d)) {
             out.push(resolve_one(&tx, member_id, &m.display_name, def, device)?);
         }
         Ok(out)

@@ -200,7 +200,7 @@ fn search_index(auth: &Auth) -> Value {
     for g in GROUPS {
         out.push(json!({ "group": g.slug, "text": g.label }));
     }
-    for d in settings::CATALOG {
+    for d in settings::CATALOG.iter().filter(|d| !d.cli_only()) {
         out.push(json!({ "group": d.group, "key": d.key, "text": format!("{} {}", d.label, d.help) }));
     }
     out.push(json!({ "group": "profile", "text": "Handle Role Avatar picture photo image" }));
@@ -231,7 +231,7 @@ fn load_ctx(st: &AppState, auth: &Auth) -> Result<Ctx, ApiError> {
     let matrix = entries.into_iter().map(|e| (e.def.key, e)).collect();
     let user = st
         .store
-        .resolved_settings(&auth.0.member_id, Some(&web.id))?
+        .resolved_screen_settings(&auth.0.member_id, Some(&web.id))?
         .into_iter()
         .filter(|r| r.def.kind == SettingKind::User)
         .map(|r| (r.def.key, r.value))
@@ -497,6 +497,8 @@ fn control(def: &SettingDef, value: &Value, mixed: bool, ctx: &Ctx) -> String {
             esc(value.as_str().unwrap_or_default()),
             def.key
         ),
+        // `cli_only` settings: no screen shows them (`settings::SettingDef::cli_only`).
+        ValueType::Word { .. } => String::new(),
     }
 }
 

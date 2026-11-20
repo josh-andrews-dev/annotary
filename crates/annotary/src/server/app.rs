@@ -40,6 +40,9 @@ pub struct AppState {
     /// `POST /login` and `POST /api/v1/login`.
     pub login_throttle: Arc<super::login_guard::LoginThrottle>,
     // ---- end CMD-4 ----
+    /// Hooks (`hooks.rs`): the address policy and backoff, and the client every delivery uses.
+    pub hooks: Arc<super::hooks::HookConfig>,
+    pub hook_sender: super::hooks::Sender,
 }
 
 impl AppState {
@@ -51,6 +54,7 @@ impl AppState {
         })));
         let (shutdown_tx, shutdown) = tokio::sync::watch::channel(false);
         // ---- end ticket 08 ----
+        let hooks = Arc::new(super::hooks::HookConfig::from_env());
         AppState {
             store,
             url,
@@ -62,7 +66,17 @@ impl AppState {
             diffs: Arc::default(),
             diff_gate: Arc::new(tokio::sync::Semaphore::new(super::compare::CONCURRENT_DIFFS)),
             login_throttle: Arc::default(),
+            hooks: hooks.clone(),
+            hook_sender: super::hooks::Sender::new(hooks),
         }
+    }
+
+    /// The same state with another hook policy (tests; `server::run_with`).
+    pub fn with_hooks(mut self, cfg: super::hooks::HookConfig) -> AppState {
+        let cfg = Arc::new(cfg);
+        self.hook_sender = super::hooks::Sender::new(cfg.clone());
+        self.hooks = cfg;
+        self
     }
 
     // ---- ticket 08 ----
@@ -91,8 +105,8 @@ impl AppState {
 /// `me/avatar`, `members/{handle}/avatar` and `/avatars/{hash}` (`avatars.rs`).
 pub fn router(state: AppState) -> Router {
     use super::{
-        access, actions, admin, assets, avatars, blobs, compare, docs, events, housekeeping, listing, me_settings,
-        members, mentions_page, pairing, render, settings_page, threads, vaults, view, web,
+        access, actions, admin, assets, avatars, blobs, compare, docs, events, hooks, housekeeping, listing,
+        me_settings, members, mentions_page, pairing, render, settings_page, threads, vaults, view, web,
     };
     // ---- ticket 06: web pages sit behind the loopback-trust / login-redirect middleware ----
     let web_pages = Router::new()
@@ -143,6 +157,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/me/devices/{id}/sync", get(me_settings::sync))
         .route("/api/v1/me/rename", post(me_settings::rename_self))
         // ---- end CMD-23 ----
+        // Hooks (`hooks.rs` has the table)
+        .route("/api/v1/me/hooks", get(hooks::list_mine).post(hooks::add))
+        .route("/api/v1/me/hooks/{id}", axum::routing::delete(hooks::remove))
+        .route("/api/v1/me/hooks/{id}/test", post(hooks::test))
+        .route("/api/v1/hooks", get(hooks::list_all))
         // Member avatars (`avatars.rs` has the table)
         .route("/api/v1/me/avatar", put(avatars::put_me).delete(avatars::delete_me))
         .route("/api/v1/members/{handle}/avatar", axum::routing::delete(avatars::delete_member))
@@ -220,8 +239,22 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-async fn health(State(st): State<AppState>) -> axum::Json<serde_json::Value> {
-    axum::Json(json!({
+async fn health(State(st): State<AppState>, req: axum::extract::Request) -> axum::Json<serde_json::Value> {
+    // The hook counts are for the host's own health check: a true loopback peer only, never a
+    // request a local proxy forwarded (`deploy/healthcheck.sh`).
+    let local = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .is_some_and(|c| super::login_guard::is_loopback(super::login_guard::client_ip(c.0.ip(), req.headers())));
+    let hooks = if local {
+        st.store
+            .hook_counts()
+            .ok()
+            .map(|(live, failing, disabled)| json!({ "live": live, "failing": failing, "disabled": disabled }))
+    } else {
+        None
+    };
+    let mut body = json!({
         "ok": true,
         "version": crate::VERSION,
         "url": st.url,
@@ -233,7 +266,11 @@ async fn health(State(st): State<AppState>) -> axum::Json<serde_json::Value> {
         "public_url": st.store.public_url().ok().flatten(),
         "link_base": st.store.link_base().ok().flatten(),
         // ---- end ticket 18 ----
-    }))
+    });
+    if let Some(h) = hooks {
+        body["hooks"] = h;
+    }
+    axum::Json(body)
 }
 
 async fn not_found(uri: axum::http::Uri) -> ApiError {

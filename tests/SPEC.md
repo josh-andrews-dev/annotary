@@ -6,7 +6,7 @@
 running number inside that ticket. Each line is `- STT-nn — one-phrase description (spec ref)`.
 The ids come from the "From [ticket]" bullets of the test-strategy ticket
 (the spec's Testing section) and the spec's decisions; the
-`## Stories` section at the end maps every numbered story of the spec (1–179) to the ids that
+`## Stories` section at the end maps every numbered story of the spec (1–183) to the ids that
 cover it, and `## Deferred` lists, with reasons, what Phase 1 does not automate.
 
 **How a test names its ids.** Put a marker line next to the test — the checker greps for the
@@ -290,7 +290,7 @@ markers in implementation code — only in tests.
 - S14-06 — TTY / non-TTY parity across the flow: `show`, `status`, `thread list`, `thread show`, `mentions`, `wait` print identical fields in identical order in both modes — only separators, header and alignment differ (story 150)
 - S14-07 — token-count guard: the o200k counts of `status`, a `wait` event line, `mentions` (one hit), `show` (header + five open Threads), `thread show`, the top-level `--help` and SKILL.md, measured from real output of the real binary on the prototype's scenario, stay within ±20% of the prototype's numbers (24 · 12 · 58 · 245 · 117 · 688 · 905; `status --json` 61, `thread list --json id,anchor,body` 188); the regenerated report is `tests/token-report.md` (Further Notes: measured targets; story 147)
 - S14-08 — SKILL.md's review flow leaves a review in progress alone: the agent tells the human how to finish, does not push or add `--on thread,reply` mid-review (a push stops their commenting), treats `send-back`, `approve` or their word in chat as the end of the review, answers an @mention without pushing, and then handles every open Thread in one Version (story 147)
-- S14-09 — SKILL.md's review handoff ends the agent's turn where it can ask the user a question: after the link and how to finish, it ends its turn on one ("Done?": "Read my comments" starts step 3, review over; "Approved" starts step 4, approve) instead of blocking on `wait`, so the harness shows it is the human's turn; an agent that cannot ask still `wait`s (story 147)
+- S14-09 — SKILL.md's review handoff does what the device setting `review_handoff` says after the link and how to finish: `ask` (the default) ends the turn on a question ("Done?": "Read my comments" starts step 3, review over; "Approved" starts step 4, approve) instead of blocking, so the harness shows it is the human's turn; `wait` blocks on `wait`; `end` ends the turn; `hook` follows the `help setup` recipe `review_wake` names; the step first runs `settings get review_handoff --device this` and, when its SOURCE is `default`, asks the human which and saves it (stories 147, 183)
 <!-- ---- end ticket 14 ---- -->
 
 <!-- ---- ticket 15 ---- -->
@@ -642,6 +642,23 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S48-03 — the Mentions page (`/mentions`, "Mentions" in the top bar, in an embed render too): every open Thread that mentions the viewer in a Document they can read — the Threads of `GET /api/v1/mentions` — newest activity first, each with its Document, Vault, Thread id, quote (or "whole document" / the Asset), the last Comment's author and text, and its age, opening `/d/{id}#tN` at that Thread; resolved and fully deleted Threads, deleted Documents and Vaults the viewer cannot read are not there; none says so (story 178)
 - S48-04 — Delete and Restore: a Member with `write` on the Vault has "Delete Document…" in the More menu, which asks first ("Delete" / "Cancel") and then sends `DELETE /api/v1/docs/{id}`; the page loads again deleted and read-only with a Restore button, which sends `POST /api/v1/docs/{id}/restore` and loads the live page; on the list's Deleted filter each deleted row has Restore, one click, and the row says restored; a Member without `write` sees none of them, an error leaves the control with the server's sentence, and an embed render (the Hermes page) has neither Delete nor Restore; purge stays in the CLI (story 179)
 
+## Hooks wake an agent after a review handoff
+
+- S49-01 — `POST /api/v1/me/hooks {url, on, doc?, once?, expires?}` adds a hook for the caller (any Member, D3) → 201 `{hook, secret}`: the secret only here, `hook` without the URL (its `host` and `url_fp`, the URL's `sha256[:10]`); `on` is a comma list of `version`, `action`, `mention` (anything else 400); `doc` must be readable; `expires` 60 s to 30 days, default 7 days; more than 20 live hooks is 409 `too_many_hooks`; `hook.added` holds no URL or secret (story 181)
+- S49-02 — `GET /api/v1/me/hooks` lists the caller's own; `GET /api/v1/hooks` is the owner's list of everyone's (403 otherwise); `DELETE /api/v1/me/hooks/{id}` removes the caller's own, an owner removes anyone's, and someone else's hook is 404 to a non-owner; no response carries a URL or a secret (stories 181, 182)
+- S49-03 — address refusal (D4): a URL that is not `https`, carries user info, or whose host resolves to a loopback, private, link-local, CGNAT or other non-public address is 409 `hook_address_refused` unless `ANNOTARY_HOOK_ALLOW_HOSTS` names the host (then `http` is allowed too); the same check runs inside every delivery's name lookup, no proxy and no redirect is followed; with `ANNOTARY_HOOK_ONLY_HOSTS` set, no host outside it is called at all (what `make verify-live` sets on its copy of the live data) (story 182)
+- S49-04 — delivery: after a Send back, Approve, new Version or @mention the hook asked for, the deliverer POSTs one `v: 1` JSON body (`kind`, `doc`, `name`, `version`, `thread`, `action`, `by`, `seq`, `at`, `link`, `hook`) with no Comment text, once per event, in `seq` order, only for events the Member can read now (rights re-checked per pass), never for the Member's own events, and only for its `doc` when it has one (story 180)
+- S49-05 — signature: every delivery carries `X-Annotary-Signature: sha256=<hex HMAC-SHA256 of the raw body keyed by the secret>`, `X-Annotary-Hook` and `X-Annotary-Seq`; HMAC matches RFC 4231 (story 181)
+- S49-06 — retry and disable: a non-2xx answer or a timeout is retried with doubling backoff; a hook that keeps failing for the retry window (24 h) is disabled with `hook.disabled {reason: "failing"}`; a 404 or 410 disables it at once (`reason: "gone"`); a revoked Token or disabled Member disables it (`reason: "credential"`); a disabled hook is listed with `state: "disabled"` and delivers nothing (story 180)
+- S49-07 — `once`: a `once` hook is removed after its first 2xx (`hook.removed {reason: "once"}`) and later events go nowhere (story 180)
+- S49-08 — expiry: a hook past its `expires_at` is removed (`hook.removed {reason: "expired"}`) and delivers nothing (story 180)
+- S49-09 — shutdown: the server stops within `DRAIN_MAX` while a delivery is in flight to a receiver that never answers (story 180)
+- S49-10 — `POST /api/v1/me/hooks/{id}/test` sends one signed `kind: "test"` body now and answers `{id, status, ok}`; only the hook's Member may test it; a hook added with `secret` (24–128 printable characters, the receiver's own) signs with that secret (story 181)
+- S49-11 — `review_handoff` (`wait`, `ask`, `end`, `hook`; default `ask`) and `review_wake` (free text, default empty) are device settings that apply only to the `cli` Device kind: `settings get` reads `default` until someone saves one, `--device` / `--all-devices` save it, and the web Settings screen and the iPhone and iPad sync never show or apply them (story 183)
+- S49-12 — the `hook` verbs: `hook add [DOC] --on KINDS [--once] [--expires DUR]` reads the URL from stdin (a second line is the receiver's own secret; a terminal is asked without echo; no URL is exit 1) and prints `ID SECRET` once with the host on stderr, `hook list` prints `ID ON DOC STATE HOST LAST EXPIRES` (TTY aligned with a header), `hook remove ID` prints `ID removed`, `hook test ID` prints `ID STATUS ok|failed` and exits 5 when the receiver did not take it; refused addresses exit 5, an unknown Document or hook 2, bad kinds or expiry 1, no credential 3, an unreachable server 6; nothing prints the URL (story 181)
+- S49-13 — `annotary help setup` prints the setup topic: how to read and save `review_handoff` with `--device this` (this install's own `cli` Device, made on first use and kept in `config.toml`'s `device`), the four experiences, what each looks like in T3 Code, Claude Code, a terminal and Hermes, and the `t3-webhook`, `background-wait` and build-your-own recipes; `annotary help` prints the top-level help; an unknown topic is exit 1 (story 183)
+- S49-14 — `GET /api/v1/health` adds `hooks {live, failing, disabled}` for a true loopback peer only (never for a request a local proxy forwarded, never for a remote one), and `deploy/healthcheck.sh` warns (P8) when any hook is failing or disabled (story 182)
+
 ## Stories
 
 Every numbered story of the spec (`docs/phase1/spec.md`, "User Stories" 1–179)
@@ -828,6 +845,10 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 177 — comment on the whole Document from its page → S48-02
 - 178 — a Mentions page of the open Threads that mention me → S48-03
 - 179 — delete and restore a Document from the web, with the `write` right → S48-01, S48-04
+- 180 — Annotary wakes the agent on a Send back, Approve or @mention → S49-04, S49-06, S49-07, S49-08, S49-09
+- 181 — an agent registers its own signed, secret-URL hook from the CLI → S49-01, S49-02, S49-05, S49-10, S49-12
+- 182 — public https only unless allowed; the owner lists and removes hooks → S49-02, S49-03, S49-14
+- 183 — the review handoff is chosen at setup, saved per machine → S49-11, S49-13
 
 ## Deferred
 

@@ -27,6 +27,7 @@ pub mod embed;
 pub mod events;
 // ---- end ticket 08 ----
 // ---- ticket 13 ----
+pub mod hooks;
 pub mod housekeeping;
 // ---- end ticket 13 ----
 pub mod me_settings;
@@ -193,6 +194,18 @@ pub async fn run(
     data_dir: PathBuf,
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
+    run_with(store, listener, server_json_path, data_dir, shutdown, hooks::HookConfig::from_env()).await
+}
+
+/// [`run`] with an explicit hook policy (tests allow their local receiver this way).
+pub async fn run_with(
+    store: Arc<Store>,
+    listener: TcpListener,
+    server_json_path: PathBuf,
+    data_dir: PathBuf,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+    hook_config: hooks::HookConfig,
+) -> std::io::Result<()> {
     let addr = listener.local_addr()?;
     let url = url_for(addr);
     let started_at = annotary_store::time::now();
@@ -201,10 +214,12 @@ pub async fn run(
     // CMD-1: a snapshot now, then every 15 min, for the backup to copy whole.
     let snapshotter =
         tokio::spawn(snapshots::ticker(store.clone(), info.data_dir.clone(), snapshots::interval_from_env()));
-    let state = AppState::new(store, url.clone(), started_at);
+    let state = AppState::new(store, url.clone(), started_at).with_hooks(hook_config);
     // ---- ticket 13: the hourly housekeeping ticker lives and dies with the listener ----
     let ticker = tokio::spawn(housekeeping::ticker(state.clone(), housekeeping::interval_from_env()));
     // ---- end ticket 13 ----
+    // Hooks: the deliverer stops by itself at `begin_shutdown`; the abort below is the backstop.
+    let deliverer = tokio::spawn(hooks::deliverer(state.clone()));
     let app = router(state.clone());
     // ---- ticket 08: a bounded shutdown. The moment the signal fires, every parked
     // `GET /api/v1/events` long-poll answers and every SSE stream ends (`begin_shutdown`), so
@@ -236,6 +251,7 @@ pub async fn run(
         }
     };
     ticker.abort(); // ticket 13
+    deliverer.abort();
     snapshotter.abort(); // CMD-1
     ServerJson::remove(&server_json_path);
     result

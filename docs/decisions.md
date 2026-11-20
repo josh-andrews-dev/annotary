@@ -528,3 +528,28 @@ that wakes the agent's thread on Send back, Approve or an @mention as the fix fo
 is a larger feature with its own design, and it can come later without changing the question flow.
 To stay within the skill's 60 lines and its token band (S14-07, at its ceiling of 1086 now), the
 review section dropped the Name aside (the file name shows the Name) and a few words elsewhere.
+
+## 2026-11-19: the review handoff is chosen at setup; a hook wakes the agent
+
+The plan `review-handoff-experience` (approved with every recommendation) builds on the question
+flow above. Chose four experiences in one device setting, `review_handoff` (`wait`, `ask`, `end`,
+`hook`; default `ask`), applying only to the `cli` Device kind and saved per machine with
+`settings … --device this`; rejected a user setting because the same agent Member runs in more
+than one harness, and a field in `config.toml` because the owner could not see it. Chose
+`hook` as one experience with named recipes (`review_wake`: `t3-webhook`, `background-wait`, or a
+tool's own) rather than a value per harness, so a tool adds a recipe without a release. Chose
+outbound webhooks any Member registers for itself (an owner lists and removes anyone's); rejected
+owner-only hooks because the agent could then not set up its own wake. Chose `https` to public
+addresses only, with `ANNOTARY_HOOK_ALLOW_HOSTS` for exceptions, checked inside the connection's
+own name lookup; rejected any URL because a Member's Token could then probe the server's network.
+Chose body-free `v: 1` payloads with a link, signed HMAC-SHA256 as `sha256=<hex>` (what T3's
+signature check takes), a cursor per hook over the events log rather than an outbox, `--once` and
+a 7-day expiry by default; a hook delivers as the Token that added it and never for its Member's
+own events. Chose a background `wait` as Claude Code's recipe: it needs no hook and no public URL,
+and Claude Code has no inbound trigger for an idle session; it works in T3 Code too, where the
+thread shows idle as long as the agent does not call `t3_background_wait`. Chose to let `hook add`
+take the receiver's own secret on stdin, because T3 needs its signing secret when the trigger is
+made, before Annotary could make one. The top-level help and the skill were at their token
+ceilings, so room came from trimming text there, not from raising them. How each harness behaved
+is in [`docs/dev/hooks.md`](dev/hooks.md).
+
