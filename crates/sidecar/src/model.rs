@@ -191,6 +191,8 @@ pub struct Thread {
     pub author: String,
     pub created: Stamp,
     pub body: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markup: Option<MarkupEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -210,12 +212,24 @@ pub struct Reply {
     pub author: String,
     pub created: Stamp,
     pub body: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markup: Option<MarkupEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub edited_at: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deleted: Option<Tombstone>,
+}
+
+/// A Comment's Markup (a drawing): the blob hashes of its PNG and its strokes JSON, and the
+/// PNG's size in pixels.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MarkupEntry {
+    pub image: String,
+    pub width: u32,
+    pub height: u32,
+    pub strokes: String,
 }
 
 /// `{at, version}`.

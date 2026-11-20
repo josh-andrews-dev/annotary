@@ -8,7 +8,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use annotary::testing::TestServer;
 use annotary_store::{Grant, NewThread, PushInput, Right};
+use base64::Engine;
 use serde_json::{Value, json};
+
+const MARKUP_PNG: &[u8] = include_bytes!("../../../fixtures/markup/cross-out.png");
+const MARKUP_STROKES: &str = include_str!("../../../fixtures/markup/cross-out.strokes.json");
 
 // ---------------------------------------------------------------- HTTP helpers
 
@@ -482,6 +486,28 @@ fn endpoints() -> Vec<Endpoint> {
                 Some(&json!({ "body": "re" })),
             )
         }),
+        // ---- Markup: upload under `comment`, the blobs under `read` ----
+        ep("POST docs/{id}/markups", Need::Right(Right::Comment), move |ts, c, v| {
+            let id = fresh_doc(ts, v);
+            let image = base64::engine::general_purpose::STANDARD.encode(MARKUP_PNG);
+            let strokes: Value = serde_json::from_str(MARKUP_STROKES).unwrap();
+            send(
+                ts,
+                "POST",
+                &format!("/api/v1/docs/{id}/markups"),
+                tok(c).as_deref(),
+                Some(&json!({ "image": image, "strokes": strokes })),
+            )
+        }),
+        ep("GET docs/{id}/markups/{hash}", Need::Right(Right::Read), move |ts, c, v| {
+            let id = fresh_doc(ts, v);
+            let up = ts.store.upload_markup(&id, MARKUP_PNG, MARKUP_STROKES.as_bytes()).unwrap();
+            let mut input = NewThread::document("");
+            input.markup = Some(up.id);
+            ts.store.new_thread(&ts.owner_id, &id, input).unwrap();
+            send(ts, "GET", &format!("/api/v1/docs/{id}/markups/{}", up.markup.image), tok(c).as_deref(), None)
+        }),
+        // ---- end Markup ----
         ep("POST threads/t1/resolve", Need::Right(Right::Comment), move |ts, c, v| {
             let id = doc_with_thread(ts, v, &ts.owner_id);
             send(ts, "POST", &format!("/api/v1/docs/{id}/threads/t1/resolve"), tok(c).as_deref(), None)

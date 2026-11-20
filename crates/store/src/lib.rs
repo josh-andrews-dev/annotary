@@ -48,6 +48,8 @@ pub mod links;
 // ---- end ticket 18 ----
 pub mod lock;
 pub mod manifest;
+// Markup: a drawing on a Comment (the PNG and strokes checks, upload and attach).
+pub mod markup;
 pub mod meta;
 pub mod migrations;
 pub mod model;
@@ -91,6 +93,7 @@ pub use links::{
 };
 // ---- end ticket 18 ----
 pub use lock::StoreLock;
+pub use markup::{Markup, MarkupUpload, markup_id, parse_markup_id};
 pub use meta::Meta;
 pub use migrations::SCHEMA_VERSION;
 pub use model::*;

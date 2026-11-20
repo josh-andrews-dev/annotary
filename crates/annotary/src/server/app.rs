@@ -88,11 +88,12 @@ impl AppState {
 /// `settings/auto-purge` (the ticker, `housekeeping.rs`), `vaults/{name}/rename` + `DELETE
 /// vaults/{name}` (ticket 12, `vaults.rs`); the Settings screen `/settings`, `/settings/{group}`
 /// (CMD-23, `settings_page.rs`) with the owner pages under `/settings/server/…` (`admin.rs`);
-/// `me/avatar`, `members/{handle}/avatar` and `/avatars/{hash}` (`avatars.rs`).
+/// `me/avatar`, `members/{handle}/avatar` and `/avatars/{hash}` (`avatars.rs`); `docs/{id}/markups`
+/// (`markups.rs`).
 pub fn router(state: AppState) -> Router {
     use super::{
-        access, actions, admin, assets, avatars, blobs, compare, docs, events, housekeeping, listing, me_settings,
-        members, mentions_page, pairing, render, settings_page, threads, vaults, view, web,
+        access, actions, admin, assets, avatars, blobs, compare, docs, events, housekeeping, listing, markups,
+        me_settings, members, mentions_page, pairing, render, settings_page, threads, vaults, view, web,
     };
     // ---- ticket 06: web pages sit behind the loopback-trust / login-redirect middleware ----
     let web_pages = Router::new()
@@ -168,6 +169,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/docs/{id}/threads/{tid}/resolve", post(threads::resolve))
         .route("/api/v1/docs/{id}/threads/{tid}/reopen", post(threads::reopen))
         .route("/api/v1/mentions", get(threads::mentions))
+        // Markup: a drawing's PNG and strokes (`markups.rs` has the table)
+        .route("/api/v1/docs/{id}/markups", post(markups::upload).layer(DefaultBodyLimit::max(markups::BODY_MAX)))
+        .route("/api/v1/docs/{id}/markups/{hash}", get(markups::get))
         // ---- ticket 08: the events log — long-poll / SSE (`events.rs` has the table) ----
         .route("/api/v1/events", get(events::list))
         // ---- end ticket 08 ----

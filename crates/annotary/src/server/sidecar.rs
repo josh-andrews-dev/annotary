@@ -9,8 +9,8 @@
 //! `base_version` is, the projection is the whole Document); 07 anchor history.
 
 use annotary_sidecar::{
-    ActionEvent, Actions, AssetEntry, MemberEntry, Members, Reply, Resolution, Sidecar, Stamp, Thread, Tombstone,
-    VersionEntry,
+    ActionEvent, Actions, AssetEntry, MarkupEntry, MemberEntry, Members, Reply, Resolution, Sidecar, Stamp, Thread,
+    Tombstone, VersionEntry,
 };
 use annotary_store::{
     CommentView, DocumentView, Store, ThreadFilter, ThreadStatusFilter, ThreadView, VersionView, time,
@@ -87,6 +87,7 @@ pub fn thread_entry(t: &ThreadView) -> Thread {
         author: t.root.author_handle.clone(),
         created: Stamp { at: time::to_seconds(&t.root.at), version: t.root.version },
         body: t.root.body.clone(),
+        markup: markup_entry(&t.root),
         mentions: t.root.mention_handles.clone(),
         edited_at: t.root.edited_at.as_deref().map(time::to_seconds),
         deleted: tombstone(&t.root),
@@ -105,10 +106,21 @@ fn reply_entry(c: &CommentView) -> Reply {
         author: c.author_handle.clone(),
         created: Stamp { at: time::to_seconds(&c.at), version: c.version },
         body: c.body.clone(),
+        markup: markup_entry(c),
         mentions: c.mention_handles.clone(),
         edited_at: c.edited_at.as_deref().map(time::to_seconds),
         deleted: tombstone(c),
     }
+}
+
+/// A Comment's Markup as the Sidecar records it (the blob hashes and the image's size).
+fn markup_entry(c: &CommentView) -> Option<MarkupEntry> {
+    c.markup.as_ref().map(|m| MarkupEntry {
+        image: m.image.clone(),
+        width: m.width,
+        height: m.height,
+        strokes: m.strokes.clone(),
+    })
 }
 
 fn tombstone(c: &CommentView) -> Option<Tombstone> {

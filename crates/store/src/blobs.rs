@@ -63,6 +63,17 @@ impl BlobStore {
         }
     }
 
+    /// Set a stored blob's modification time to now, so the GC's grace period starts again for
+    /// an upload that matched a blob already there (the sweep skips files younger than it).
+    pub fn touch(&self, hash: &str) -> Result<()> {
+        if !is_blob_hash(hash) {
+            return Ok(());
+        }
+        let f = std::fs::File::options().write(true).open(self.path(hash))?;
+        f.set_modified(SystemTime::now())?;
+        Ok(())
+    }
+
     /// Store `bytes` only if they hash to `expected`.
     pub fn put_expecting(&self, expected: &str, bytes: &[u8]) -> Result<(String, bool)> {
         let actual = sha256_hex(bytes);

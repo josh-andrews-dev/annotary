@@ -235,6 +235,29 @@ pub const MIGRATIONS: &[&str] = &[
     CREATE INDEX member_avatars_static ON member_avatars(static_hash);
     "#,
     // ---- end Member avatars ----
+    // ---- Markup ----
+    // v7 — a Markup: a drawing a Member made over the rendered Document in the app, kept on one
+    // Comment as two content-addressed blobs (a PNG of the marked region with the ink on it, and
+    // the strokes as JSON in the PNG's pixel coordinates). At most one per Comment; deleting the
+    // Comment deletes the row and the GC takes the blobs.
+    r#"
+    CREATE TABLE comment_markups (
+        doc_id       TEXT NOT NULL,
+        thread_num   INTEGER NOT NULL,
+        comment_num  INTEGER NOT NULL,
+        image_hash   TEXT NOT NULL,
+        image_size   INTEGER NOT NULL,
+        width        INTEGER NOT NULL,
+        height       INTEGER NOT NULL,
+        strokes_hash TEXT NOT NULL,
+        strokes_size INTEGER NOT NULL,
+        PRIMARY KEY (doc_id, thread_num, comment_num),
+        FOREIGN KEY (doc_id, thread_num, comment_num) REFERENCES comments(doc_id, thread_num, num)
+    );
+    CREATE INDEX comment_markups_image ON comment_markups(doc_id, image_hash);
+    CREATE INDEX comment_markups_strokes ON comment_markups(doc_id, strokes_hash);
+    "#,
+    // ---- end Markup ----
 ];
 
 /// The schema version this binary writes.

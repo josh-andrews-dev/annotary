@@ -29,6 +29,8 @@ pub mod events;
 // ---- ticket 13 ----
 pub mod housekeeping;
 // ---- end ticket 13 ----
+// Markup: upload a drawing and serve its blobs (`markups.rs` has the table).
+pub mod markups;
 pub mod me_settings;
 pub mod members;
 // The Mentions page (`/mentions`): open Threads that mention the viewer.

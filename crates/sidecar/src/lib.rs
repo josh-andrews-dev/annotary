@@ -353,6 +353,13 @@ mod tests {
                 deleted: deleted.then(|| Tombstone { at: created.at.clone(), by: author.clone() }),
                 author,
                 edited_at: edited.map(|s| s.at),
+                // Markup: some Replies carry a drawing (any choice of them round-trips the same).
+                markup: (mentions.len() == 1).then(|| MarkupEntry {
+                    image: "a".repeat(64),
+                    width: 640,
+                    height: 480,
+                    strokes: "b".repeat(64),
+                }),
                 created,
                 body,
                 mentions,
@@ -402,6 +409,12 @@ mod tests {
                         anchor,
                         resolved: resolved.map(|s| Resolution { by: author.clone(), at: s.at, version: s.version }),
                         deleted: deleted.then(|| Tombstone { at: created.at.clone(), by: author.clone() }),
+                        markup: (mentions.len() == 2).then(|| MarkupEntry {
+                            image: "c".repeat(64),
+                            width: 1568,
+                            height: 900,
+                            strokes: "d".repeat(64),
+                        }),
                         author,
                         created,
                         body,

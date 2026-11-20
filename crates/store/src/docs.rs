@@ -612,6 +612,9 @@ impl Store {
                     candidates.extend(version_blob_refs(&md, &manifest, html.as_deref()));
                 }
             }
+            // Markup: the drawings' blobs are candidates too; their rows go before the Comments.
+            candidates.extend(crate::markup::markup_blob_refs(&tx, Some(id))?);
+            tx.execute("DELETE FROM comment_markups WHERE doc_id = ?1", [id])?;
             tx.execute("DELETE FROM actions WHERE doc_id = ?1", [id])?; // ticket 05
             tx.execute("DELETE FROM thread_events WHERE doc_id = ?1", [id])?; // ticket 04
             tx.execute("DELETE FROM comments WHERE doc_id = ?1", [id])?; // ticket 04
@@ -684,7 +687,7 @@ fn head_name(tx: &Transaction, doc_id: &str) -> Result<String> {
     })?)
 }
 
-/// Every blob hash any Version or a current Member avatar still references.
+/// Every blob hash any Version, a current Member avatar or a Comment's Markup still references.
 pub(crate) fn referenced_hashes(tx: &Transaction) -> Result<BTreeSet<String>> {
     let mut out = BTreeSet::new();
     let mut stmt = tx.prepare("SELECT md_hash, manifest, html_hash FROM versions")?;
@@ -696,6 +699,7 @@ pub(crate) fn referenced_hashes(tx: &Transaction) -> Result<BTreeSet<String>> {
         out.extend(version_blob_refs(&md, &manifest, html.as_deref()));
     }
     out.extend(crate::avatar::avatar_blob_refs(tx)?);
+    out.extend(crate::markup::markup_blob_refs(tx, None)?);
     Ok(out)
 }
 

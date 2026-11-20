@@ -20,6 +20,13 @@ pub enum StoreError {
     /// Member avatars: an image the avatar check refused (`avatar::check_image`), with the reason.
     #[error("{0}")]
     InvalidAvatar(String),
+    /// Markup: an image or strokes file the check refused (`markup::check_png` /
+    /// `check_strokes`), or an id that is not one, with the reason.
+    #[error("{0}")]
+    InvalidMarkup(String),
+    /// Markup: an id whose blobs are not in the store (never uploaded, or swept by the GC).
+    #[error("Markup {0} is not in the store — upload it again")]
+    MarkupMissing(String),
     #[error("member not found")]
     MemberNotFound,
     #[error("token not found")]

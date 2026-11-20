@@ -41,6 +41,8 @@ tempfile = { workspace = true }
 # raster avatar must have dimensions its header gives.
 quick-xml = "0.42"
 imagesize = "0.15"
+# Markup: a Markup image is checked by decoding it whole as a PNG (`markup::check_png`).
+png = "0.18"
 
 [dev-dependencies]
 tempfile = { workspace = true }
