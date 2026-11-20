@@ -91,6 +91,7 @@ version = "0.0.0"
 dependencies = [
  "insta",
  "latex2mathml",
+ "proptest",
  "pulldown-cmark",
  "serde_json",
 ]

@@ -1,0 +1,91 @@
+//! Properties of the decisions-table parser (`annotary_renderer::questions`).
+
+use annotary_renderer::questions::{AnswerBrief, decided_text, fill_decided, find, from_json, to_json};
+use proptest::prelude::*;
+
+fn key() -> impl Strategy<Value = String> {
+    "[A-Z][0-9]{1,2}"
+}
+
+/// A Document with a decisions table of `rows` and a section per key.
+fn doc(rows: &[(String, usize, bool)], prose: &str) -> String {
+    let mut md = String::from("# Plan\n\n| Decision | Options | Recommended | Decided |\n|---|---|---|---|\n");
+    for (k, n, filled) in rows {
+        let opts: Vec<String> = (0..*n).map(|i| ((b'A' + i as u8) as char).to_string()).collect();
+        md.push_str(&format!("| {k} | {} | A | {} |\n", opts.join(", "), if *filled { "B" } else { "" }));
+    }
+    md.push('\n');
+    for (k, n, _) in rows {
+        md.push_str(&format!("## {k}. Title\n\n{prose}\n\n"));
+        for i in 0..*n {
+            md.push_str(&format!("- {}. option text\n", (b'A' + i as u8) as char));
+        }
+        md.push('\n');
+    }
+    md
+}
+
+fn rows() -> impl Strategy<Value = Vec<(String, usize, bool)>> {
+    proptest::collection::vec((key(), 2usize..=6, any::<bool>()), 1..6).prop_map(|mut v| {
+        let mut seen = std::collections::BTreeSet::new();
+        v.retain(|(k, _, _)| seen.insert(k.clone()));
+        v
+    })
+}
+
+proptest! {
+    // spec: S50-01
+    #[test]
+    fn any_text_parses_without_panic(md in "(\\PC|\n|\\|){0,400}") {
+        let f = find(&md);
+        let lines = md.split('\n').count() as u32;
+        for q in &f.questions {
+            prop_assert!(q.row >= 1 && q.row <= lines);
+            if let Some((a, b)) = q.lines { prop_assert!(a <= b && b <= lines); }
+            prop_assert_eq!(from_json(&to_json(std::slice::from_ref(q))), Some(vec![q.clone()]));
+        }
+        let _ = fill_decided(&md, &[("D1".into(), "A".into())]);
+    }
+
+    // spec: S50-01, S50-05
+    #[test]
+    fn generated_tables_are_found_with_their_places(rows in rows(), prose in "[a-z ]{0,30}") {
+        let md = doc(&rows, &prose);
+        let f = find(&md);
+        prop_assert!(f.warnings.is_empty(), "{:?}", f.warnings);
+        prop_assert_eq!(f.questions.len(), rows.len());
+        for ((k, n, filled), q) in rows.iter().zip(&f.questions) {
+            prop_assert_eq!(&q.key, k);
+            prop_assert_eq!(q.options.len(), *n);
+            prop_assert_eq!(q.decided.is_some(), *filled);
+            prop_assert_eq!(q.places.len(), *n, "{:?}", q);
+            prop_assert!(q.place.as_ref().is_some_and(|p| p.block == "h2"));
+        }
+    }
+
+    // spec: S50-05
+    #[test]
+    fn fill_changes_only_the_empty_decided_cells(rows in rows(), who in "[a-z]{1,8}") {
+        let md = doc(&rows, "text");
+        let texts: Vec<(String, String)> = rows.iter().map(|(k, _, _)| {
+            let a = AnswerBrief { handle: who.clone(), option: "A".into(), at: "2026-11-19T00:00:00Z".into() };
+            (k.clone(), decided_text(&[a], None).unwrap())
+        }).collect();
+        let (out, n) = fill_decided(&md, &texts);
+        prop_assert_eq!(n, rows.iter().filter(|r| !r.2).count());
+        let (before, after): (Vec<&str>, Vec<&str>) = (md.split('\n').collect(), out.split('\n').collect());
+        prop_assert_eq!(before.len(), after.len());
+        let f0 = find(&md);
+        let f1 = find(&out);
+        let row_lines: Vec<usize> = f0.questions.iter().map(|q| q.row as usize - 1).collect();
+        for (i, (b, a)) in before.iter().zip(&after).enumerate() {
+            if !row_lines.contains(&i) { prop_assert_eq!(b, a); }
+        }
+        for ((q0, q1), (_, _, filled)) in f0.questions.iter().zip(&f1.questions).zip(&rows) {
+            prop_assert_eq!(&q0.digest, &q1.digest);
+            prop_assert_eq!(&q0.places, &q1.places);
+            let want = if *filled { "B".to_string() } else { format!("A (@{who}, 2026-11-19)") };
+            prop_assert_eq!(q1.decided.as_deref(), Some(want.as_str()));
+        }
+    }
+}
