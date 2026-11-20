@@ -19,6 +19,7 @@
 //! Everything is parsed with pulldown-cmark and [`crate::refs::MARKDOWN_OPTIONS`], never with
 //! patterns over raw lines.
 
+use std::collections::BTreeMap;
 use std::ops::Range;
 
 use pulldown_cmark::{Event, Parser, Tag, TagEnd};
@@ -243,6 +244,45 @@ fn has_word(text: &str, key: &str) -> bool {
     false
 }
 
+/// For each key, the blocks that name it ([`has_word`]). With many keys, one pass over each
+/// block's words: a key that [`has_word`] finds starts with a maximal run of word characters, so
+/// only a block holding that run is scanned for it. A few keys are cheaper scanned directly.
+fn named_in<'b>(blocks: &[&'b Block], keys: &[&str]) -> Vec<Vec<&'b Block>> {
+    const DIRECT: usize = 16;
+    if keys.len() <= DIRECT {
+        return keys.iter().map(|k| blocks.iter().copied().filter(|b| has_word(&b.text, k)).collect()).collect();
+    }
+    let mut by_run: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
+    let mut always: Vec<usize> = Vec::new();
+    for (i, k) in keys.iter().enumerate() {
+        match k.split(|c: char| !is_word(c)).find(|s| !s.is_empty()) {
+            Some(run) => by_run.entry(run).or_default().push(i),
+            None => always.push(i),
+        }
+    }
+    let mut hits: Vec<Vec<&Block>> = vec![Vec::new(); keys.len()];
+    let mut cands: Vec<usize> = Vec::new();
+    for b in blocks {
+        cands.clear();
+        cands.extend_from_slice(&always);
+        for w in b.text.split(|c: char| !is_word(c)) {
+            if let Some(ix) = by_run.get(w) {
+                for &i in ix {
+                    if !cands.contains(&i) {
+                        cands.push(i);
+                    }
+                }
+            }
+        }
+        for &i in &cands {
+            if has_word(&b.text, keys[i]) {
+                hits[i].push(b);
+            }
+        }
+    }
+    hits
+}
+
 /// Whether a block whose text is `lead` starts with option `id`: after an optional word of
 /// [`LEAD_WORDS`] (then any non-word character may follow the id), else followed by `.`, `)`,
 /// `:`, a dash or the end, so a paragraph starting "A new VM" is not Option A.
@@ -263,6 +303,7 @@ fn leads_with(lead: &str, id: &str) -> bool {
     let mut chars = rest.chars();
     match chars.next() {
         None => true,
+        Some('-') if worded => !chars.next().is_some_and(is_word),
         Some(c) if worded => !is_word(c),
         Some('.' | ')' | ':' | '\u{2014}' | '\u{2013}') => true,
         Some(' ') => matches!(chars.next(), Some('\u{2014}' | '\u{2013}' | '-')),
@@ -517,16 +558,17 @@ pub fn find(md: &str) -> Found {
     };
     // Each key's first block (the smallest start; text containers only, never a row).
     let holders: Vec<&Block> = blocks.iter().filter(|b| b.kind != Kind::Row).collect();
-    let firsts: Vec<Option<&Block>> = rows
-        .iter()
-        .map(|(_, q)| {
-            holders
-                .iter()
-                .filter(|b| has_word(&b.text, &q.key))
-                .min_by_key(|b| (b.start, std::cmp::Reverse(b.kind == Kind::Para || b.kind == Kind::Cell)))
-                .copied()
-        })
-        .collect();
+    let firsts: Vec<Option<&Block>> = {
+        let keys: Vec<&str> = rows.iter().map(|(_, q)| q.key.as_str()).collect();
+        named_in(&holders, &keys)
+            .into_iter()
+            .map(|hits| {
+                hits.into_iter()
+                    .min_by_key(|b| (b.start, std::cmp::Reverse(b.kind == Kind::Para || b.kind == Kind::Cell)))
+            })
+            .collect()
+    };
+    let src: Vec<&str> = text.split('\n').collect();
     let mut by_start: Vec<&Block> = blocks.iter().collect();
     by_start.sort_by_key(|b| b.start);
     for (i, (r, q)) in rows.iter_mut().enumerate() {
@@ -564,7 +606,6 @@ pub fn find(md: &str) -> Found {
             end = end.min(table_line);
         }
         let mut b_line = end.saturating_sub(1).max(place.b);
-        let src: Vec<&str> = text.split('\n').collect();
         while b_line > place.b && src.get(b_line as usize - 1).is_some_and(|l| l.trim().is_empty()) {
             b_line -= 1;
         }
@@ -632,8 +673,10 @@ pub fn fill_decided(md: &str, fills: &[(String, String)]) -> (String, usize) {
             _ => {
                 // The row stops short of the column: add the cells it lacks.
                 let content = &md[r.range.start..line_end];
-                let closed = content.trim_end().ends_with('|');
                 let at = r.range.start + content.trim_end().len();
+                // Closed when the parser's last cell ends before the line does (a pipe follows
+                // it). Never from the source: GFM reads `note \|` and `path\\|` as a cell's `|`.
+                let closed = r.cells.iter().rfind(|c| c.range.start < line_end).is_some_and(|c| c.range.end < at);
                 let mut add = String::new();
                 if !closed {
                     add.push_str(" |");
@@ -724,6 +767,8 @@ pub struct Recorded {
 /// author may settle two differing Answers by writing one.
 pub fn check_recorded(head: &[Question], md: &str, local: &[Question], texts: &[(String, String)]) -> Recorded {
     let mut out = Recorded::default();
+    let mut fills: Vec<(String, String)> = Vec::new();
+    let mut rows: Vec<(String, u32)> = Vec::new();
     for (key, text) in texts {
         let Some(h) = head.iter().find(|q| &q.key == key) else { continue };
         if h.is_decided() {
@@ -736,11 +781,20 @@ pub fn check_recorded(head: &[Question], md: &str, local: &[Question], texts: &[
             }
             Some(l) if l.is_decided() => {}
             Some(l) => {
-                let (filled, _) = fill_decided(md, &[(key.clone(), text.clone())]);
-                let row = filled.split('\n').nth(l.row as usize - 1).unwrap_or("").trim_end_matches('\r');
-                out.missing.push(Unrecorded { key: key.clone(), row: l.row, text: row.to_string() });
+                fills.push((key.clone(), text.clone()));
+                rows.push((key.clone(), l.row));
             }
         }
+    }
+    if rows.is_empty() {
+        return out;
+    }
+    // One fill for every missing row: filling never adds a line, so each row keeps its number.
+    let (filled, _) = fill_decided(md, &fills);
+    let lines: Vec<&str> = filled.split('\n').collect();
+    for (key, row) in rows {
+        let text = lines.get(row as usize - 1).copied().unwrap_or("").trim_end_matches('\r');
+        out.missing.push(Unrecorded { key, row, text: text.to_string() });
     }
     out
 }
@@ -907,6 +961,53 @@ A new paragraph that is not Option A.\n";
 
     // spec: S50-02
     #[test]
+    fn many_keys_find_the_same_blocks_as_a_direct_scan() {
+        let texts = [
+            "D4.",
+            "(D4)",
+            "D45",
+            "xD4",
+            "D4-2",
+            "—D4—",
+            "é D4",
+            "éD4",
+            "us-east is near",
+            "us east",
+            "-D4",
+            "a-D4",
+            "K-1 here",
+            "_D4",
+        ];
+        let blocks: Vec<Block> = texts
+            .iter()
+            .enumerate()
+            .map(|(i, t)| Block {
+                kind: Kind::Para,
+                start: i,
+                a: 1,
+                b: 1,
+                text: t.to_string(),
+                lead: String::new(),
+                lead_done: false,
+                in_item: false,
+                in_head: false,
+            })
+            .collect();
+        let refs: Vec<&Block> = blocks.iter().collect();
+        let mut keys = vec!["D4", "us-east", "us", "K-1", "D45", "x"];
+        let pad: Vec<String> = (0..20).map(|i| format!("Z{i}")).collect();
+        keys.extend(pad.iter().map(String::as_str));
+        let starts =
+            |v: Vec<Vec<&Block>>| v.iter().map(|h| h.iter().map(|b| b.start).collect::<Vec<_>>()).collect::<Vec<_>>();
+        let direct: Vec<Vec<usize>> =
+            keys.iter().map(|k| refs.iter().filter(|b| has_word(&b.text, k)).map(|b| b.start).collect()).collect();
+        assert!(keys.len() > 16);
+        assert_eq!(starts(named_in(&refs, &keys)), direct);
+        assert_eq!(direct[0], [0, 1, 5, 6, 10]);
+    }
+
+    // spec: S50-02
+    #[test]
     fn whole_words_only() {
         assert!(has_word("see D4.", "D4"));
         assert!(has_word("(D4)", "D4"));
@@ -931,6 +1032,12 @@ A new paragraph that is not Option A.\n";
         assert!(!leads_with("A new VM", "A"));
         assert!(!leads_with("AB. x", "A"));
         assert!(!leads_with("Options A", "A"));
+        // A lead word, then an id that is only the start of a longer one.
+        assert!(!leads_with("Option us-east is faster", "us"));
+        assert!(leads_with("Option us-east is faster", "us-east"));
+        assert!(leads_with("Option A - desc", "A"));
+        assert!(leads_with("Option A — desc", "A"));
+        assert!(leads_with("Option A-", "A"));
     }
 
     // spec: S50-02
@@ -1001,6 +1108,17 @@ A new paragraph that is not Option A.\n";
         assert_eq!(
             out,
             "| Decision | Options | Decided |\n|---|---|---|\n|D1|A,B| A |\n| D2 | A, B | A |\n| D3 | A, B | A |\n"
+        );
+        let f = find(&out);
+        assert!(f.questions.iter().all(|q| q.decided.as_deref() == Some("A")), "{f:?}");
+        // A short row ending in an escaped pipe is still open, after any number of backslashes
+        // (GFM escapes the pipe before backslashes are read).
+        let esc = "| Decision | Options | Note | Decided |\n|---|---|---|---|\n| D1 | A, B | note \\|\n| D2 | A, B | path\\\\|\n| D3 | A, B | x |\n";
+        let (out, n) = fill_decided(esc, &fills);
+        assert_eq!(n, 3);
+        assert_eq!(
+            out,
+            "| Decision | Options | Note | Decided |\n|---|---|---|---|\n| D1 | A, B | note \\| | A |\n| D2 | A, B | path\\\\| | A |\n| D3 | A, B | x | A |\n"
         );
         let f = find(&out);
         assert!(f.questions.iter().all(|q| q.decided.as_deref() == Some("A")), "{f:?}");

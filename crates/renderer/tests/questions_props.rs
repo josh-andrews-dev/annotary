@@ -1,6 +1,6 @@
 //! Properties of the decisions-table parser (`annotary_renderer::questions`).
 
-use annotary_renderer::questions::{AnswerBrief, decided_text, fill_decided, find, from_json, to_json};
+use annotary_renderer::questions::{AnswerBrief, check_recorded, decided_text, fill_decided, find, from_json, to_json};
 use proptest::prelude::*;
 
 fn key() -> impl Strategy<Value = String> {
@@ -88,4 +88,95 @@ proptest! {
             prop_assert_eq!(q1.decided.as_deref(), Some(want.as_str()));
         }
     }
+
+    // spec: S50-05
+    #[test]
+    fn fill_keeps_a_short_rows_last_cell(
+        tails in proptest::collection::vec(prop_oneof![
+            Just("x"), Just("x |"), Just("note \\|"), Just("path\\\\|"), Just("a\\\\"), Just("`a\\|`"), Just("")
+        ], 1..6),
+    ) {
+        let mut md = String::from("| Decision | Options | Note | Decided |\n|---|---|---|---|\n");
+        for (i, t) in tails.iter().enumerate() {
+            md.push_str(&format!("| D{i} | A, B | {t}\n"));
+        }
+        let notes: Vec<String> = row_notes(&md);
+        let fills: Vec<(String, String)> = (0..tails.len()).map(|i| (format!("D{i}"), "A (@rowan)".to_string())).collect();
+        let (out, n) = fill_decided(&md, &fills);
+        prop_assert_eq!(n, tails.len());
+        let f = find(&out);
+        prop_assert_eq!(f.questions.len(), tails.len());
+        for q in &f.questions {
+            prop_assert_eq!(q.decided.as_deref(), Some("A (@rowan)"), "{}", out);
+        }
+        prop_assert_eq!(row_notes(&out), notes, "{}", out);
+    }
+}
+
+/// Each body row's `Note` cell as the parser reads it (column 3).
+fn row_notes(md: &str) -> Vec<String> {
+    use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+    let (mut out, mut col, mut cell, mut head) = (Vec::new(), 0, String::new(), false);
+    for e in Parser::new_ext(md, Options::ENABLE_TABLES) {
+        match e {
+            Event::Start(Tag::TableHead) => head = true,
+            Event::End(TagEnd::TableHead) => head = false,
+            Event::Start(Tag::TableRow) => col = 0,
+            Event::Start(Tag::TableCell) => cell.clear(),
+            Event::Text(t) | Event::Code(t) => cell.push_str(&t),
+            Event::End(TagEnd::TableCell) => {
+                col += 1;
+                if !head && col == 3 {
+                    out.push(cell.trim().to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// `find` and `check_recorded` on a 100-row table in a large Document read the text a bounded
+/// number of times, not once per Question. Ratios, so a slow machine does not fail them:
+/// `check_recorded` costs about one `fill_decided` of every row (was one per row), and `find`
+/// with 100 keys a few times `find` with one (each key scanned every block before).
+// spec: S50-06
+#[test]
+fn a_full_table_on_a_large_document_stays_linear() {
+    let doc = |rows: usize| {
+        let mut md = String::from("| Decision | Options | Decided |\n|---|---|---|\n");
+        for i in 0..rows {
+            md.push_str(&format!("| D{i} | A, B | |\n"));
+        }
+        for i in 0..100 {
+            md.push_str(&format!("\n## D{i}. Title\n\n- A. one\n- B. two\n\n"));
+            for _ in 0..200 {
+                md.push_str("Filler prose that makes the Document large enough to notice a pass per row.\n");
+            }
+        }
+        md
+    };
+    let best = |f: &dyn Fn()| {
+        (0..3)
+            .map(|_| {
+                let t = std::time::Instant::now();
+                f();
+                t.elapsed()
+            })
+            .min()
+            .unwrap()
+    };
+    let (md, md1) = (doc(100), doc(1));
+    let head = find(&md).questions;
+    assert_eq!(head.len(), 100);
+    assert!(head.iter().all(|q| q.places.len() == 2), "{head:?}");
+    let texts: Vec<(String, String)> = head.iter().map(|q| (q.key.clone(), "A (@rowan)".to_string())).collect();
+    let r = check_recorded(&head, &md, &head, &texts);
+    assert_eq!(r.missing.len(), 100);
+    assert_eq!(r.missing[99].text, "| D99 | A, B | A (@rowan) |");
+    let one = best(&|| drop(fill_decided(&md, &texts)));
+    let check = best(&|| drop(check_recorded(&head, &md, &head, &texts)));
+    assert!(check < one * 10, "check_recorded {check:?} vs one fill {one:?}");
+    let (many, single) = (best(&|| drop(find(&md))), best(&|| drop(find(&md1))));
+    assert!(many < single * 6, "find with 100 keys {many:?} vs one key {single:?}");
 }
