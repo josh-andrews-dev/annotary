@@ -245,3 +245,55 @@ for (const [state, width] of [['open', 1280], ['decided', 1280], ['open', 390]] 
     expect(t1.anchor.original.exact).toBe(exact);
   });
 }
+
+/** Selects from the start of the first text node under `from` to the end of `to`'s text `t`. */
+const selectFrom = (page: Page, from: string, to: string, t: string) =>
+  page.evaluate(([from, to, t]) => {
+    const first = document.createTreeWalker(document.querySelector(from)!, NodeFilter.SHOW_TEXT).nextNode()!;
+    const w = document.createTreeWalker(document.querySelector(to)!, NodeFilter.SHOW_TEXT);
+    let n = w.nextNode();
+    while (n && (n.nodeValue || '').indexOf(t) < 0) n = w.nextNode();
+    const r = document.createRange();
+    r.setStart(first, 0);
+    r.setEnd(n!, (n!.nodeValue || '').indexOf(t) + t.length);
+    const s = window.getSelection()!;
+    s.removeAllRanges();
+    s.addRange(r);
+  }, [from, to, t]);
+
+for (const [from, to, t, quote] of [
+  ['.cd-qrow[data-q="D1"] .cd-qwho', '#cd-doc li', 'The existing box', 'Recommended: A. The existing box'],
+  ['.cd-qcell[data-q="D1"] .cd-qwho', '#cd-doc tbody tr:nth-child(2) td', 'D2', 'D2'],
+] as const) {
+  // spec: S50-16
+  test(`a selection that starts in ${from} maps from the Document text after it`, async ({ page }) => {
+    const doc = seedDoc(`q-start-${from.includes('qrow') ? 'row' : 'cell'}`, MD);
+    await openDoc(page, doc.id);
+    await expect(row(page, 'D1')).toBeVisible();
+    await selectFrom(page, from, to, t);
+    await expect(page.locator('#cd-pill')).toBeVisible();
+    await page.locator('#cd-pill').click();
+    await expect(page.locator('.cd-composer .cd-quote q')).toHaveText(quote);
+    await expect(page.locator('#cd-toast')).not.toContainText('Could not map');
+  });
+}
+
+// spec: S50-16
+test('a selection wholly inside a Question\'s controls offers no comment', async ({ page }) => {
+  const doc = seedDoc('q-inside', MD);
+  await openDoc(page, doc.id);
+  await expect(row(page, 'D1')).toBeVisible();
+  for (const sel of ['.cd-qcell[data-q="D1"]', '.cd-qrow[data-q="D1"] .cd-qwho']) {
+    // Document text first, so the pill is up and the Question's selection has to take it down.
+    await selectFrom(page, '#cd-doc h2', '#cd-doc h2', 'Where the service runs');
+    await expect(page.locator('#cd-pill')).toBeVisible();
+    await page.evaluate((sel) => {
+      const r = document.createRange();
+      r.selectNodeContents(document.querySelector(sel)!);
+      const s = window.getSelection()!;
+      s.removeAllRanges();
+      s.addRange(r);
+    }, sel);
+    await expect(page.locator('#cd-pill')).toBeHidden();
+  }
+});

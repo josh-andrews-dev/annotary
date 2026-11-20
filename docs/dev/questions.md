@@ -66,7 +66,8 @@ leaves them out, and the server never writes Markdown. Why each choice: `docs/de
   in the table's `Decided` cell, `#cd-qsum` / `#cd-qaccept` in the header, and `.cd-qans` leading a
   Question Thread's card (also in the fragment). Everything added carries `cd-qx`: page chrome, not the Document's text.
   `app.js` keeps it out of the text a selection maps (`textNodes`, `docText`, `tightRange`), so a
-  selection across a Question's row, radio or cell maps to the Document text it covers; it is
+  selection across a Question's row, radio or cell (or starting in one) maps to the Document text
+  it covers, and one wholly inside the chrome gets no pill; it is
   `user-select: none`, so a copy leaves it out; and a reader of the Document's text (the
   `version-diff` scenario, `tests/web/actions.ts`) removes `.cd-strip, .cd-qx`, which is how a
   Version page reads back as its Compare page's newer side (S50-16). Read-only (older Version, deleted, no `comment`):

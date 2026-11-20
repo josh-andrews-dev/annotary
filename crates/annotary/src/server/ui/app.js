@@ -1837,8 +1837,14 @@ function main() {
     }
     return { start: start, end: end };
   }
+  /* Inside Question chrome (`.cd-qx`), a script or a style: not the Document's text. */
+  function inQx(n) {
+    var p = n.nodeType === 1 ? n : n.parentElement;
+    return !p || !!p.closest('script,style,.cd-qx');
+  }
   /* A range's text without Question chrome (`.cd-qx`), which is not the Document's. */
   function docText(r) {
+    if (inQx(r.commonAncestorContainer)) return '';
     var f = r.cloneContents();
     f.querySelectorAll('.cd-qx').forEach(function (e) { e.remove(); });
     return f.textContent;
@@ -1937,10 +1943,7 @@ function main() {
     var root = anc.nodeType === 1 ? anc : anc.parentElement;
     if (!root) return null;
     var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: function (n) {
-        var p = n.parentElement;
-        return !p || p.closest('script,style,.cd-qx') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
-      }
+      acceptNode: function (n) { return inQx(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; }
     });
     var sc = range.startContainer;
     if (sc.nodeType === 3) w.currentNode = sc;
@@ -1950,7 +1953,7 @@ function main() {
     var n = w.currentNode.nodeType === 3 ? w.currentNode : w.nextNode();
     for (; n; n = w.nextNode()) {
       if (range.comparePoint(n, 0) > 0) break; // starts after the range
-      if (!range.intersectsNode(n)) continue;
+      if (inQx(n) || !range.intersectsNode(n)) continue; // the start node skips acceptNode
       var v = n.nodeValue;
       var s = n === range.startContainer ? range.startOffset : 0;
       var e = n === range.endContainer ? range.endOffset : v.length;
