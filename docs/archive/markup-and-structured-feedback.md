@@ -1,6 +1,6 @@
 # Plan: Pencil markup and structured questions
 
-Status: Approved 2026-11-19. Run started.
+Status: Done 2026-11-20. Archived; history, not instructions.
 
 ## What the maintainer asked for
 
@@ -476,3 +476,23 @@ It carries on through waits for CI, review and simulator leases.
 - 2026-11-19: research and the two outside design reports done; plan drafted.
 - 2026-11-19: D1 to D3 answered; D2 reworked in chat into the decisions table. Board waived, TestFlight
   build wanted, go given. M2 started.
+- 2026-11-20: M2 done. Markup on the server (#89), released with Questions.
+- 2026-11-20: M3 done. Questions on the server (#91). Both shipped as v0.8.0, deployed, health
+  check healthy; the store moved from schema 6 to 8 after its automatic export. `make verify-live`
+  first failed on #86 and #87, which #90 fixed. Left open: #92 (a mid-review Question card's
+  buttons sit flush left).
+- 2026-11-20: M4 done. The app has Pencil Markup and Questions; one TestFlight build, 0.3.0 (2),
+  is uploaded and valid. Not exercised without a real Pencil: drawing with no mode while a finger
+  scrolls, palm rejection, pressure and tilt, the double-tap, two-finger scrolling while drawing.
+- 2026-11-20: the reading test passed. Five drawings from the app, read from the picture and the
+  quote alone: Claude and Gemini read all five (both took the small note's "?" for "!"); Grok read
+  three, took the arrow as "reconcile" rather than "move", and could not read the small pale note.
+  No model misread three of five, so the picture stays as designed. Small, pale ink is the weak
+  case.
+- 2026-11-20: M5 done. annotary-hermes #63 (pin v0.8.0, `annotary_markup`, Questions in read,
+  comment, push and the digest). Its real-model live loop failed on the first attempt: the agent
+  wrote decisions-table cells with wording in them, which the parser skips, and was not told. The
+  fix returns the skipped-row warnings from share and push and states the cell format in the
+  plugin's skill; the second run passed both scenarios. Left open: annotary-hermes #64.
+- 2026-11-20: M6 done. The maintainer's plan template ends its decisions with one decisions
+  table, and the maintainer's machines have the v0.8.0 CLI and skill. This plan is archived.
