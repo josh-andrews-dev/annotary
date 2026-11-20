@@ -21,24 +21,25 @@ pub const TOP: &str = "\
 Usage: annotary <command> [args] [options]
 
 Documents
-  list [NAME]                 Documents in the Vault (id name vN action open updated), most active first
+  list [NAME]                 Documents, most active first (id name vN action open updated)
   push FILE.md                Upload a new Version (or create the Document); re-anchors Threads
   pull DOC                    Write <name>.md + <name>.annotary into the current dir
   show DOC                    Header + open Threads (what an agent reads first)
   status DOC                  version · action · open Threads · mentions of you · event cursor
   versions DOC                Version list
   delete | restore | purge DOC
-  link DOC [tN]               The URL that opens it (or Thread tN) on another device
+  link DOC [tN]               URL that opens it (or Thread tN) elsewhere
 Threads
   thread list DOC             Open Threads on head, document order, orphaned last
   thread show DOC ID          Full Thread: root, replies, anchor, resolution
   thread new DOC ANCHOR       Start a Thread (\"L:C-L:C\" range, --document, or --asset REF)
   thread reply DOC ID         Reply (add --resolve to close it in the same step)
   thread resolve | reopen | edit | delete DOC ID
-  mentions                    Threads mentioning you, every Document you can read (--since)
+  mentions                    Threads mentioning you, in every Document (--since)
 Actions
   act DOC ACTION              Take an Action on head (--version N guards against a moved head)
   actions DOC                 Action history, newest first
+  answer DOC KEY OPTION       Answer a Question (D4, t7); none withdraws
 Wait
   wait [DOC]                  Block until a new Version, Action or @mention; print it
 Local server
@@ -56,14 +57,14 @@ Members & credentials (owner)
   avatar <cmd>                set | clear | show  (yours)
   pair                        Pair a phone or tablet (QR code)
   login | logout              Get a token with the password / forget it
-  profile <cmd>               list | add | remove  (list shows whose each profile is)
+  profile <cmd>               list | add | remove
   skill install               Write this version's agent skill
 
 Options (every command)
   -p, --profile NAME          Who you are: a profile in ~/.annotary/config.toml (no default;
                               else ANNOTARY_TOKEN, then ANNOTARY_PROFILE)
       --json [FIELDS]         JSON output; FIELDS narrows (comma list), '?' lists fields
-  -q, --quiet                 Result only — no progress, no hints
+  -q, --quiet                 Result only, no progress
       --no-color
       --data-dir DIR          Data dir (default ~/.annotary)  [env ANNOTARY_HOME]
   -h, --help                  Per-command help: annotary <command> --help
@@ -202,7 +203,7 @@ Prints `NAME  vN  ACTION  by @handle`; `--json` → {name,id,version,action,by,a
 ";
 
 pub const ANSWER: &str = "\
-Usage: annotary answer DOC KEY OPTION|none
+Usage: annotary answer DOC KEY OPTION|none [--vault NAME]
 
 KEY is a row of the Document's decisions table (a table with Decision, Options and Decided columns:
 D4) or a Thread that asks a Question (t7, from `thread new … --ask`). OPTION is an option id (A), a
@@ -302,6 +303,7 @@ mod tests {
             (&["wait"], super::WAIT),
             (&["status"], super::STATUS),
             (&["act"], super::ACT),
+            (&["answer"], super::ANSWER),
             (&["member", "add"], super::MEMBER),
             (&["daemon", "install"], super::DAEMON),
             (&["skill", "install"], super::SKILL),

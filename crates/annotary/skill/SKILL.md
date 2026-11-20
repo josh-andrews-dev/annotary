@@ -22,7 +22,7 @@ Humans and agents comment on Markdown as equals. Pass `-p NAME` on **every** com
   A question gets an answer, no edit. Unclear? Ask there, don't guess. Resolve only what's done; `@handle` mentions.
 - **Links:** give a person only the URL `annotary link DOC [t7]` prints, plain, not in code;
   127.0.0.1 only with them on that machine. T3 Code: `preview_open` it too.
-- **`--version N`** guards `act`, `thread new`: exit 5 if head moved. **`--json`** to parse (`id,body` narrows, `?` lists).
+- **`--version N`** guards `act`, `thread new`: exit 5 if head moved. **`--json`** to parse (`id,body` narrows).
 - **Wait, don't poll.** `wait DOC` blocks for a new Version, Action or @mention; `--cursor SEQ` (`status`) resumes.
 
 ## A document for the human's review
@@ -55,6 +55,6 @@ list [NAME] [--mentions-me|--action ID|none|--since 2h]
 
 DOC = id, unique Name or pulled `.md` path. Anchor `refined`: text changed (`thread show`);
 `orphaned`: span gone, still replyable. `[markup]`: a drawing; `thread show --markup DIR`, then
-look at the PNG. Exit: 0 ok · 1 usage · 2 not found · 3 no credential · 4 no right · 5 refused ·
-6 unreachable · 7 timeout.
+look at the PNG. A table with Decision, Options, Decided columns is tappable; `pull` writes the
+answers in; an answer is not a mention. Exit 5 refused, 7 timeout.
 `annotary --version` ≠ `metadata.version` → `annotary skill install`, reload. More: `<command> --help`.

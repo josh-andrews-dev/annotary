@@ -756,7 +756,9 @@ impl Store {
     /// `anchor.original`; empty spans are refused. `expect_version` ≠ head ⇒ `NotHead`.
     pub fn new_thread(&self, by: &str, doc_id: &str, input: NewThread) -> Result<ThreadView> {
         validate_body(&input.body, input.markup.is_some())?;
+        let question_at_place = input.question.is_some() && input.range.as_deref().is_none_or(|r| r.trim().is_empty());
         let range = match input.subject {
+            ThreadSubject::Span if question_at_place => None,
             ThreadSubject::Span => Some(
                 Range::parse(input.range.as_deref().unwrap_or(""))
                     .map_err(|e| StoreError::InvalidRange(e.to_string()))?,
@@ -785,10 +787,6 @@ impl Store {
             });
         }
         let question = input.question.as_deref().map(str::trim).map(str::to_string);
-        let range = match (&question, range) {
-            (Some(_), _) if input.range.as_deref().is_none_or(|r| r.trim().is_empty()) => None,
-            (_, r) => r,
-        };
         // ---- end Questions ----
         let num = self.tx(|tx| {
             let (head, md_hash) = doc_head(tx, doc_id)?;
