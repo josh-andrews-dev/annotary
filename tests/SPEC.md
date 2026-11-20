@@ -654,6 +654,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S49-08 — in the fake embedder a card's Markup image arrives through the bridge (`binary`) and the frame makes no request of its own (story 180)
 - S49-09 — CLI: `show`, `thread list` and `mentions` mark a Thread whose root or a Reply holds a Markup with `[markup]` before the body, and their `--json` records carry `markup: true`; `thread show` prints a `[markup] W×H` line above each such Comment's body (its body left out when empty) and its `--json` carries `markup {image, width, height, strokes}`; `thread show DOC tN --markup DIR` writes `tN.png` (and `tN.M.png` for a Reply's) into DIR, made if missing, prints each path on that line and adds `path` to the JSON, and refuses a Comment id or image hash from the server that is not one before any request or write; `thread new` and `thread reply` take `--markup PNG --strokes JSON` (the message then optional); a file that cannot be read exit 1, a refused one exit 1, an oversized one exit 5 (story 180)
 - S49-10 — the agent skill says in one clause that a `[markup]` Thread is a drawing to read with `thread show --markup DIR` and then look at the PNG, inside its 60 lines and its token limit (story 180)
+- S49-11 — a Markup id is checked against `IMAGE_MAX` and `STROKES_MAX` from its blobs' sizes before either is read, so an id naming large blobs is refused (413 `too_large`) with nothing allocated; a missing blob is still `markup_missing`, and blobs exactly at the caps are accepted (story 180)
 
 ## Stories
 
@@ -841,7 +842,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 177 — comment on the whole Document from its page → S48-02
 - 178 — a Mentions page of the open Threads that mention me → S48-03
 - 179 — delete and restore a Document from the web, with the `write` right → S48-01, S48-04
-- 180 — a Markup (a drawing made in the app) is seen on its Thread's card everywhere and read by agents through the CLI → S49-01, S49-02, S49-03, S49-04, S49-05, S49-06, S49-07, S49-08, S49-09, S49-10
+- 180 — a Markup (a drawing made in the app) is seen on its Thread's card everywhere and read by agents through the CLI → S49-01, S49-02, S49-03, S49-04, S49-05, S49-06, S49-07, S49-08, S49-09, S49-10, S49-11
 
 ## Deferred
 
