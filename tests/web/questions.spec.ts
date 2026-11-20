@@ -152,3 +152,96 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(page.locator('.cd-qx')).toHaveCount(0);
   });
 }
+
+const DECIDED = MD.replace('| D1 | A, B | A | |', '| D1 | A, B | A | B (@rowan, 2026-11-20) |')
+  .replace('| D2 | A, B, C | B | |', '| D2 | A, B, C | B | C (@rowan, 2026-11-20) |');
+
+/** What a reader takes away from `#cd-doc`: everything selected and copied (no whitespace). */
+const copiedText = (page: Page) =>
+  page.evaluate(() => {
+    const s = window.getSelection()!;
+    s.selectAllChildren(document.getElementById('cd-doc')!);
+    const t = s.toString().replace(/\s+/g, '');
+    s.removeAllRanges();
+    return t;
+  });
+
+// spec: S50-16
+test('a Version with Questions reads back as its Compare page: the controls are not the Document\'s text', async ({ page }) => {
+  const doc = seedDoc('q-compare-text', MD);
+  pushVersion(doc, DECIDED, 'record');
+  await openDoc(page, doc.id);
+  await expect(row(page, 'D1')).toHaveClass(/cd-qdone/);
+  // The convention every Document-text reader follows: `#cd-doc` without strips and Question chrome.
+  const docText = await page.locator('#cd-doc').evaluate((root) => {
+    const c = root.cloneNode(true) as HTMLElement;
+    c.querySelectorAll('.cd-strip, .cd-qx').forEach((e) => e.remove());
+    return (c.textContent || '').replace(/\s+/g, '');
+  });
+  expect(docText).not.toContain('decided:');
+  // Selected and copied, the page gives the same text: the decided lines are not in it.
+  expect(await copiedText(page)).toBe(docText);
+  await page.goto(`${harness().url}/d/${doc.id}/diff?from=1&to=2`);
+  await page.waitForSelector('.cd-app.cd-diffpage.cd-ready');
+  const newer = await page.locator('#cd-dxdoc').evaluate((root) => {
+    const c = root.cloneNode(true) as HTMLElement;
+    c.querySelectorAll('del.cd-del, .cd-dx-del, .cd-sr, .cd-dx-sum, #cd-dxnote').forEach((e) => e.remove());
+    return (c.textContent || '').replace(/\s+/g, '');
+  });
+  expect(newer).toBe(docText);
+  // An open Question's buttons are not copied either.
+  const open = seedDoc('q-copy-open', MD);
+  await openDoc(page, open.id);
+  const copied = await copiedText(page);
+  expect(copied).not.toContain('Other…');
+  expect(copied).not.toContain('Noansweryet');
+});
+
+for (const [state, width] of [['open', 1280], ['decided', 1280], ['open', 390]] as const) {
+  // spec: S50-16
+  test(`a selection across a Question's controls (${state}, ${width} px) maps to the source it covers`, async ({ page }) => {
+    const md = state === 'open' ? MD : DECIDED;
+    const doc = seedDoc(`q-select-${state}-${width}`, md);
+    await openDoc(page, doc.id, { width });
+    await expect(row(page, 'D1')).toBeVisible();
+    // From the place heading, over its row (and the Option's radio when open), into the Option.
+    await page.evaluate(() => {
+      const textIn = (sel: string, t: string) => {
+        const w = document.createTreeWalker(document.querySelector(sel)!, NodeFilter.SHOW_TEXT);
+        for (let n = w.nextNode(); n; n = w.nextNode()) {
+          const k = (n.nodeValue || '').indexOf(t);
+          if (k >= 0 && !n.parentElement!.closest('.cd-qx')) return { n, k };
+        }
+        throw new Error(`"${t}" not in ${sel}`);
+      };
+      const a = textIn('#cd-doc h2', 'Where the service runs');
+      const b = textIn('#cd-doc li', 'The existing box');
+      const r = document.createRange();
+      r.setStart(a.n, a.k);
+      r.setEnd(b.n, b.k + 'The existing box'.length);
+      const s = window.getSelection()!;
+      s.removeAllRanges();
+      s.addRange(r);
+    });
+    const pill = page.locator('#cd-pill');
+    await expect(pill).toBeVisible();
+    await pill.click();
+    const exact = 'Where the service runs\n\n- Recommended: A. The existing box';
+    const quote = page.locator('.cd-composer .cd-quote q');
+    await expect(quote).toContainText('Where the service runs');
+    await expect(quote).not.toContainText('decided');
+    await expect(quote).not.toContainText('Other');
+    const ta = page.locator('.cd-composer textarea');
+    await ta.fill('Across the controls.');
+    await page.keyboard.press('Control+Enter');
+    await expect(page.locator('.cd-thread[data-t="t1"]:not(.cd-pending)')).toBeVisible();
+    const t1 = JSON.parse(cli(harness().owner, ['thread', 'show', doc.id, 't1', '--json']))[0];
+    const lines = md.split('\n');
+    const l0 = lines.findIndex((l) => l.includes('Where the service runs'));
+    const l1 = lines.findIndex((l) => l.includes('The existing box'));
+    const c0 = lines[l0].indexOf('Where');
+    const c1 = lines[l1].indexOf('The existing box') + 'The existing box'.length;
+    expect(t1.anchor.original.range).toBe(`${l0 + 1}:${c0}-${l1 + 1}:${c1}`);
+    expect(t1.anchor.original.exact).toBe(exact);
+  });
+}

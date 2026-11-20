@@ -673,6 +673,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S50-13 — in the fake embedder a Question is answered through the bridge and the frame makes no request of its own (story 181)
 - S50-14 — the agent skill says in one sentence that a table with Decision, Options, Decided columns is tappable, that `pull` writes the answers in and that an answer is not a mention, inside its 60 lines and its token limit (story 183)
 - S50-15 — the Sidecar's Threads carry `question` / `options` and the Sidecar carries the Document's current `answers`; purging the Document removes its rows (`export` is the store's SQLite backup, so it holds them with the rest) (stories 181, 183)
+- S50-16 — a Question's controls are page chrome, not the Document's text: selected and copied, a Version page with Questions (open or decided) gives only the Document's text, the same text the Compare page reads back as the newer side, and a selection that spans a Question's row, radio or cell maps to the source range of the Document text it covers, wide and narrow (story 181)
 
 ## Stories
 
@@ -861,7 +862,7 @@ whose coverage Phase 1 does not automate points at a Deferred id.
 - 178 — a Mentions page of the open Threads that mention me → S48-03
 - 179 — delete and restore a Document from the web, with the `write` right → S48-01, S48-04
 - 180 — a Markup (a drawing made in the app) is seen on its Thread's card everywhere and read by agents through the CLI → S49-01, S49-02, S49-03, S49-04, S49-05, S49-06, S49-07, S49-08, S49-09, S49-10, S49-11
-- 181 — a decisions table in the Document becomes controls answered with a tap, seen by everyone and read by agents → S50-01, S50-02, S50-03, S50-04, S50-07, S50-09, S50-10, S50-11, S50-12, S50-13, S50-15
+- 181 — a decisions table in the Document becomes controls answered with a tap, seen by everyone and read by agents → S50-01, S50-02, S50-03, S50-04, S50-07, S50-09, S50-10, S50-11, S50-12, S50-13, S50-15, S50-16
 - 182 — a Question with a few answers is asked mid-review on a Thread → S50-08, S50-10, S50-12
 - 183 — `pull` writes the answers into the Markdown and `push` refuses a file that leaves them out → S50-05, S50-06, S50-14, S50-15
 

@@ -1837,6 +1837,12 @@ function main() {
     }
     return { start: start, end: end };
   }
+  /* A range's text without Question chrome (`.cd-qx`), which is not the Document's. */
+  function docText(r) {
+    var f = r.cloneContents();
+    f.querySelectorAll('.cd-qx').forEach(function (e) { e.remove(); });
+    return f.textContent;
+  }
   /* The selection as a source range: {range: "L:C-L:C", exact, line, end, text} or null. */
   function mapSelection(range, lines) {
     var sb = mapBlock(range.startContainer), eb = mapBlock(range.endContainer);
@@ -1872,7 +1878,8 @@ function main() {
     var exact = extract(start, end);
     // Verify: the selected text's visible characters all occur, in order, in the source range,
     // which starts and ends with the same characters as the selection.
-    var sel = Array.from(range.toString()).filter(function (c) { return !isWs(c); });
+    var shown = docText(range);
+    var sel = Array.from(shown).filter(function (c) { return !isWs(c); });
     var src = Array.from(exact).filter(function (c) { return !isWs(c); });
     var decoded = decodeEntity(exact.replace(/</g, '&lt;')) || exact;
     var srcDec = Array.from(decoded).filter(function (c) { return !isWs(c); });
@@ -1890,7 +1897,7 @@ function main() {
     var bal = balanceDelimiters(lines, start, end);
     start = bal.start; end = bal.end;
     exact = extract(start, end);
-    return { range: start.line + ':' + start.col + '-' + end.line + ':' + end.col, exact: exact, line: start.line, end: end.line, text: range.toString() };
+    return { range: start.line + ':' + start.col + '-' + end.line + ':' + end.col, exact: exact, line: start.line, end: end.line, text: shown };
   }
 
   /* ---------- the pill ---------- */
@@ -1924,7 +1931,7 @@ function main() {
      a list item) ends the selection at offset 0 of the next block — an `h2`, the next `li` — and
      mapping that end would fail. Only blank edges are trimmed: when the selection takes in any
      text of a card (or an editor) it is returned as it is, so the strip check below still
-     refuses it. null when it covers no text. */
+     refuses it. `.cd-qx` counts as blank. null when it covers no text. */
   function tightRange(range) {
     var anc = range.commonAncestorContainer;
     var root = anc.nodeType === 1 ? anc : anc.parentElement;
@@ -1932,7 +1939,7 @@ function main() {
     var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         var p = n.parentElement;
-        return !p || p.closest('script,style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        return !p || p.closest('script,style,.cd-qx') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
       }
     });
     var sc = range.startContainer;
@@ -1975,7 +1982,7 @@ function main() {
     // A selection that crosses a card is not a span of the Document.
     var frag = range.cloneContents();
     if (frag.querySelector && frag.querySelector('.cd-strip')) { hidePill(); return; }
-    var text = range.toString();
+    var text = docText(range);
     if (!text.trim()) {
       // Only media inside? → a whole-Asset Thread.
       var live = $$('img,video,audio,object', docEl).filter(function (m) { return range.intersectsNode(m); })[0];

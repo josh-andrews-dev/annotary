@@ -1,5 +1,7 @@
 /* Questions (docs/dev/questions.md): only on a Document page whose Version has Questions. A choice
    is never color alone: the pressed button shows a check and the who-chose text names it. */
+/* Page chrome, not the Document's text: never selected or copied with it. */
+.cd-qx{-webkit-user-select:none;user-select:none}
 .cd-qrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 12px;font-size:13px;color:var(--cd-fg)}
 .cd-qkey{font-family:var(--cd-mono);font-size:12px;font-weight:600;color:var(--cd-muted)}
 .cd-qopt{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--cd-line);background:var(--cd-card);color:var(--cd-fg);border-radius:999px;padding:1px 10px;font-size:13px;min-height:26px;cursor:pointer}

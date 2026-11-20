@@ -11,7 +11,10 @@ below; the `surfaces` check reads it).
 - **The web page.** Wide (margin cards, from 850 px) and narrow (inline rows, a phone) layouts; the
   light and the dark theme; the head and an older Version (the time-slice: `/d/{id}/v/{n}`); a
   deleted Document (the list's `deleted=1`, restore); the Compare page when the change touches the
-  Document's HTML.
+  Document's HTML. Anything the server adds inside `#cd-doc` that is not the Document's own text
+  (a Thread strip, a Question's controls) carries a class every reader of the Document's text
+  leaves out (`.cd-strip`, `.cd-qx`: selection mapping in `app.js`, `tests/web/actions.ts`, the
+  `version-diff` scenario), or a Version page stops reading back as its Compare page.
 - **Embed mode** (`docs/dev/web-document-view.md`, "Embed mode"). Every request goes through
   `transport` in `app.js`, never `fetch`, `EventSource` or `location` directly; an answer over
   384 KiB (`PART_MAX`) arrives in parts and must still work; the frame has no cookies and no

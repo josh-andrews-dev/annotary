@@ -64,8 +64,12 @@ leaves them out, and the server never writes Markdown. Why each choice: `docs/de
 - **The page** (`qview.rs`, spliced before the Thread strips, so the first paint is final): a
   `.cd-qrow` after the place block, `input.cd-qradio` at an Option block's leading edge, `.cd-qcell`
   in the table's `Decided` cell, `#cd-qsum` / `#cd-qaccept` in the header, and `.cd-qans` leading a
-  Question Thread's card (also in the fragment). Everything added carries `cd-qx`, which `app.js`
-  keeps out of selection mapping like a strip. Read-only (older Version, deleted, no `comment`):
+  Question Thread's card (also in the fragment). Everything added carries `cd-qx`: page chrome, not the Document's text.
+  `app.js` keeps it out of the text a selection maps (`textNodes`, `docText`, `tightRange`), so a
+  selection across a Question's row, radio or cell maps to the Document text it covers; it is
+  `user-select: none`, so a copy leaves it out; and a reader of the Document's text (the
+  `version-diff` scenario, `tests/web/actions.ts`) removes `.cd-strip, .cd-qx`, which is how a
+  Version page reads back as its Compare page's newer side (S50-16). Read-only (older Version, deleted, no `comment`):
   buttons disabled. `#cd-data.questions` is the `Shown` JSON, present only with Questions.
   `questions.js` waits for `window.cd` (app.js boots after a frame), answers through `cd.api` (so
   embed mode works), updates optimistically with rollback and a toast, re-reads on
