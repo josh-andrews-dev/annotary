@@ -5,7 +5,7 @@
 //! (document-level with a mention and a resolution, a span refined by v2 with a `now:` text and a
 //! two-entry history, a span orphaned by v2 frozen at its last valid placement, a whole-Asset
 //! Thread, a tombstoned Reply, a tombstoned root with a live Reply, `edited_at` on a root and on a
-//! Reply). The server's projection parses and re-emits byte-identically, `pull` writes the same
+//! Reply, a Markup on a root and on a Reply). The server's projection parses and re-emits byte-identically, `pull` writes the same
 //! bytes, and the pulled tree pushes back as `already`.
 
 use std::path::Path;
@@ -74,7 +74,7 @@ See the [notes](notes.md) for the details.\n\
 \n\
 The last paragraph stays put.\n";
 
-// spec: S16-02, S02-22, S03-14, S04-14, S05-12, S07-11
+// spec: S16-02, S02-22, S03-14, S04-14, S05-12, S07-11, S49-04
 #[test]
 fn the_full_sidecar_round_trips_through_the_server_and_pull() {
     let ts = TestServer::start();
@@ -110,7 +110,17 @@ fn the_full_sidecar_round_trips_through_the_server_and_pull() {
         ok(&run(&ts, home.path(), w, &owner, &["thread", "new", "plan", "3:4-3:20", "-m", "Order matters."])),
         "t2\tv1:3:4-3:20 \"skill file ships\"\n"
     );
-    ok(&run(&ts, home.path(), w, &scribe, &["thread", "reply", "plan", "t2", "-m", "Agreed"]));
+    // Markup: the Reply carries a drawing (kept through the edit below).
+    let mk = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/markup");
+    let (mk_png, mk_json) = (mk.join("cross-out.png"), mk.join("cross-out.strokes.json"));
+    let (mk_png, mk_json) = (mk_png.to_str().unwrap(), mk_json.to_str().unwrap());
+    ok(&run(
+        &ts,
+        home.path(),
+        w,
+        &scribe,
+        &["thread", "reply", "plan", "t2", "-m", "Agreed", "--markup", mk_png, "--strokes", mk_json],
+    ));
     ok(&run(&ts, home.path(), w, &scribe, &["thread", "edit", "plan", "t2.1", "-m", "Agreed — item 3 says so."]));
     // t3: a span on the line v2 deletes (orphaned); its root gets edited.
     ok(&run(&ts, home.path(), w, &linter, &["thread", "new", "plan", "5:0-5:9", "-m", "Why this line?"]));
@@ -122,7 +132,19 @@ fn the_full_sidecar_round_trips_through_the_server_and_pull() {
             home.path(),
             w,
             &owner,
-            &["thread", "new", "plan", "--asset", "img/a.png", "-m", "Diagram is stale."]
+            &[
+                "thread",
+                "new",
+                "plan",
+                "--asset",
+                "img/a.png",
+                "-m",
+                "Diagram is stale.",
+                "--markup",
+                mk_png,
+                "--strokes",
+                mk_json
+            ]
         )),
         "t4\tasset img/a.png\n"
     );
@@ -265,6 +287,9 @@ fn the_full_sidecar_round_trips_through_the_server_and_pull() {
     );
     assert!(a.history.iter().all(|h| h.exact.is_none()), "history rows carry no text");
     assert!(t2.replies[0].edited_at.is_some() && t2.replies[0].body == "Agreed — item 3 says so.");
+    let m = t2.replies[0].markup.as_ref().expect("the Reply's Markup");
+    assert_eq!((m.width, m.height, m.image.len(), m.strokes.len()), (480, 160, 64, 64));
+    assert!(t2.markup.is_none());
     let t3 = t("t3");
     let a = t3.anchor.as_ref().unwrap();
     assert_eq!(
@@ -279,6 +304,7 @@ fn the_full_sidecar_round_trips_through_the_server_and_pull() {
     let t4 = t("t4");
     let a = t4.anchor.as_ref().unwrap();
     assert_eq!(t4.subject, "asset");
+    assert_eq!(t4.markup.as_ref().map(|m| m.image.as_str()), Some(m.image.as_str()));
     assert_eq!(
         (a.original.version, a.original.hash.as_deref(), a.original.reference.as_deref(), a.original.line),
         (1, Some(sha256_hex(&fixture("a.png")).as_str()), Some("img/a.png"), Some(7))
