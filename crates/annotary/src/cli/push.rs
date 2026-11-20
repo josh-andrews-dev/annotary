@@ -361,7 +361,11 @@ pub fn run(ctx: &Ctx, a: PushArgs) -> CliResult<()> {
                 body["placements"] = json!(r.placements);
                 body["placements_from"] = json!(r.from);
             }
-            api.post(&format!("/api/v1/docs/{id}/versions"), &body).map_err(|e| {
+            api.post(&format!("/api/v1/docs/{id}/versions"), &body).map_err(|mut e| {
+                if e.kind == "answers_missing" && ctx.out.is_json() {
+                    // As `missing_error`: the rows are in `missing[]`, not folded into the hint.
+                    e.detail.clear();
+                }
                 if e.exit == Exit::NotFound && binding.as_ref().is_some_and(|b| &b.id == id) && a.doc.is_none() {
                     CliError::not_found(format!("no Document {id} (from {})", sc_path.display()))
                         .hint("was it purged? `push --doc ID` rebinds; delete the Sidecar to create a new Document")
