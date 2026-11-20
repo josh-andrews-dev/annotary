@@ -500,3 +500,21 @@ test('the Document additions in the frame: Copy link (by hand when the clipboard
   await expect(fl.locator(`tr.cd-docrow[data-id="${doc.id}"]`)).toHaveCount(1);
   await expect(fl.locator('button.cd-restore')).toHaveCount(0);
 });
+
+// spec: S49-08
+test('a Markup on a card arrives through the bridge; the frame loads nothing itself', async ({ page }) => {
+  const fix = path.join(REPO_ROOT, 'fixtures', 'markup');
+  const doc = seed('emb-mk', PLAN);
+  cliAs(['thread', 'new', doc.id, '--document', '--markup', path.join(fix, 'cross-out.png'), '--strokes', path.join(fix, 'cross-out.strokes.json')]);
+  const t = await api(`/api/v1/docs/${doc.id}/threads/t1`);
+  const url = `/api/v1/docs/${doc.id}/markups/${t.markup.image}`;
+
+  const e = await embed(page, `/d/${doc.id}`);
+  const img = e.fl.locator('.cd-thread[data-t="t1"] img.cd-mk-img');
+  await expect(img).toHaveAttribute('data-cd-mk', url);
+  await expect.poll(() => img.evaluate((x) => (x as HTMLImageElement).naturalWidth)).toBe(480);
+  expect(await img.getAttribute('src')).toMatch(/^blob:/);
+  const asked = (await e.msgs()).filter((m) => m.type === 'annotary-req' && (m.path || '').includes('/markups/'));
+  expect(asked.map((m) => m.path)).toEqual([url]);
+  expect(e.requests.filter((u) => u.startsWith(srv.url))).toEqual([]);
+});
