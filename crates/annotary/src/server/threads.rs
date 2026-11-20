@@ -3,7 +3,7 @@
 //! | route | right | what |
 //! |---|---|---|
 //! | `GET /api/v1/docs/{id}/threads?status=open\|resolved\|all&mentions_me=1&since=T&sort=recent&hidden=1&anchor=anchored,refined,orphaned&version=N` | read | `{threads:[…]}` — default open, document order; `anchor=` filters by placement status; `version=N` = the read-only time-slice (Threads as they stood on N; 404 for an unknown N) (ticket 07) |
-//! | `POST /api/v1/docs/{id}/threads {subject: span\|document\|asset, range?, ref?, body, version?, markup?}` | comment | new Thread on head (201); `version` ≠ head ⇒ 409 `not_head`; range not on head ⇒ 409 `range_not_on_head`; asset `ref` not in the head manifest ⇒ 409 `asset_not_on_head`, missing ⇒ 409 `asset_missing` (ticket 07) |
+//! | `POST /api/v1/docs/{id}/threads {subject: span\|document\|asset, range?, ref?, body, version?, markup?, question?, options?}` | comment | new Thread on head (201); `question: KEY` = the Thread of a Document Question (anchored at its place when `range` is left out; 409 `conflict` when it has one), `options: [labels]` = it asks a Question (2 to 6); `version` ≠ head ⇒ 409 `not_head`; range not on head ⇒ 409 `range_not_on_head`; asset `ref` not in the head manifest ⇒ 409 `asset_not_on_head`, missing ⇒ 409 `asset_missing` (ticket 07) |
 //! | `GET /api/v1/docs/{id}/threads/{tid}` | read | one Thread with its Replies (`tid` = `t7`) |
 //! | `POST /api/v1/docs/{id}/threads/{tid}/replies {body, resolve?, markup?}` | comment | Reply (201) `{thread, comment}`; `resolve` also resolves |
 //! | `POST /api/v1/docs/{id}/threads/{tid}/resolve` · `…/reopen` | comment | bare events; idempotent (`changed`) |
@@ -71,7 +71,39 @@ pub fn thread_json(t: &ThreadView) -> Value {
     obj.insert("mentioned".into(), json!(t.mentioned_handles()));
     obj.insert("updated_at".into(), json!(t.updated_at));
     obj.insert("hidden".into(), json!(t.is_fully_deleted()));
+    // Questions: only on a Thread that has one, so other Threads read as before.
+    if let Some(k) = &t.question {
+        obj.insert("question".into(), json!(k));
+    }
+    if let Some(labels) = &t.options {
+        let ids = annotary_store::thread_option_ids(labels.len());
+        obj.insert(
+            "options".into(),
+            json!(ids.iter().zip(labels).map(|(i, l)| json!({ "id": i, "label": l })).collect::<Vec<_>>()),
+        );
+    }
     v
+}
+
+/// Questions: `answers [{by, option, at}]` on each Thread JSON in `out` that asked a Question,
+/// read once for the Document (nothing is read when none did).
+pub fn add_answers(st: &AppState, doc_id: &str, threads: &[ThreadView], out: &mut [Value]) -> Result<(), ApiError> {
+    if !threads.iter().any(|t| t.options.is_some()) {
+        return Ok(());
+    }
+    let answers = st.store.answers(doc_id, None)?;
+    for (t, v) in threads.iter().zip(out.iter_mut()) {
+        if t.options.is_some() {
+            v["answers"] = json!(
+                answers
+                    .iter()
+                    .filter(|a| a.key == t.id)
+                    .map(|a| json!({ "by": a.handle, "option": a.option, "at": a.at }))
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Map the store's Thread errors onto API errors that name the Document.
@@ -198,12 +230,14 @@ pub async fn list(
         ThreadStatusFilter::Open => all.iter().filter(|t| !t.is_open()).count(),
         _ => 0,
     };
+    let mut items: Vec<Value> = threads.iter().map(thread_json).collect();
+    add_answers(&st, &doc.id, &threads, &mut items)?;
     Ok(Json(json!({
         "id": doc.id,
         "name": doc.head.name,
         "version": version,
         "head": doc.head.number,
-        "threads": threads.iter().map(thread_json).collect::<Vec<_>>(),
+        "threads": items,
         "resolved_hidden": resolved_hidden,
     })))
 }
@@ -226,6 +260,13 @@ pub struct NewThreadBody {
     /// The head Version the poster looked at (refused when the head is not that).
     #[serde(default)]
     pub version: Option<u32>,
+    /// Questions: the key of the Document Question this span Thread is about (`range` may then
+    /// be left out: it anchors at the Question's place).
+    #[serde(default)]
+    pub question: Option<String>,
+    /// Questions: 2 to 6 short labels: this Thread asks a Question (its key is the Thread id).
+    #[serde(default)]
+    pub options: Option<Vec<String>>,
 }
 
 pub async fn create(
@@ -243,7 +284,10 @@ pub async fn create(
         "asset" => ThreadSubject::Asset,
         other => return Err(ApiError::invalid(format!("subject {other:?}: use span|document|asset"))),
     };
-    if subject == ThreadSubject::Span && body.range.as_deref().map(str::trim).unwrap_or("").is_empty() {
+    if subject == ThreadSubject::Span
+        && body.question.is_none()
+        && body.range.as_deref().map(str::trim).unwrap_or("").is_empty()
+    {
         return Err(ApiError::invalid("a span Thread needs a range \"L:C-L:C\"").hint("or pass subject: document"));
     }
     // ---- ticket 07: an asset Thread names a `ref`; its referencing line comes from the head text.
@@ -272,6 +316,8 @@ pub async fn create(
         reference,
         line,
         markup: body.markup,
+        question: body.question,
+        options: body.options,
     };
     let t = st.store.new_thread(&auth.0.member_id, &doc.id, input).map_err(|e| map_err(&doc, e))?;
     tracing::info!("thread {} on {} ({}) by @{}", t.id, doc.head.name, doc.id, auth.0.handle);
@@ -293,7 +339,9 @@ pub async fn get(
         .store
         .thread(&doc.id, num)?
         .ok_or_else(|| ApiError::not_found(format!("no Thread {tid} in {} ({})", doc.head.name, doc.id)))?;
-    let mut v = thread_json(&t);
+    let mut v = [thread_json(&t)];
+    add_answers(&st, &doc.id, std::slice::from_ref(&t), &mut v)?;
+    let [mut v] = v;
     v["doc"] = json!(doc.id);
     v["name"] = json!(doc.head.name);
     Ok(Json(v))

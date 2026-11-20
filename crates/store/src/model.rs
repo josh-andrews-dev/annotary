@@ -279,6 +279,9 @@ pub struct VersionView {
     pub html_hash: Option<String>,
     /// Lowest earlier Version number with the same identity, derived at read time — never stored.
     pub same_as: Option<u32>,
+    /// Questions: the stored JSON (`annotary_renderer::questions::to_json`); `None` for a Version
+    /// pushed before Questions existed (`Store::version_questions` computes those).
+    pub questions: Option<serde_json::Value>,
 }
 
 /// What a commit (create Document or push Version) carries.
@@ -322,6 +325,14 @@ pub struct PushInput {
     /// nothing sent, the stored declaration stays.
     pub actions_available: Option<serde_json::Value>,
     // ---- end ticket 05 ----
+    // ---- Questions ----
+    /// The Version's Questions (`annotary_renderer::questions::to_json`), checked by the server
+    /// handler; `None` = the store computes them from the Markdown.
+    pub questions: Option<serde_json::Value>,
+    /// `push --discard-answers`: commit although the decisions table leaves out Answers given
+    /// on the head (recorded as `discarded_answers` on `version.pushed`).
+    pub discard_answers: bool,
+    // ---- end Questions ----
 }
 
 impl PushInput {
@@ -340,6 +351,8 @@ impl PushInput {
             renderer: None,
             html_hash: None,
             actions_available: None,
+            questions: None,
+            discard_answers: false,
         }
     }
 }

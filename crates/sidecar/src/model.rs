@@ -44,6 +44,20 @@ pub struct Sidecar {
     pub actions: Actions,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub threads: Vec<Thread>,
+    /// Questions: every Member's current Answer, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answers: Vec<AnswerEntry>,
+}
+
+/// Questions: one Member's current Answer to a Question (`key` = `D4` from the decisions table,
+/// or a Thread id for a Question asked on a Thread); `option` an Option id or `other`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnswerEntry {
+    pub key: String,
+    pub by: String,
+    pub option: String,
+    pub version: u32,
+    pub at: String,
 }
 
 /// Ordered `handle → {id, name}` table (a JSON object; insertion order kept so the file is
@@ -193,6 +207,12 @@ pub struct Thread {
     pub body: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub markup: Option<MarkupEntry>,
+    /// Questions: the key of the Document Question this Thread is about.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question: Option<String>,
+    /// Questions: the labels of the Question this Thread asks (Options `A`, `B`, … in order).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub options: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

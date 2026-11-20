@@ -620,6 +620,7 @@ mod tests {
     }
 
     #[test]
+    // spec: S50-04
     fn classify_maps_types_and_mentions() {
         let ev = |kind: &str, payload: Value| Event {
             seq: 1,
@@ -636,6 +637,8 @@ mod tests {
         assert_eq!(classify(&ev("thread.resolved", json!({})), "m1"), (Some(Kind::Resolve), false));
         assert_eq!(classify(&ev("thread.reopened", json!({})), "m1"), (Some(Kind::Reopen), false));
         assert_eq!(classify(&ev("document.deleted", json!({})), "m1"), (None, false));
+        // Questions: an Answer has no `wait` word and is never a mention.
+        assert_eq!(classify(&ev("question.answered", json!({"key": "D4", "mentions": ["m1"]})), "m1"), (None, false));
     }
 
     #[test]

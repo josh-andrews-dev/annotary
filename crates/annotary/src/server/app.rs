@@ -93,7 +93,7 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     use super::{
         access, actions, admin, assets, avatars, blobs, compare, docs, events, housekeeping, listing, markups,
-        me_settings, members, mentions_page, pairing, render, settings_page, threads, vaults, view, web,
+        me_settings, members, mentions_page, pairing, questions, render, settings_page, threads, vaults, view, web,
     };
     // ---- ticket 06: web pages sit behind the loopback-trust / login-redirect middleware ----
     let web_pages = Router::new()
@@ -172,6 +172,9 @@ pub fn router(state: AppState) -> Router {
         // Markup: a drawing's PNG and strokes (`markups.rs` has the table)
         .route("/api/v1/docs/{id}/markups", post(markups::upload).layer(DefaultBodyLimit::max(markups::BODY_MAX)))
         .route("/api/v1/docs/{id}/markups/{hash}", get(markups::get))
+        // Questions: the decisions table and the Answers (`questions.rs` has the table)
+        .route("/api/v1/docs/{id}/questions", get(questions::list))
+        .route("/api/v1/docs/{id}/questions/{key}/answer", put(questions::answer))
         // ---- ticket 08: the events log — long-poll / SSE (`events.rs` has the table) ----
         .route("/api/v1/events", get(events::list))
         // ---- end ticket 08 ----

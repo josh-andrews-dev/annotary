@@ -132,6 +132,21 @@ pub enum StoreError {
     #[error("{key} already holds a change stamped {stored_stamp}, not older than {stamp}")]
     Stale { key: String, stamp: String, stored_value: Option<Box<serde_json::Value>>, stored_stamp: String },
     // ---- end CMD-23 ----
+    // ---- Questions ----
+    #[error("no Question {key} in Document {doc}")]
+    QuestionNotFound { doc: String, key: String },
+    #[error("{0}")]
+    InvalidAnswer(String),
+    #[error("{key} is decided in the Document ({decided:?}); its controls are closed")]
+    QuestionDecided { key: String, decided: String },
+    #[error("{key} already has its Thread {thread}: reply there")]
+    QuestionThreadExists { key: String, thread: String },
+    #[error("invalid questions: {0}")]
+    InvalidQuestions(String),
+    /// A push whose decisions table leaves out Answers given on the head (decision D2).
+    #[error("{name}: {} answered on the head {} not in the Decided cells", missing.iter().map(|m| m.key.as_str()).collect::<Vec<_>>().join(", "), if missing.len() == 1 { "is" } else { "are" })]
+    AnswersMissing { name: String, missing: Vec<annotary_renderer::questions::Unrecorded> },
+    // ---- end Questions ----
     #[error("failpoint triggered")]
     Failpoint,
     #[error("password hashing failed: {0}")]

@@ -20,6 +20,9 @@ annotary-sidecar = { workspace = true }
 # ticket 07: the server places Threads a client left out and spot-verifies what it was sent
 # with the same pure function the CLI runs.
 annotary-diff = { workspace = true }
+# Questions: the decisions table is parsed with the crate the pusher runs (the commit rule,
+# Versions pushed by older CLIs).
+annotary-renderer = { workspace = true }
 # ticket 13: `backup` = the SQLite online backup API behind `annotary export` (a consistent
 # snapshot of a live store).
 rusqlite = { version = "0.40", features = ["bundled", "backup"] }

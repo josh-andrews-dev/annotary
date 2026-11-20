@@ -258,6 +258,31 @@ pub const MIGRATIONS: &[&str] = &[
     CREATE INDEX comment_markups_strokes ON comment_markups(doc_id, strokes_hash);
     "#,
     // ---- end Markup ----
+    // ---- Questions ----
+    // v8 — Questions (`docs/dev/questions.md`). `versions.questions` is the JSON the pusher
+    // computed from the decisions table (`annotary_renderer::questions::to_json`); NULL for a
+    // Version older than this migration, computed on first read. `threads.question` is the key of
+    // the Document Question a Thread is about; `threads.options` the labels (JSON) of a Question
+    // asked on the Thread itself. `answers` is append-only: a Member's current Answer for a key is
+    // their latest row (`option` NULL = withdrawn); `digest` is the Question's on the Version
+    // answered (NULL for a Thread's Question), for the `changed` flag.
+    r#"
+    ALTER TABLE versions ADD COLUMN questions TEXT;
+    ALTER TABLE threads ADD COLUMN question TEXT;
+    ALTER TABLE threads ADD COLUMN options TEXT;
+    CREATE TABLE answers (
+        seq       INTEGER PRIMARY KEY AUTOINCREMENT,
+        doc_id    TEXT NOT NULL REFERENCES documents(id),
+        key       TEXT NOT NULL,
+        member_id TEXT NOT NULL REFERENCES members(id),
+        option    TEXT,
+        version   INTEGER NOT NULL,
+        digest    TEXT,
+        at        TEXT NOT NULL
+    );
+    CREATE INDEX answers_doc ON answers(doc_id, key, member_id, seq);
+    "#,
+    // ---- end Questions ----
 ];
 
 /// The schema version this binary writes.
