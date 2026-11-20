@@ -211,6 +211,40 @@ fn digest(parts: &[&str]) -> String {
     format!("{h:016x}")
 }
 
+/// Work the scaling test counts: Markdown parses, and bytes of block text read for keys. A no-op
+/// outside `cfg(test)`, so release and wasm builds pay nothing.
+#[derive(Clone, Copy)]
+enum Work {
+    Parse,
+    Scan,
+}
+
+#[inline(always)]
+fn tally(_work: Work, _n: usize) {
+    #[cfg(test)]
+    work::add(_work, _n);
+}
+
+#[cfg(test)]
+mod work {
+    use std::cell::Cell;
+    thread_local! {
+        static PARSES: Cell<usize> = const { Cell::new(0) };
+        static SCANNED: Cell<usize> = const { Cell::new(0) };
+    }
+    pub(super) fn add(w: super::Work, n: usize) {
+        let c = match w {
+            super::Work::Parse => &PARSES,
+            super::Work::Scan => &SCANNED,
+        };
+        c.with(|c| c.set(c.get() + n));
+    }
+    /// `(parses, bytes scanned)` on this thread since the last call; resets both.
+    pub(super) fn take() -> (usize, usize) {
+        (PARSES.with(|c| c.replace(0)), SCANNED.with(|c| c.replace(0)))
+    }
+}
+
 fn is_word(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
@@ -250,7 +284,19 @@ fn has_word(text: &str, key: &str) -> bool {
 fn named_in<'b>(blocks: &[&'b Block], keys: &[&str]) -> Vec<Vec<&'b Block>> {
     const DIRECT: usize = 16;
     if keys.len() <= DIRECT {
-        return keys.iter().map(|k| blocks.iter().copied().filter(|b| has_word(&b.text, k)).collect()).collect();
+        return keys
+            .iter()
+            .map(|k| {
+                blocks
+                    .iter()
+                    .copied()
+                    .filter(|b| {
+                        tally(Work::Scan, b.text.len());
+                        has_word(&b.text, k)
+                    })
+                    .collect()
+            })
+            .collect();
     }
     let mut by_run: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
     let mut always: Vec<usize> = Vec::new();
@@ -265,6 +311,7 @@ fn named_in<'b>(blocks: &[&'b Block], keys: &[&str]) -> Vec<Vec<&'b Block>> {
     for b in blocks {
         cands.clear();
         cands.extend_from_slice(&always);
+        tally(Work::Scan, b.text.len());
         for w in b.text.split(|c: char| !is_word(c)) {
             if let Some(ix) = by_run.get(w) {
                 for &i in ix {
@@ -275,6 +322,7 @@ fn named_in<'b>(blocks: &[&'b Block], keys: &[&str]) -> Vec<Vec<&'b Block>> {
             }
         }
         for &i in &cands {
+            tally(Work::Scan, b.text.len());
             if has_word(&b.text, keys[i]) {
                 hits[i].push(b);
             }
@@ -457,6 +505,7 @@ fn prose_blocks(md: &str, events: &[(Event<'_>, Range<usize>)], skip: &Range<usi
 pub fn find(md: &str) -> Found {
     let text = escape_currency_math(md);
     let text: &str = &text;
+    tally(Work::Parse, 1);
     let events = collect(text);
     let lines = Lines::new(text);
     let mut found = Found::default();
@@ -649,6 +698,7 @@ fn row_without(text: &str, r: &Row, decided: usize) -> String {
 /// change nothing else: a filled cell, a row that is not there, or a text with no table is left
 /// as it is. Answers how many cells were written. `|` in a text is escaped.
 pub fn fill_decided(md: &str, fills: &[(String, String)]) -> (String, usize) {
+    tally(Work::Parse, 1);
     let events: Vec<(Event<'_>, Range<usize>)> = Parser::new_ext(md, MARKDOWN_OPTIONS).into_offset_iter().collect();
     let tables = decision_tables(&events);
     let Some(table) = tables.first() else { return (md.to_string(), 0) };
@@ -1197,5 +1247,42 @@ A new paragraph that is not Option A.\n";
         bad[1]["key"] = json!("D1");
         assert_eq!(from_json(&bad), None);
         assert_eq!(from_json(&json!({})), None);
+    }
+
+    /// `find` reads each block's text a bounded number of times whatever the number of keys
+    /// (each key scanned every block before), and `check_recorded` fills every missing row in one
+    /// parse (one per row before). Counted, never timed: a busy machine cannot fail it.
+    // spec: S50-06
+    #[test]
+    fn a_full_table_on_a_large_document_stays_linear() {
+        let doc = |rows: usize| {
+            let mut md = String::from("| Decision | Options | Decided |\n|---|---|---|\n");
+            for i in 0..rows {
+                md.push_str(&format!("| D{i} | A, B | |\n"));
+            }
+            for i in 0..rows {
+                md.push_str(&format!("\n## D{i}. Title\n\n- A. one\n- B. two\n\n"));
+                for _ in 0..20 {
+                    md.push_str("Filler prose that makes the Document large enough to notice a pass per row.\n");
+                }
+            }
+            md
+        };
+        for rows in [20, QUESTIONS_MAX] {
+            let md = doc(rows);
+            work::take();
+            let head = find(&md).questions;
+            let (parses, scanned) = work::take();
+            assert_eq!(head.len(), rows);
+            assert!(head.iter().all(|q| q.places.len() == 2), "{head:?}");
+            assert_eq!(parses, 1);
+            assert!(scanned <= 2 * md.len(), "{rows} keys read {scanned} bytes of a {}-byte Document", md.len());
+            let texts: Vec<(String, String)> = head.iter().map(|q| (q.key.clone(), "A (@rowan)".to_string())).collect();
+            let r = check_recorded(&head, &md, &head, &texts);
+            assert_eq!(work::take().0, 1, "check_recorded parses once for {rows} missing rows");
+            assert_eq!(r.missing.len(), rows);
+            let last = rows - 1;
+            assert_eq!(r.missing[last].text, format!("| D{last} | A, B | A (@rowan) |"));
+        }
     }
 }
