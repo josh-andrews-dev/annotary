@@ -217,6 +217,10 @@ struct Viewer<'a> {
     embed: bool,
     /// The card offers Copy link (a live Document: `annotary link` refuses a deleted one).
     link: bool,
+    /// Questions: the Questions shown (a Question's Thread card leads with its Answers).
+    questions: &'a [super::questions::Shown],
+    /// Questions: the viewer may answer (head, live, `comment`).
+    can_answer: bool,
 }
 
 impl Viewer<'_> {
@@ -274,6 +278,9 @@ fn render_page(
     // ---- CMD-23: the viewer's Web settings, read in the same response (the first paint is final) ----
     let prefs = WebPrefs::load(st, auth, headers)?;
     let times = prefs.times();
+    // ---- Questions: the Version's and the Threads', with their Answers as of this Version ----
+    let shown = super::questions::shown(st, &doc, v, &threads)?;
+    let qcx = super::qview::Ctx { me: &auth.0.handle, can_answer: can_comment && number == head };
     let viewer = Viewer {
         members: &members,
         me: &auth.0.handle,
@@ -282,6 +289,8 @@ fn render_page(
         times: &times,
         embed: prefs.embed,
         link: live,
+        questions: &shown,
+        can_answer: qcx.can_answer,
     };
     let manage = can_write && !prefs.embed;
     let link = if live { Some(share_link(st, origin, &doc.id)?) } else { None };
@@ -342,6 +351,7 @@ fn render_page(
     let html = ui::asset_links_blank(&html);
     // M3: an embed render's media go through the embedder (`embed.rs`); the cards are unchanged.
     let html = if prefs.embed { super::embed::media(&html, &super::embed::sizes(&v.manifest)) } else { html };
+    let html = super::qview::splice(&html, &shown, &qcx);
     let body_html = splice::splice(&html, head_strip.as_deref(), &strips, tail.as_deref());
 
     // ---- header pieces ----
@@ -441,7 +451,7 @@ fn render_page(
              <label class=\"cd-chip\"><input type=\"checkbox\" id=\"cd-resolved\"{resolved_checked}><span>resolved (<span class=\"cd-res-n\">{resolved}</span>)</span></label>\
              <span class=\"cd-tools\">{compare}<button type=\"button\" class=\"cd-btn\" id=\"cd-whatsnew\">History</button>\
              {more}</span>\
-             <span class=\"cd-actions\" id=\"cd-actions\">{action_area}{action_buttons}</span>\
+             {qhead}<span class=\"cd-actions\" id=\"cd-actions\">{action_area}{action_buttons}</span>\
            </div>\
          </header>{banner}<div class=\"cd-panel\" id=\"cd-news\" hidden></div>{help}{toast}{pill}",
         icon = super::brand::header_icon(),
@@ -449,6 +459,7 @@ fn render_page(
         name = esc(&v.name),
         id = esc(&doc.id),
         help = help_html(&prefs.send_key),
+        qhead = super::qview::header_html(&shown, &qcx),
         resolved_checked = if prefs.show_resolved { " checked" } else { "" },
         // ticket 18; not in an embed render (`embed.rs`): the frame cannot leave for the app
         open_app = if prefs.embed {
@@ -513,6 +524,10 @@ fn render_page(
         "members": members.iter().map(|(h, m)| (h.clone(), json!(m.name))).collect::<serde_json::Map<_, _>>(),
         "threads": items.iter().map(item_json).collect::<Vec<_>>(),
     });
+    let mut data = data;
+    if !shown.is_empty() {
+        data["questions"] = json!(shown.iter().map(super::questions::shown_json).collect::<Vec<_>>());
+    }
     let body = format!(
         "<div {} id=\"cd-app\" data-doc=\"{}\" data-version=\"{number}\" data-head=\"{head}\">{header}\
          <main class=\"cd-layout\"><article class=\"cd-doc\" id=\"cd-doc\">{body_html}</article></main></div>\
@@ -523,7 +538,9 @@ fn render_page(
     );
     let title =
         if number == head { format!("{} — annotary", v.name) } else { format!("{} v{number} — annotary", v.name) };
-    Ok(ui::page_for(&prefs, &title, &body))
+    // Questions: their styles and script only on a page that shows one.
+    let (qcss, qjs) = if shown.is_empty() { ("", "") } else { (ui::QUESTIONS_CSS, ui::QUESTIONS_JS) };
+    Ok(ui::page_for_ex(&prefs, &title, &body, qcss, qjs))
 }
 
 /// The header's More menu (`#cd-docmenubtn` opens `#cd-docmenu`): Copy link (a live Document), Comment
@@ -743,7 +760,13 @@ fn thread_card(it: &Item, viewer: &Viewer, version: u32) -> String {
         viewer.times.tag(last_at, true),
         if it.mine && !it.resolved { " · <span class=\"cd-mention\">@you</span>" } else { "" }
     );
-    let mut body = comment_html(&t.root, viewer, &t.doc_id);
+    // Questions: a Question's Thread leads with its Answers (a Thread's own Question: its buttons).
+    let key = if t.options.is_some() { Some(t.id.as_str()) } else { t.question.as_deref() };
+    let mut body = key
+        .and_then(|k| viewer.questions.iter().find(|q| q.key == k))
+        .map(|q| super::qview::card_html(q, &super::qview::Ctx { me: viewer.me, can_answer: viewer.can_answer }))
+        .unwrap_or_default();
+    body.push_str(&comment_html(&t.root, viewer, &t.doc_id));
     for r in &t.replies {
         body.push_str(&comment_html(r, viewer, &t.doc_id));
     }
@@ -838,14 +861,27 @@ pub async fn fragment(
     // CMD-23: the card the page swaps in renders its times as the page did
     let prefs = WebPrefs::load(&st, &auth, &headers)?;
     let times = prefs.times();
+    let can_comment = live && auth.0.has_right(&doc.vault_name, Right::Comment);
+    // Questions: read only for a Thread that carries one.
+    let shown = if t.question.is_some() || t.options.is_some() {
+        let v = st
+            .store
+            .version(&doc.id, number)?
+            .ok_or_else(|| ApiError::not_found(format!("Document {} has no v{number}", doc.id)))?;
+        super::questions::shown(&st, &doc, &v, std::slice::from_ref(&t))?
+    } else {
+        Vec::new()
+    };
     let viewer = Viewer {
         members: &members,
         me: &auth.0.handle,
         is_owner: auth.0.is_owner(),
-        can_comment: live && auth.0.has_right(&doc.vault_name, Right::Comment),
+        can_comment,
         times: &times,
         embed: prefs.embed,
         link: live,
+        questions: &shown,
+        can_answer: can_comment && number == head,
     };
     let mut item = [item_of(&t, &auth.0.member_id)];
     set_occ(&st, &mut item, &md_hash)?;

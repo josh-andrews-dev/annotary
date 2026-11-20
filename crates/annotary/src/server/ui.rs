@@ -20,6 +20,10 @@ pub const JS: &str = include_str!("ui/app.js");
 pub const ADMIN_CSS: &str = include_str!("ui/admin.css");
 pub const ADMIN_JS: &str = include_str!("ui/admin.js");
 // ---- end ticket 12 ----
+// Questions: inlined only into a Document page whose Version has Questions (the list page and the
+// other Document pages stay as they were).
+pub const QUESTIONS_CSS: &str = include_str!("ui/questions.css");
+pub const QUESTIONS_JS: &str = include_str!("ui/questions.js");
 
 /// Escape text for HTML (text content and double-quoted attributes).
 pub fn esc(s: &str) -> String {
@@ -68,15 +72,27 @@ fn shell_full(title: &str, body: &str, extra_css: &str, extra_js: &str, head_lin
 /// the HTML is for the embedder's opaque frame, never this origin. `Vary` on the embed header
 /// either way.
 pub fn page_for(prefs: &super::prefs::WebPrefs, title: &str, body: &str) -> Response {
+    page_for_ex(prefs, title, body, "", "")
+}
+
+/// [`page_for`] with an extra stylesheet / script after the shared ones (the Document page adds
+/// `QUESTIONS_CSS` / `QUESTIONS_JS` only when the Version has Questions).
+pub fn page_for_ex(
+    prefs: &super::prefs::WebPrefs,
+    title: &str,
+    body: &str,
+    extra_css: &str,
+    extra_js: &str,
+) -> Response {
     let mut resp = if prefs.embed {
         // The transport (`ui/embed.js`) is a classic script in the head: it runs before `app.js`.
         let head = format!("<script>{}</script>", super::embed::JS);
-        let mut r = Html(shell_full(title, body, "", "", &head)).into_response();
+        let mut r = Html(shell_full(title, body, extra_css, extra_js, &head)).into_response();
         r.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-cache"));
         r.headers_mut().insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(super::embed::SANDBOX_CSP));
         r
     } else {
-        page(title, body)
+        page_ex(title, body, extra_css, extra_js)
     };
     resp.headers_mut().insert(header::VARY, HeaderValue::from_static("X-Annotary-Embed"));
     resp

@@ -403,7 +403,7 @@ function main() {
     var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         var p = n.parentElement;
-        if (!p || p.closest('.cd-strip')) return NodeFilter.FILTER_REJECT;
+        if (!p || p.closest('.cd-strip,.cd-qx')) return NodeFilter.FILTER_REJECT;
         if (p.closest('script,style')) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
@@ -2024,11 +2024,14 @@ function main() {
       return;
     }
     if (existing) closeEditor(existing);
-    if (p.kind === 'document') {
+    if (p.kind === 'document' || p.kind === 'question') {
+      // Questions: a Question's first Comment anchors at its place (the server finds the range).
+      var q = p.kind === 'question';
       var dtid = 'new' + (++newSeq);
-      var dcard = composerCard(dtid, '<span class="cd-kind">whole document</span>', 'cd-doclevel');
-      dcard.cdPending = { subject: 'document' };
-      var dStrip = docStrip();
+      var dcard = composerCard(dtid, '<span class="cd-kind">' + (q ? esc(p.key) : 'whole document') + '</span>', q ? '' : 'cd-doclevel');
+      if (q) dcard.setAttribute('data-line', String(p.line));
+      dcard.cdPending = q ? { subject: 'span', question: p.key, line: p.line, done: p.done } : { subject: 'document' };
+      var dStrip = q ? stripFor(p.line) : docStrip();
       dStrip.appendChild(dcard);
       syncStripHidden(dStrip);
       dcard.classList.add('cd-open');
@@ -2124,7 +2127,7 @@ function main() {
     scheduleLayout();
     var bodyJson = p.subject === 'asset' ? { subject: 'asset', ref: p.ref, body: text, version: D.head }
       : p.subject === 'document' ? { subject: 'document', body: text, version: D.head }
-        : { subject: 'span', range: p.range, body: text, version: D.head };
+        : { subject: 'span', range: p.range, question: p.question, body: text, version: D.head };
     var op = beginOp('created', null);
     api('POST', docApi('threads'), bodyJson).then(function (r) {
       if (!r.ok) {
@@ -2155,6 +2158,7 @@ function main() {
       var it = D.threads[itemIndex(tid)]; if (it) it.id = real;
       if (selected === tid) selected = real;
       refreshCard(real);
+      if (p.done) p.done(real);
     });
   }
 
@@ -2369,6 +2373,7 @@ function main() {
   function onLiveEvent(ev) {
     if (!ev || ev.doc !== D.id) return;
     if (ev.seq) D.seq = Math.max(D.seq || 0, ev.seq);
+    if (window.cdq) window.cdq(ev); // Questions (ui/questions.js)
     newsLive(ev);
     var p = ev.payload || {};
     switch (ev.type) {
@@ -2398,7 +2403,7 @@ function main() {
       es = transport.events('/api/v1/events?doc=' + encodeURIComponent(D.id) + '&since=' + (D.seq || 0) + '&me=1',
         ['thread.created', 'thread.replied', 'thread.resolved', 'thread.reopened', 'comment.edited', 'comment.deleted',
           'action.taken', 'version.pushed', 'document.actions_declared', 'document.deleted', 'document.restored',
-          'setting.changed'], {
+          'setting.changed', 'question.answered'], {
           ready: function (j) {
             app.classList.add('cd-live');
             if (j && j.seq) D.seq = Math.max(D.seq || 0, j.seq);
@@ -2557,6 +2562,7 @@ function main() {
     refreshCard: refreshCard, setResolved: setResolved, openComposer: openComposer,
     live: function () { return app.classList.contains('cd-live'); },
     data: function () { return D; },
+    api: api, toast: showToast, // Questions
     // ticket 12: the owner screens localize the <time> tags of freshly drawn cards
     localize: localizeTimes,
     // CMD-23: re-read the Member's settings and apply them to `.cd-app` (the Settings screen calls it)

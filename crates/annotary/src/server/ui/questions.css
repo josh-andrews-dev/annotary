@@ -1,0 +1,20 @@
+/* Questions (docs/dev/questions.md): only on a Document page whose Version has Questions. A choice
+   is never color alone: the pressed button shows a check and the who-chose text names it. */
+.cd-qrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 12px;font-size:13px;color:var(--cd-fg)}
+.cd-qkey{font-family:var(--cd-mono);font-size:12px;font-weight:600;color:var(--cd-muted)}
+.cd-qopt{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--cd-line);background:var(--cd-card);color:var(--cd-fg);border-radius:999px;padding:1px 10px;font-size:13px;min-height:26px;cursor:pointer}
+.cd-qopt:hover:not(:disabled){background:var(--cd-soft)}
+.cd-qopt[aria-pressed="true"]{background:var(--cd-primary);color:var(--cd-primary-ink);border-color:var(--cd-primary)}
+.cd-qopt:disabled{cursor:default;opacity:.7}
+.cd-qmark{display:none}
+.cd-qopt[aria-pressed="true"] .cd-qmark{display:inline}
+.cd-qrec{font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-left:3px;opacity:.75}
+.cd-qwho{color:var(--cd-muted);font-size:12px}
+.cd-qdone{color:var(--cd-muted)}
+.cd-qradio{margin:0 6px 0 0;vertical-align:-2px;accent-color:var(--cd-primary)}
+/* The Answers in a Decided cell are not the Version's text: dashed and in the muted ink. */
+.cd-qcell{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;border:1px dashed var(--cd-line);border-radius:6px;padding:2px 6px;font-style:italic}
+.cd-qcell .cd-qopt{font-style:normal;min-height:22px;padding:0 8px;font-size:12px}
+.cd-qbtns{display:inline-flex;flex-wrap:wrap;gap:4px}
+.cd-qans{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 6px;font-size:12px}
+.cd-qsum{color:var(--cd-muted)}
