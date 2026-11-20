@@ -17,8 +17,10 @@ const SENTENCE =
 
 const flat = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-/** The text of the innermost block whose `data-l` holds source line `line`. */
-async function blockText(page: Page, line: number): Promise<{ text: string; math: number } | null> {
+/** The innermost block whose `data-l` holds source line `line`: its range and its text outside any
+ * `<math>` (MathML keeps its TeX source as text, so a pair rendered as math would still match the
+ * whole block's text). A line inside a paragraph or list item is in a block that starts earlier. */
+async function blockText(page: Page, line: number): Promise<{ l: string; text: string; math: number } | null> {
   return page.evaluate((line) => {
     let best: Element | null = null;
     let span = Infinity;
@@ -30,7 +32,9 @@ async function blockText(page: Page, line: number): Promise<{ text: string; math
       }
     }
     if (!best) return null;
-    return { text: best.textContent || '', math: best.querySelectorAll('math').length };
+    const prose = best.cloneNode(true) as Element;
+    for (const m of prose.querySelectorAll('math')) m.remove();
+    return { l: best.getAttribute('data-l') || '', text: prose.textContent || '', math: best.querySelectorAll('math').length };
   }, line);
 }
 
@@ -68,7 +72,7 @@ test('dollar amounts in real Documents and Comments render as text', async ({ pa
     expect(block, `${h.id} line ${h.line}`).not.toBeNull();
     expect(flat(block!.text), `${h.id} line ${h.line}`).toContain(flat(h.text));
     if (!shown) {
-      await page.locator(`.cd-doc [data-l^="${h.line}-"]`).first().scrollIntoViewIfNeeded();
+      await page.locator(`.cd-doc [data-l="${block!.l}"]`).first().scrollIntoViewIfNeeded();
       await shot(page, 'dollar-amounts-document');
       shown = true;
     }
@@ -97,8 +101,14 @@ test('dollar amounts in real Documents and Comments render as text', async ({ pa
   await card.scrollIntoViewIfNeeded();
   await shot(page, 'dollar-amounts-comment');
 
-  // The copy may hold no such line; the data line says so, and the posted Comment still checks.
+  // The copy may hold no such line: then the Document half is skipped, said so in the report and
+  // the log, and the posted Comment still checks.
   const data = `${hits.length} Document lines with dollar pairs; ${comments} existing Comment; posted ${posted} on ${d.id}`;
   test.info().annotations.push({ type: 'data', description: data });
+  if (hits.length === 0) {
+    const why = 'Document half skipped: no real Document has a line with a dollar pair';
+    test.info().annotations.push({ type: 'skip', description: why });
+    console.log(`S44-01 ${why}`);
+  }
   console.log(`S44-01 data: ${data}`); // the report is deleted with the copy; the log keeps this
 });
