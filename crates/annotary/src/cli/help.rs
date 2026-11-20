@@ -90,6 +90,7 @@ Usage: annotary push FILE.md [options]
                            no web derivative
       --force              Push even if the Sidecar is from another Document id (rebinds it to --doc)
       --discard-head-changes  Push over the changes the head made since your pull (warns; logged)
+      --discard-answers    Push although the Decided cells leave out answers given on head (warns; logged)
 
 Prints one line: `NAME  ID  vN` (or `vN (same content as vK)` / `already vN` when nothing changed);
 on a TTY the web URL follows. Progress and warnings go to stderr (`assets: …`, `threads: … re-anchored`).
@@ -106,6 +107,11 @@ Head moved since your pull (Sidecar base_version < head): your file must already
 changes — merge them in git or by hand. If it does, the push is normal. If not: exit 5 and the
 missing changes as a unified diff on stderr (`--json`: missing[], assets[]); put them in, push again.
 A .annotary left with git conflict markers needs no resolving.
+
+Decisions table (columns Decision, Options, Decided): each row is a Question readers answer with a
+tap. A bad row is a warning (--strict refuses). Answers given on head must be in the Decided cells
+(`pull` writes them in): a row kept with its options and an empty cell is refused, exit 5
+`answers_missing`, with the rows to put in. A removed row or changed options passes with a note.
 ";
 
 pub const PULL: &str = "\
@@ -115,8 +121,11 @@ Usage: annotary pull DOC [options]
       --assets             Also write Assets to their relative paths (off by default)
       --force              Overwrite local edits / differing Asset files
       --out DIR            Directory to write into (default: .)
+      --as-pushed          Write head's Markdown exactly as pushed (no answers filled in)
 
 Writes exactly two files: <name>.md (byte-identical) and <name>.annotary (JSON projection).
+Head with answers to its decisions table: they are written into the empty Decided cells (only
+those change; a note on stderr) — push it to record them. An older Version is always exact.
 Prints `NAME.md  NAME.annotary  vN`; the `N threads, M assets (K missing)` summary goes to stderr.
 Refuses if <name>.md exists and differs from the last pulled/pushed hash — exit 5 — unless --force.
 Agents: do not read the .annotary file; use `show`, `thread list`, `status`.
@@ -139,6 +148,7 @@ Usage: annotary thread <cmd> DOC [ID] [options]
                            A range must match head; the CLI checks the text before posting.
       --version N          Assert head is N (exit 5 if not) — never comment on content you haven't seen
       --markup PNG --strokes JSON   Attach a Markup (the app draws them; for tests and tools); -m optional
+      --ask LABEL          Ask a Question (2 to 6 --ask): answered with a tap, `answer DOC tN A`
   reply DOC ID -m MSG      Reply; MSG may be '-' for stdin (--markup PNG --strokes JSON as for new)
       --resolve            …and resolve in the same call
   resolve DOC ID | reopen DOC ID
@@ -189,6 +199,18 @@ ACTION is an id from the Document's available set (`show DOC` lists them). Actio
 head-only: `--version N` refuses (exit 5) if head ≠ N. Last Action on a Version wins. No note field —
 say why in a Thread. Needs the `action` right on the Vault.
 Prints `NAME  vN  ACTION  by @handle`; `--json` → {name,id,version,action,by,at}.
+";
+
+pub const ANSWER: &str = "\
+Usage: annotary answer DOC KEY OPTION|none
+
+KEY is a row of the Document's decisions table (a table with Decision, Options and Decided columns:
+D4) or a Thread that asks a Question (t7, from `thread new … --ask`). OPTION is an option id (A), a
+Thread Question's label, `other` (say what in the Question's Thread) or `none` to withdraw yours.
+One answer per Member; answering again replaces it. An answer is not a mention: it wakes nobody.
+`show DOC` prints them (`questions: D4=B D5=-`); `pull` writes the head's into the Decided cells.
+Exit 5 when the Question is decided (its Decided cell is filled) or head moved. Needs `comment`.
+Prints `KEY  OPTION`; `--json` → {key,option,changed,version}.
 ";
 
 pub const MEMBER: &str = "\

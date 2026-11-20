@@ -19,6 +19,9 @@
 //!   the head Markdown, verifies the range exists there (and that head is `--version N`, exit 5
 //!   otherwise) before posting; the server re-checks and freezes the quote. `--asset REF`
 //!   anchors a whole-Asset Thread by the Asset's content hash (ticket 07).
+//! - `thread new … --ask LABEL --ask LABEL` asks a Question (2 to 6 labels; Options `A`, `B`, …;
+//!   its key is the Thread id); `thread show` prints `asks: A "…" B "…" · A@rowan` and, for a
+//!   Document Question's Thread, `question: D4`.
 //! - `thread new` / `thread reply` take `--markup PNG --strokes JSON` (uploaded first through
 //!   `POST …/markups`; the message is then optional) — for tests and tools; the app draws them.
 //! - `thread reply DOC ID -m MSG|- [--resolve]`, `resolve | reopen | delete DOC ID`,
@@ -130,6 +133,9 @@ pub struct NewArgs {
     pub version: Option<u32>,
     #[command(flatten)]
     pub markup: MarkupArgs,
+    /// Ask a Question: one short answer per --ask (2 to 6), answered with a tap (`answer DOC tN A`)
+    #[arg(long = "ask", value_name = "LABEL")]
+    pub ask: Vec<String>,
 }
 
 #[derive(Args, Debug)]
@@ -195,6 +201,9 @@ pub const SHOW_FIELDS: FieldSpec = FieldSpec {
         "resolved",
         "replies",
         "updated",
+        "question",
+        "options",
+        "answers",
     ],
     default: &[
         "id",
@@ -210,12 +219,15 @@ pub const SHOW_FIELDS: FieldSpec = FieldSpec {
         "resolved",
         "replies",
         "updated",
+        "question",
+        "options",
+        "answers",
     ],
 };
 
 /// `thread new`.
 pub const NEW_FIELDS: FieldSpec = FieldSpec {
-    all: &["id", "subject", "anchor", "version", "created", "body", "mentions", "doc"],
+    all: &["id", "subject", "anchor", "version", "created", "body", "mentions", "doc", "options"],
     default: &["id", "subject", "anchor", "version"],
 };
 
@@ -717,6 +729,10 @@ pub fn show_record(t: &Value) -> Map<String, Value> {
         ),
     );
     r.insert("updated".into(), json!(iso_seconds(t["updated_at"].as_str().unwrap_or(""))));
+    // Questions: only on a Thread that has one (null is omitted).
+    r.insert("question".into(), t["question"].clone());
+    r.insert("options".into(), t["options"].clone());
+    r.insert("answers".into(), t["answers"].clone());
     // Reorder to the Sidecar's key order.
     let order = [
         "id",
@@ -732,6 +748,9 @@ pub fn show_record(t: &Value) -> Map<String, Value> {
         "resolved",
         "replies",
         "updated",
+        "question",
+        "options",
+        "answers",
     ];
     let mut ordered = Map::new();
     for k in order {
@@ -813,6 +832,24 @@ pub fn print_thread(out: &Out, t: &Value, now: jiff::Timestamp) {
     fields.extend(comment_segments(t, now));
     out.line(&fields.join(sep));
     body_lines(out, t);
+    // Questions: the Document Question this Thread is about, or the Question it asks.
+    if let Some(k) = t["question"].as_str() {
+        out.line(&format!("  question: {k} (answer DOC {k} OPTION)"));
+    }
+    if let Some(opts) = t["options"].as_array() {
+        let o: Vec<String> = opts
+            .iter()
+            .map(|o| format!("{} \"{}\"", s(o, "id"), one_line(o["label"].as_str().unwrap_or(""))))
+            .collect();
+        let answers: Vec<String> = t["answers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|a| format!("{}@{}", s(a, "option"), s(a, "by")))
+            .collect();
+        let answered = if answers.is_empty() { "unanswered".to_string() } else { answers.join(",") };
+        out.line(&format!("  asks: {} · {answered}", o.join(" ")));
+    }
     // A refined span (ticket 07) shows the text now under it.
     if t["anchor"]["current"]["status"].as_str() == Some("refined")
         && let Some(now_text) = t["anchor"]["current"]["exact"].as_str()
@@ -861,6 +898,15 @@ fn new(ctx: &Ctx, a: NewArgs) -> CliResult<()> {
         None => None,
     };
     let message = read_optional_message(a.message.as_deref(), a.markup.markup.is_some())?;
+    // Questions: `--ask` labels, checked here with the server's rule before any request.
+    let ask = if a.ask.is_empty() {
+        None
+    } else {
+        Some(
+            annotary_store::check_labels(&a.ask)
+                .map_err(|e| CliError::usage(e.to_string()).hint("e.g. --ask \"Ship it\" --ask \"Wait a week\""))?,
+        )
+    };
     let api = ctx.api()?;
     let d = resolve_live(ctx, &api, &a.doc)?;
     let id = s(&d, "id");
@@ -900,6 +946,7 @@ fn new(ctx: &Ctx, a: NewArgs) -> CliResult<()> {
         "body": message,
         "version": head,
         "markup": markup,
+        "options": ask,
     });
     let t = api.post(&format!("/api/v1/docs/{id}/threads"), &body)?;
     if ctx.out.is_json() {
@@ -912,6 +959,7 @@ fn new(ctx: &Ctx, a: NewArgs) -> CliResult<()> {
         rec.insert("body".into(), t["body"].clone());
         rec.insert("mentions".into(), t["mentions"].clone());
         rec.insert("doc".into(), json!(id));
+        rec.insert("options".into(), t["options"].clone());
         return ctx.out.json_records(&NEW_FIELDS, vec![rec], true);
     }
     let sep = if ctx.out.tty { "  " } else { "\t" };
