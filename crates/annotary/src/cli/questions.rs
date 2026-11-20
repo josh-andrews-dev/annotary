@@ -101,9 +101,7 @@ pub fn missing_error(ctx: &Ctx, file: &std::path::Path, head: u64, r: &Recorded)
             file.display()
         ),
     )
-    .hint(format!(
-        "put these rows in and push again (`annotary pull` writes them in; --discard-answers pushes without them)"
-    ));
+    .hint("put these rows in and push again (`annotary pull` writes them in; --discard-answers pushes without them)");
     if ctx.out.is_json() {
         let mut extra = Map::new();
         extra.insert(

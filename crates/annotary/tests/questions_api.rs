@@ -120,7 +120,7 @@ fn commits_carry_questions_and_the_server_enforces_the_recording_rule() {
     // … the server refuses a file without the Answers from a client that did not check …
     let (s, v) = push(&ts, &id, &edited, json!({ "base_version": 1 }));
     assert_eq!((s, v["error"].as_str()), (409, Some("answers_missing")), "{v}");
-    assert_eq!(v["missing"][0]["text"].as_str().unwrap().starts_with("| D1 | A, B | A | A (@rowan, "), true, "{v}");
+    assert!(v["missing"][0]["text"].as_str().unwrap().starts_with("| D1 | A, B | A | A (@rowan, "), "{v}");
     // … and takes one whose row changed its options (the answer then reads as changed).
     let reworded = edited.replace("| D1 | A, B | A | |", "| D1 | A, B, C | A | |");
     let (s, v) = push(&ts, &id, &reworded, json!({ "base_version": 1 }));
@@ -172,7 +172,7 @@ fn a_question_thread_the_sidecar_and_purge() {
     answer(&ts, &tok, &id, "D1", json!("other"), 1);
     let (_, q) = ts.get(&format!("/api/v1/docs/{id}/questions"), Some(&tok));
     assert_eq!(q["questions"][0]["thread"], "t1");
-    assert_eq!(ts.store.decided_fills(&id).unwrap()[0].1.starts_with("Other: t1 (@rowan, "), true);
+    assert!(ts.store.decided_fills(&id).unwrap()[0].1.starts_with("Other: t1 (@rowan, "));
     // A Question asked on a Thread, answered by label.
     let (s, t2) = ts.post(
         &format!("/api/v1/docs/{id}/threads"),
