@@ -77,6 +77,27 @@ test('Accept recommended answers every open one; another viewer sees it live', a
   await other.close();
 });
 
+// spec: S50-11, S50-12
+test('a newer Version pushed while the page is open closes its controls; an answer names the Version shown', async ({ page }) => {
+  const doc = seedDoc('q-stale', MD);
+  await openDoc(page, doc.id);
+  await waitLive(page);
+  await expect(page.locator('#cd-qaccept')).toBeVisible();
+  pushVersion(doc, MD.replace('- B. A new VM.', '- B. A new VM, bigger.'), 'v2');
+  await expect(page.locator('#cd-newver')).toBeVisible();
+  await expect(opt(page, 'D1', 'B')).toBeDisabled();
+  await expect(page.locator('input.cd-qradio[data-q="D1"][data-o="B"]')).toBeDisabled();
+  await expect(row(page, 'D1').locator('.cd-qcmt')).toBeDisabled();
+  await expect(page.locator('#cd-qaccept')).toBeHidden();
+  // Forced past the disabled state, the answer is for v1, which the server refuses.
+  const sent = page.waitForRequest((r) => r.url().includes('/questions/D1/answer'));
+  await opt(page, 'D1', 'B').evaluate((b: HTMLButtonElement) => { b.disabled = false; b.click(); });
+  expect((await sent).postDataJSON()).toEqual({ option: 'B', version: 1 });
+  await expect(page.locator('#cd-toast')).toContainText('Answer to D1 not saved');
+  await expect(opt(page, 'D1', 'B')).toBeDisabled();
+  expect(answers(doc.id)).toBe('questions: D1=- D2=-');
+});
+
 // spec: S50-09, S50-11
 test('Other… opens the Question\'s Thread; its card leads with the answer', async ({ page }) => {
   const { id } = seedDoc('q-other', MD);

@@ -4,19 +4,24 @@
    the who-chose text; the markup is the server's (`server/qview.rs`), a card is redrawn with
    `cd.refreshCard`. Only on a page whose Version has Questions; every request goes through
    `cd.api` (the transport, so embed mode works). */
-/* `app.js` starts after the first frame (`main` behind rAF + a task), so this waits for `window.cd`. */
+/* `app.js` starts after the first frame (`main` behind rAF + a task), so this waits for this
+   page's `window.cd` (`cd.app` is its `.cd-app`). Embed mode writes the next page into the same
+   realm: a stale timer stops once its embed generation is not the current one. */
 (function () {
   'use strict';
   var tries = 0;
+  var E = window.AnnotaryEmbed;
   function boot() {
-    if (window.cd) init(window.cd);
+    if (E && !E.current()) return;
+    var cd = window.cd;
+    if (cd && cd.app === document.querySelector('.cd-app')) init(cd, E);
     else if (++tries < 200) setTimeout(boot, 25);
   }
   if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(boot, 0); });
   else setTimeout(boot, 0);
 })();
 
-function init(cd) {
+function init(cd, E) {
   'use strict';
   var D = cd.data();
   if (!D || !D.questions) return;
@@ -24,6 +29,14 @@ function init(cd) {
   var Q = {};
   D.questions.forEach(function (q) { Q[q.key] = q; });
   var busy = {};
+  /* A newer Version was pushed: this page's prose is not the head's, so it may not answer. */
+  var locked = false;
+  function lock() {
+    locked = true;
+    $$('.cd-qopt,.cd-qradio,.cd-qcmt').forEach(function (b) { b.disabled = true; });
+    var a = document.getElementById('cd-qaccept');
+    if (a) a.hidden = true;
+  }
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function sel(key) { return '[data-q="' + key.replace(/"/g, '') + '"]'; }
   function mine(q) {
@@ -64,7 +77,7 @@ function init(cd) {
     var s = document.getElementById('cd-qsum');
     if (s) s.textContent = done + ' of ' + table.length + ' answered';
     var b = document.getElementById('cd-qaccept');
-    if (b) { b.textContent = 'Accept recommended (' + k + ')'; b.hidden = !k; }
+    if (b) { b.textContent = 'Accept recommended (' + k + ')'; b.hidden = locked || !k; }
   }
   function pending() {
     return D.questions.map(function (q) { return Q[q.key]; })
@@ -75,13 +88,15 @@ function init(cd) {
     var q = Q[key];
     var before = JSON.parse(JSON.stringify(q));
     q.answers = q.answers.filter(function (a) { return a.by !== D.me; });
-    if (option) q.answers.push({ by: D.me, option: option, at: new Date().toISOString(), version: D.head, changed: false });
+    if (option) q.answers.push({ by: D.me, option: option, at: new Date().toISOString(), version: D.version, changed: false });
     paint(key);
     busy[key] = (busy[key] || 0) + 1;
-    return cd.api('PUT', path(key), { option: option, version: D.head }).then(function (r) {
+    /* The Version this page shows, never `D.head`: the server refuses it once it is not the head. */
+    return cd.api('PUT', path(key), { option: option, version: D.version }).then(function (r) {
       busy[key]--;
       if (!r.ok) {
         Q[key] = before;
+        if (r.code === 'not_head') lock();
         paint(key);
         cd.toast('Answer to ' + key + ' not saved: ' + r.error);
         return false;
@@ -94,6 +109,7 @@ function init(cd) {
   /* Other… and Comment: the Question's Thread (a reply when it has one, else its first Comment). */
   function discuss(key, other) {
     var q = Q[key];
+    if (locked || D.version !== D.head) { cd.toast('A newer Version was pushed — go to head to answer it.'); return; }
     if (other) answer(key, 'other');
     var card = q.thread && docEl.querySelector('.cd-thread[data-t="' + q.thread + '"]');
     if (card) {
@@ -116,10 +132,15 @@ function init(cd) {
     });
   }
   window.cdq = function (ev) {
+    if (E && !E.current()) return;
     var p = ev.payload || {};
     if (ev.type === 'question.answered') {
       if (ev.by === D.me && busy[p.key]) return;
       reload();
+    } else if (ev.type === 'version.pushed' && +p.version > D.version) {
+      lock();
+    } else if (ev.type === 'thread.created' && p.options) {
+      reload(); // a Question asked mid-review: its card's buttons answer once it is in `Q`
     } else if (ev.type === 'thread.created' && p.question && Q[p.question]) {
       Q[p.question].thread = p.thread;
     }

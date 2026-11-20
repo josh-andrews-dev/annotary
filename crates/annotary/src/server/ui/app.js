@@ -30,6 +30,7 @@
   }
 function main() {
   if (bootEmbed && !bootEmbed.current()) return;
+  window.cdq = null; // a previous embed page's Questions hook
   var app = document.querySelector('.cd-app');
   if (!app) return;
   var dataEl = document.getElementById('cd-data');
@@ -2562,7 +2563,7 @@ function main() {
     refreshCard: refreshCard, setResolved: setResolved, openComposer: openComposer,
     live: function () { return app.classList.contains('cd-live'); },
     data: function () { return D; },
-    api: api, toast: showToast, // Questions
+    api: api, toast: showToast, app: app, // Questions
     // ticket 12: the owner screens localize the <time> tags of freshly drawn cards
     localize: localizeTimes,
     // CMD-23: re-read the Member's settings and apply them to `.cd-app` (the Settings screen calls it)
