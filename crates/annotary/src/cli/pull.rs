@@ -116,8 +116,9 @@ pub fn run(ctx: &Ctx, a: PullArgs) -> CliResult<()> {
                 let local_hash = sha256_hex(&local);
                 match b.matches_base(&local_hash) {
                     Some(true) => {}
-                    // What this pull writes (the answers already filled in) is no local edit.
-                    Some(false) if local == bytes => {}
+                    // The file a pull filled with Answers, as it would be filled again, is no
+                    // local edit (any other file differing from the base still is).
+                    Some(false) if filled > 0 && local == bytes => {}
                     Some(false) => {
                         let pulled = std::fs::metadata(&sc_path)
                             .and_then(|m| m.modified())

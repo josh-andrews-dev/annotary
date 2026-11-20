@@ -65,7 +65,8 @@ fn a_v4_store_migrates_with_its_data_and_web_devices() {
         // Roll the file back to v4: drop what v5 and later added and reset user_version.
         let conn = rusqlite::Connection::open(path.join(annotary_store::DB_FILE)).unwrap();
         conn.execute_batch(
-            "DROP TABLE comment_markups; DROP TABLE member_avatars; DROP TABLE device_settings; DROP TABLE all_device_settings; DROP TABLE member_settings; DROP TABLE devices;
+            "DROP TABLE answers; ALTER TABLE versions DROP COLUMN questions; ALTER TABLE threads DROP COLUMN question; ALTER TABLE threads DROP COLUMN options;
+             DROP TABLE comment_markups; DROP TABLE member_avatars; DROP TABLE device_settings; DROP TABLE all_device_settings; DROP TABLE member_settings; DROP TABLE devices;
              ALTER TABLE tokens DROP COLUMN device_id; ALTER TABLE sessions DROP COLUMN device_id;",
         )
         .unwrap();

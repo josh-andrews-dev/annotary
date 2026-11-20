@@ -192,7 +192,12 @@ pub fn run(ctx: &Ctx, a: AnswerArgs) -> CliResult<()> {
     let shown = r["option"].as_str().unwrap_or("none").to_string();
     let changed = r["changed"].as_bool().unwrap_or(false);
     if !changed {
-        ctx.out.note(&format!("{key} was already {shown}"));
+        let was = if r["option"].is_null() {
+            "you had not answered it".to_string()
+        } else {
+            format!("it was already {shown}")
+        };
+        ctx.out.note(&format!("{key}: {was}"));
     }
     if ctx.out.is_json() {
         let mut rec = Map::new();

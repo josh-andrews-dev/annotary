@@ -103,7 +103,7 @@ fn a_decisions_table_round_trips_through_answer_show_pull_and_push() {
     assert_eq!(ok(e.owner(&["answer", "plan", "D1", "A"])).0, "D1\tA\n");
     let (so, se) = ok(e.owner(&["answer", "plan", "D1", "A"]));
     assert_eq!(so, "D1\tA\n");
-    assert!(se.contains("D1 was already A"), "{se}");
+    assert!(se.contains("D1: it was already A"), "{se}");
     ok(e.scribe(&["answer", "plan", "D1", "B"]));
     ok(e.scribe(&["answer", "plan", "D2", "C"]));
     ok(e.scribe(&["answer", "plan", "D2", "none"]));

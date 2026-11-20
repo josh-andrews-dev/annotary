@@ -14,10 +14,10 @@ $ annotary -p down push x.md --json ?
 name id version same_as already warnings assets threads vault hash url
 
 $ annotary -p down pull x --json ?
-md sidecar version name id vault threads assets written
+md sidecar version name id vault threads assets written answers
 
 $ annotary -p down show x --json ?
-name id vault version by at message action open actions threads same_as deleted url
+name id vault version by at message action open actions threads questions same_as deleted url
 
 $ annotary -p down status x --json ?
 name id version action open_threads mentions_me seq vault deleted
@@ -38,10 +38,10 @@ $ annotary -p down thread list x --json ?
 id author anchor body markup mentions replies resolved deleted created updated version
 
 $ annotary -p down thread show x t1 --json ?
-id subject anchor author created body markup mentions edited_at deleted resolved replies updated
+id subject anchor author created body markup mentions edited_at deleted resolved replies updated question options answers
 
 $ annotary -p down thread new x --document -m m --json ?
-id subject anchor version created body mentions doc
+id subject anchor version created body mentions doc options
 
 $ annotary -p down thread reply x t1 -m m --json ?
 id thread state version doc

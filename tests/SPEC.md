@@ -672,7 +672,7 @@ Notes: `docs/dev/member-settings.md`, `docs/dev/web-settings.md`.
 - S50-12 — the controls on every state: wide and narrow, light and dark; an older Version and a deleted Document show the Answers read-only; a decided Question shows the cell and no controls; Compare is unaffected; a mid-review Question's card shows its labels as buttons, answered there; pages without Questions carry no Question script or styles (stories 181, 182)
 - S50-13 — in the fake embedder a Question is answered through the bridge and the frame makes no request of its own (story 181)
 - S50-14 — the agent skill says in one sentence that a table with Decision, Options, Decided columns is tappable, that `pull` writes the answers in and that an answer is not a mention, inside its 60 lines and its token limit (story 183)
-- S50-15 — the Sidecar's Threads carry `question` / `options` and the Sidecar carries the Document's current `answers`; `export` keeps the `answers` table, purging the Document removes its rows, and a store older than the migration reads as no Answers (stories 181, 183)
+- S50-15 — the Sidecar's Threads carry `question` / `options` and the Sidecar carries the Document's current `answers`; purging the Document removes its rows (`export` is the store's SQLite backup, so it holds them with the rest) (stories 181, 183)
 
 ## Stories
 
