@@ -1,4 +1,4 @@
-spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06
+spec: S01-17, S16-04, S18-06, S18-09, S26-01, S26-02, S29-30, S29-31, S37-08, S41-06, S50-10
 
 The `--json ?` contract of every verb in one place (ticket 16's sweep): each lists every field
 its `--json` can carry (`--json a,b` narrows to some of them) and exits 0 without calling the
@@ -72,6 +72,9 @@ name id version action by at label intent
 
 $ annotary -p down actions x --json ?
 id by at version label intent
+
+$ annotary -p down answer x D1 A --json ?
+key option changed version doc name
 
 $ annotary -p down member add x --json ?
 handle name role grants token created id

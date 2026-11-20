@@ -118,6 +118,11 @@ fn a_decisions_table_round_trips_through_answer_show_pull_and_push() {
     // Exits: unknown key 2, an option that is not one 1, a reader without `comment` 4.
     code(e.owner(&["answer", "plan", "D9", "A"]), 2);
     code(e.owner(&["answer", "plan", "D1", "Z"]), 1);
+    let (mid, reader) = e.ts.add_member("reader");
+    let read = annotary_store::Grant { vault: "notes".into(), rights: vec![annotary_store::Right::Read] };
+    e.ts.store.set_grants(&e.ts.owner_id, &mid, vec![read]).unwrap();
+    let (_, se) = code(run(&e.ts, e.home.path(), e.a.path(), &reader, &["answer", "plan", "D1", "A"]), 4);
+    assert!(se.starts_with("error: "), "{se}");
 
     // An unchanged file cannot be pushed over the Answers: exit 5 with the rows to put in.
     let edited = PLAN.replace("- B. A new VM.", "- B. A new VM, bigger.");
