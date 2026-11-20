@@ -1,7 +1,6 @@
 # Plan: Pencil markup and structured questions
 
-Status: decisions answered 2026-11-19 (D1 E, D2 as worked out in chat, D3 A). One step left in M1.
-Nothing built.
+Status: Approved 2026-11-19. Run started.
 
 ## What the maintainer asked for
 
@@ -194,14 +193,13 @@ and two can be merged. Rejected: B, one Document-level Thread per drawing sessio
 ## M1: from the maintainer
 
 - D1, D2 and D3: answered.
-- **Open: the review board of mocks.** The app's rules require a board before a feature that
-  neither the web nor its requirements describe. Either approve one (drawn next; about 10 minutes
-  of the maintainer's time), or waive it for this run. It would show: the markup mode on iPad and
-  iPhone (Pencil draws at once on iPad while a finger scrolls; a Markup button lets a finger draw;
-  the grouped preview before sending), a Markup in a Thread card on the app and the web, and the
-  question controls on the web (wide and narrow), in the app and in the Hermes page.
-- **Open: a TestFlight build at the end,** so the maintainer can try a real Pencil. Simulators
-  have no Pencil, so the run's own drawings are synthetic strokes.
+- The review board of mocks: *waived 2026-11-19 (the maintainer): "waive mocks here. You can
+  settle the look yourself."* This is an explicit exception to the app's rule for this run; the
+  look follows this plan and the app's existing design, and the app's requirements and design
+  docs are still updated.
+- A TestFlight build at the end: *yes (the maintainer, 2026-11-19).* The run tests everything it
+  can on simulators with synthetic strokes; the maintainer tries a real Pencil on the build.
+- Go: *given 2026-11-19.*
 
 Everything after M1 runs without the maintainer.
 
@@ -366,13 +364,14 @@ it.
 
 Starts when M2 is merged; one Opus 5.5 child at medium effort in a worktree thread on a linked
 Mac, Markup first and then Questions (both edit the Document canvas). It follows that repo's
-rules: its requirements and design docs updated from the approved board, test-first, every device
+rules (the board waived, as M1 records): its requirements and design docs updated, test-first, every device
 pose, fixtures for the new routes, `make lint test ui-test`, light and dark screenshots in the
 pull request.
 
 Done when: on a real server, a Pencil drawing made on an iPad simulator build (and a finger
 drawing on iPhone) arrives as Threads an agent can read with `thread show --markup`; a
-Question is answered in the app and `show` prints it; the pull request is merged.
+Question is answered in the app and `show` prints it; the pull request is merged and a TestFlight
+build is uploaded.
 
 The reading test is part of this milestone: five real drawings (a cross-out, a margin note, an
 arrow, a reworked diagram, small handwriting) are read by Claude, Gemini and Grok through the
@@ -403,7 +402,6 @@ The run stops and reports when:
 - the review gate has no reviewer available;
 - `make verify-live` fails for a reason the change did not cause;
 - the model reading test fails after one change to the image;
-- the app needs something the board did not show.
 
 It carries on through waits for CI, review and simulator leases.
 
@@ -476,5 +474,5 @@ It carries on through waits for CI, review and simulator leases.
 ## Run log
 
 - 2026-11-19: research and the two outside design reports done; plan drafted.
-- 2026-11-19: D1 to D3 answered; D2 reworked in chat into the decisions table. Waiting on the
-  two open M1 items.
+- 2026-11-19: D1 to D3 answered; D2 reworked in chat into the decisions table. Board waived, TestFlight
+  build wanted, go given. M2 started.
