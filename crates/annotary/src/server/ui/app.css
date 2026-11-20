@@ -196,6 +196,9 @@ mark.cd-hl code{background:var(--cd-hl-code-bg)}
 .cd-who b{color:var(--cd-fg);font-weight:600;font-size:13px}
 .cd-who b .cd-sec{font-weight:400;color:var(--cd-muted)}
 .cd-cbody{margin-top:2px;overflow-wrap:anywhere}
+/* A Markup is a light-theme crop of the page: it keeps its white ground in the dark theme. */
+.cd-mk{display:block;width:fit-content;max-width:100%;margin:4px 0}
+.cd-mk-img{display:block;max-width:100%;height:auto;max-height:360px;object-fit:contain;border:1px solid var(--cd-line);border-radius:4px;background:#fff}
 .cd-cbody>:first-child{margin-top:0}.cd-cbody>:last-child{margin-bottom:0}
 .cd-cbody p{margin:.25em 0}
 .cd-cbody pre{background:var(--cd-soft);border-radius:6px;padding:6px 8px;overflow-x:auto;font-size:.92em}

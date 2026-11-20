@@ -528,3 +528,33 @@ that wakes the agent's thread on Send back, Approve or an @mention as the fix fo
 is a larger feature with its own design, and it can come later without changing the question flow.
 To stay within the skill's 60 lines and its token band (S14-07, at its ceiling of 1086 now), the
 review section dropped the Name aside (the file name shows the Name) and a few words elsewhere.
+
+## 2026-11-19: a Markup is an image on a Comment, which the phase 1 spec ruled out
+
+The phase 1 spec lists "comment attachments/embeds" as "deliberately not built and not
+backlogged". A Markup (a drawing made in the app over the Document; the glossary's **Markup**) is an image
+kept on a Comment, so this overturns that line for Markups only: the maintainer asked
+for Pencil markup that goes back to the agent, and a drawing has no text form an agent could read
+instead. General attachments stay unbuilt (no web or CLI composer offers an image; `thread new
+--markup PNG --strokes JSON` exists for tests and tools), and so does commenting on a region of an
+image: a drawing anchors to the source lines it covers. Chose:
+
+- upload and attach in two steps, like a Version's blobs and its commit: `POST …/markups` checks
+  both files and stores two blobs with no row and no event, and answers the id `<image
+  hash>.<strokes hash>`; the Comment's own transaction checks the blobs again and writes the
+  `comment_markups` row, and its `thread.created` / `thread.replied` carries `markup: true`.
+  Rejected a pending row written at upload because it would need its own event (every store
+  mutation appends one), which the live feed and History would show before the Thread exists, and
+  a sweep for rows nobody attached; the blob GC's grace period already drops an upload nobody uses.
+- the upload as JSON with the PNG in base64 and the strokes as JSON, as the avatar upload does;
+  rejected multipart because no other route takes it, and a raw PNG body because the strokes would
+  then need a second request.
+- a PNG checked by decoding every row and the checksums (`png` crate, in the store), not only its
+  header, because the app is not the only client that can call the route.
+- the image on the card linked to itself in a new tab for "full size"; rejected an overlay in the
+  page because it adds script and CSS to every page (the list page is near its size ceiling) and
+  an embedder already opens a `target=_blank` link outside its frame. Above `embed::IMAGE_MAX` an
+  embed render shows only that link, as it does for an Asset image.
+- the skill's clause in place of words the CLI's `--help` already carries (`--sort recent`, the
+  default `wait --on` kinds, "Refused" before exit 5), to stay inside 60 lines and the token band.
+

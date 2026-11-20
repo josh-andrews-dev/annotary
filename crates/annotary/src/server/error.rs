@@ -91,6 +91,8 @@ impl ApiError {
         )
         .hint(if what.contains("avatar") {
             "avatars: an image up to 256 KB (an SVG up to 64 KB), a static fallback up to 256 KB"
+        } else if what.contains("Markup") {
+            "a Markup is a PNG up to 2 MB and 4096 px a side, with strokes up to 512 KB"
         } else {
             "caps: Markdown 2 MB, each Asset 100 MB, all Assets of a Version 500 MB"
         });
@@ -123,6 +125,10 @@ impl From<StoreError> for ApiError {
             StoreError::InvalidHandle { .. } | StoreError::Invalid { .. } => ApiError::invalid(e.to_string()),
             StoreError::InvalidAvatar(_) => ApiError::new(StatusCode::BAD_REQUEST, "invalid_avatar", e.to_string())
                 .hint("an avatar is a PNG, JPEG, GIF, WebP or a plain SVG (shapes, gradients, CSS animation; no scripts, links or outside files)"),
+            StoreError::InvalidMarkup(_) => ApiError::new(StatusCode::BAD_REQUEST, "invalid_markup", e.to_string())
+                .hint("a Markup is a PNG and its strokes {\"strokes\": [{color, width, tool?, points: [[x, y, t], ...]}]}"),
+            StoreError::MarkupMissing(_) => ApiError::new(StatusCode::CONFLICT, "markup_missing", e.to_string())
+                .hint("upload it (POST /api/v1/docs/{id}/markups) and post within the hour"),
             StoreError::InvalidName { .. } => ApiError::new(StatusCode::BAD_REQUEST, "invalid_name", e.to_string())
                 .hint(
                     "Names are the filename stem: not empty, no path separators or control characters, no leading '.'",

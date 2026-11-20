@@ -6,7 +6,7 @@ stdout = ""
 stderr = """
 error: the argument '--asset <REF>' cannot be used with '--document'
 
-Usage: annotary thread new --message <MSG> --asset <REF> <DOC> [ANCHOR]
+Usage: annotary thread new --asset <REF> --message <MSG> <DOC> [ANCHOR]
 
 For more information, try '--help'.
 """

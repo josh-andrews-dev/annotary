@@ -105,6 +105,8 @@ pub struct CommentView {
     pub version: u32,
     pub edited_at: Option<String>,
     pub deleted: Option<Tombstone>,
+    /// The drawing on this Comment, if any (`crate::markup`); gone once tombstoned.
+    pub markup: Option<crate::markup::Markup>,
 }
 
 impl CommentView {
@@ -139,6 +141,11 @@ impl ThreadView {
     /// True when the root and every Reply are tombstoned — hidden from lists and counts.
     pub fn is_fully_deleted(&self) -> bool {
         self.root.is_deleted() && self.replies.iter().all(CommentView::is_deleted)
+    }
+
+    /// True when the root or a Reply holds a Markup (`show` / `thread list` mark it `[markup]`).
+    pub fn has_markup(&self) -> bool {
+        std::iter::once(&self.root).chain(self.replies.iter()).any(|c| c.markup.is_some())
     }
 
     /// Member ids mentioned by any live Comment (root first, then Replies), deduplicated.
@@ -252,6 +259,9 @@ pub struct NewThread {
     /// server handler computes it with the Asset scanner), `None` when not referenced directly.
     pub line: Option<u32>,
     // ---- end ticket 07 ----
+    /// A Markup id from `Store::upload_markup` to attach to the root Comment (whose body may
+    /// then be empty).
+    pub markup: Option<String>,
 }
 
 impl NewThread {
@@ -263,6 +273,7 @@ impl NewThread {
             expect_version: None,
             reference: None,
             line: None,
+            markup: None,
         }
     }
 
@@ -274,6 +285,7 @@ impl NewThread {
             expect_version: None,
             reference: None,
             line: None,
+            markup: None,
         }
     }
 
@@ -285,6 +297,7 @@ impl NewThread {
             expect_version: None,
             reference: Some(reference.into()),
             line,
+            markup: None,
         }
     }
 }
@@ -467,8 +480,9 @@ fn check_cap(tx: &rusqlite::Connection, doc_id: &str, adding: usize, replacing: 
     Ok(())
 }
 
-fn validate_body(body: &str) -> Result<()> {
-    if body.trim().is_empty() {
+/// A Comment body must say something, unless the Comment holds a Markup.
+fn validate_body(body: &str, has_markup: bool) -> Result<()> {
+    if body.trim().is_empty() && !has_markup {
         return Err(StoreError::Invalid { what: "Comment body", reason: "must not be empty".into() });
     }
     Ok(())
@@ -560,8 +574,12 @@ fn set_resolution(
 
 // ---------------------------------------------------------------- reads (shared)
 
-const COMMENT_SELECT: &str = "SELECT thread_num, num, author, body, mentions, created_at, created_version, edited_at,
-        deleted_at, deleted_by FROM comments WHERE doc_id = ?1";
+const COMMENT_SELECT: &str = "SELECT c.thread_num, c.num, c.author, c.body, c.mentions, c.created_at,
+        c.created_version, c.edited_at, c.deleted_at, c.deleted_by,
+        m.image_hash, m.width, m.height, m.image_size, m.strokes_hash, m.strokes_size
+        FROM comments c LEFT JOIN comment_markups m
+          ON m.doc_id = c.doc_id AND m.thread_num = c.thread_num AND m.comment_num = c.num
+        WHERE c.doc_id = ?1";
 
 fn row_to_comment(r: &rusqlite::Row<'_>, hs: &HashMap<String, String>) -> rusqlite::Result<(u32, CommentView)> {
     let thread_num = r.get::<_, i64>(0)? as u32;
@@ -571,6 +589,17 @@ fn row_to_comment(r: &rusqlite::Row<'_>, hs: &HashMap<String, String>) -> rusqli
     let mentions: Vec<String> = serde_json::from_str(&mentions).unwrap_or_default();
     let deleted_at: Option<String> = r.get(8)?;
     let deleted_by: Option<String> = r.get(9)?;
+    let markup = match r.get::<_, Option<String>>(10)? {
+        Some(image) => Some(crate::markup::Markup {
+            image,
+            width: r.get::<_, i64>(11)? as u32,
+            height: r.get::<_, i64>(12)? as u32,
+            image_size: r.get::<_, i64>(13)? as u64,
+            strokes: r.get(14)?,
+            strokes_size: r.get::<_, i64>(15)? as u64,
+        }),
+        None => None,
+    };
     Ok((
         thread_num,
         CommentView {
@@ -588,6 +617,7 @@ fn row_to_comment(r: &rusqlite::Row<'_>, hs: &HashMap<String, String>) -> rusqli
                 (Some(at), Some(by)) => Some(Tombstone { at, by_handle: handle_of(hs, &by), by }),
                 _ => None,
             },
+            markup,
         },
     ))
 }
@@ -597,7 +627,7 @@ fn load_threads(conn: &rusqlite::Connection, doc_id: &str, only: Option<u32>) ->
     let hs = handles(conn)?;
     let mut comments: BTreeMap<u32, Vec<CommentView>> = BTreeMap::new();
     {
-        let mut stmt = conn.prepare(&format!("{COMMENT_SELECT} ORDER BY thread_num, num"))?;
+        let mut stmt = conn.prepare(&format!("{COMMENT_SELECT} ORDER BY c.thread_num, c.num"))?;
         for row in stmt.query_map([doc_id], |r| row_to_comment(r, &hs))? {
             let (t, c) = row?;
             comments.entry(t).or_default().push(c);
@@ -701,7 +731,7 @@ impl Store {
     /// `range` on head — the exact quote is read from the head Markdown and frozen as
     /// `anchor.original`; empty spans are refused. `expect_version` ≠ head ⇒ `NotHead`.
     pub fn new_thread(&self, by: &str, doc_id: &str, input: NewThread) -> Result<ThreadView> {
-        validate_body(&input.body)?;
+        validate_body(&input.body, input.markup.is_some())?;
         let range = match input.subject {
             ThreadSubject::Span => Some(
                 Range::parse(input.range.as_deref().unwrap_or(""))
@@ -721,6 +751,7 @@ impl Store {
             ),
             _ => None,
         };
+        let markup = input.markup.as_deref().map(|id| self.check_markup(id)).transpose()?;
         let num = self.tx(|tx| {
             let (head, md_hash) = doc_head(tx, doc_id)?;
             if let Some(v) = input.expect_version
@@ -800,18 +831,19 @@ impl Store {
                  VALUES (?1, ?2, 0, ?3, ?4, ?5, ?6, ?7)",
                 params![doc_id, num as i64, by, input.body, serde_json::to_string(&mentions)?, now, head as i64],
             )?;
+            if let Some(m) = &markup {
+                self.attach_markup(tx, doc_id, num, 0, m)?;
+            }
             bump_activity(tx, doc_id, &now)?;
-            append_event(
-                tx,
-                Some(by),
-                "thread.created",
-                Some(doc_id),
-                serde_json::json!({
-                    "thread": thread_id(num), "subject": input.subject.as_str(), "version": head, "mentions": mentions,
-                    "range": anchor.as_ref().and_then(|a| a.original.range.clone()),
-                    "ref": anchor.as_ref().and_then(|a| a.original.reference.clone()),
-                }),
-            )?;
+            let mut payload = serde_json::json!({
+                "thread": thread_id(num), "subject": input.subject.as_str(), "version": head, "mentions": mentions,
+                "range": anchor.as_ref().and_then(|a| a.original.range.clone()),
+                "ref": anchor.as_ref().and_then(|a| a.original.reference.clone()),
+            });
+            if input.markup.is_some() {
+                payload["markup"] = serde_json::json!(true);
+            }
+            append_event(tx, Some(by), "thread.created", Some(doc_id), payload)?;
             Ok(num)
         })?;
         Ok(self.thread(doc_id, num)?.expect("just created"))
@@ -827,7 +859,22 @@ impl Store {
         body: &str,
         resolve: bool,
     ) -> Result<(ThreadView, CommentView)> {
-        validate_body(body)?;
+        self.reply_with_markup(by, doc_id, thread_num, body, resolve, None)
+    }
+
+    /// [`Store::reply`] with a Markup id from `Store::upload_markup` attached to the Reply (whose
+    /// body may then be empty); `thread.replied` then carries `markup: true`.
+    pub fn reply_with_markup(
+        &self,
+        by: &str,
+        doc_id: &str,
+        thread_num: u32,
+        body: &str,
+        resolve: bool,
+        markup: Option<&str>,
+    ) -> Result<(ThreadView, CommentView)> {
+        validate_body(body, markup.is_some())?;
+        let checked = markup.map(|id| self.check_markup(id)).transpose()?;
         let num = self.tx(|tx| {
             let (head, _) = doc_head(tx, doc_id)?;
             if !thread_exists(tx, doc_id, thread_num)? {
@@ -846,16 +893,17 @@ impl Store {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![doc_id, thread_num as i64, num as i64, by, body, serde_json::to_string(&mentions)?, now, head as i64],
             )?;
+            if let Some(m) = &checked {
+                self.attach_markup(tx, doc_id, thread_num, num, m)?;
+            }
             bump_activity(tx, doc_id, &now)?;
-            append_event(
-                tx,
-                Some(by),
-                "thread.replied",
-                Some(doc_id),
-                serde_json::json!({
-                    "thread": thread_id(thread_num), "comment": comment_id(thread_num, num), "version": head, "mentions": mentions,
-                }),
-            )?;
+            let mut payload = serde_json::json!({
+                "thread": thread_id(thread_num), "comment": comment_id(thread_num, num), "version": head, "mentions": mentions,
+            });
+            if markup.is_some() {
+                payload["markup"] = serde_json::json!(true);
+            }
+            append_event(tx, Some(by), "thread.replied", Some(doc_id), payload)?;
             if resolve && resolved_of(tx, doc_id, thread_num)?.is_none() {
                 set_resolution(tx, by, doc_id, thread_num, true, &now, head)?;
             }
@@ -903,7 +951,6 @@ impl Store {
         comment: &str,
         body: &str,
     ) -> Result<CommentView> {
-        validate_body(body)?;
         let Some((tn, cn)) = parse_comment_id(comment) else {
             return Err(StoreError::CommentNotFound { doc: doc_id.into(), comment: comment.into() });
         };
@@ -926,6 +973,15 @@ impl Store {
             if deleted_at.is_some() {
                 return Err(StoreError::CommentDeleted(comment_id(tn, cn)));
             }
+            let has_markup = tx
+                .query_row(
+                    "SELECT 1 FROM comment_markups WHERE doc_id = ?1 AND thread_num = ?2 AND comment_num = ?3",
+                    params![doc_id, tn as i64, cn as i64],
+                    |_| Ok(()),
+                )
+                .optional()?
+                .is_some();
+            validate_body(body, has_markup)?;
             if author != by && !is_owner {
                 let hs = handles(tx)?;
                 return Err(StoreError::NotAuthor { comment: comment_id(tn, cn), author: handle_of(&hs, &author), what: "edit" });
@@ -990,6 +1046,11 @@ impl Store {
                 "UPDATE comments SET body = '', mentions = '[]', deleted_at = ?1, deleted_by = ?2
                  WHERE doc_id = ?3 AND thread_num = ?4 AND num = ?5",
                 params![now, by, doc_id, tn as i64, cn as i64],
+            )?;
+            // A tombstone keeps no Markup: the row goes, and the GC takes its blobs.
+            tx.execute(
+                "DELETE FROM comment_markups WHERE doc_id = ?1 AND thread_num = ?2 AND comment_num = ?3",
+                params![doc_id, tn as i64, cn as i64],
             )?;
             bump_activity(tx, doc_id, &now)?;
             append_event(

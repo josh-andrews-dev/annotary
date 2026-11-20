@@ -54,7 +54,7 @@ fn render(st: &AppState, auth: &Auth, headers: &HeaderMap) -> Result<Response, A
     for h in &hits {
         let t = &h.thread;
         let last = t.replies.last().unwrap_or(&t.root);
-        let said = if last.is_deleted() { "(deleted)".to_string() } else { super::view::snippet(&last.body) };
+        let said = super::view::comment_snippet(last);
         let replies = t.replies.len();
         let replies = match replies {
             0 => String::new(),

@@ -117,6 +117,7 @@ dependencies = [
  "imagesize",
  "jiff",
  "libc",
+ "png",
  "quick-xml",
  "rusqlite",
  "serde",

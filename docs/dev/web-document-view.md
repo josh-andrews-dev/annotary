@@ -52,7 +52,9 @@ with a Bearer Token. Why each choice: `docs/decisions.md`, 2026-11-07.
   closing tag for video, audio and PDF): hidden after an image the script fetches, shown after video, audio, PDF and
   an image over `IMAGE_MAX` (`data-cd-big`). The button has no text node (`app.css` draws "Open KIND"), so the text
   `mapSelection` and `highlight` read is unchanged; `app.js` matches Asset outlines on `data-cd-src` too. Cards are
-  untouched (Comment bodies never embed media).
+  untouched (Comment bodies never embed media); a card's Markup keeps its URL as `data-cd-mk`, which
+  `loadAvatars` fetches through the transport, and above `IMAGE_MAX` is only a link
+  ([markup.md](markup.md)).
 - **One transport (`app.js`):** `transport.request / events / navigate / hash / pref / savePrefs` are what the page
   always did in a browser (`fetch` with the cookie, `EventSource`, `location.href`, `location.hash`, the `cd_tz` /
   `cd_hc` cookies). In an embed render (and only when `window.AnnotaryEmbed` exists: `embed.js` defines it only in a

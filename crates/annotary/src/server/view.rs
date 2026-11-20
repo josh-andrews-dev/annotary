@@ -632,7 +632,25 @@ fn label_html(it: &Item, version: u32) -> String {
     }
 }
 
-fn comment_html(c: &CommentView, viewer: &Viewer) -> String {
+/// A Comment's Markup above its body: the image, at its size, linked to itself full size in a new
+/// tab (an embedder opens it outside the frame). An embed render keeps the URL as `data-cd-mk`
+/// for `app.js` to fetch through the transport, or, above `embed::IMAGE_MAX`, shows only the link.
+fn markup_html(doc_id: &str, m: &annotary_store::Markup, embed: bool) -> String {
+    let url = esc(&super::markups::markup_url(doc_id, &m.image));
+    let (w, h) = (m.width, m.height);
+    let open = format!(
+        "<a class=\"cd-mk\" href=\"{url}\" target=\"_blank\" rel=\"noopener\" title=\"Open the Markup full size ({w}×{h})\">"
+    );
+    if embed && m.image_size > super::embed::IMAGE_MAX {
+        return format!("{open}Open the Markup ({w}×{h})</a>");
+    }
+    let src = if embed { "data-cd-mk" } else { "src" };
+    format!(
+        "{open}<img class=\"cd-mk-img\" {src}=\"{url}\" width=\"{w}\" height=\"{h}\" alt=\"Markup: a drawing over the Document\" decoding=\"async\" loading=\"lazy\"></a>"
+    )
+}
+
+fn comment_html(c: &CommentView, viewer: &Viewer, doc_id: &str) -> String {
     let author = viewer.member(&c.author_handle);
     let who = format!("{}{}", author.avatar_html(viewer.embed), author.html());
     let edited = if c.edited_at.is_some() { "<span>· edited</span>" } else { "" };
@@ -641,6 +659,7 @@ fn comment_html(c: &CommentView, viewer: &Viewer) -> String {
     } else {
         ui::mention_spans(&ui::comment_html(&c.body), &c.mention_handles)
     };
+    let markup = c.markup.as_ref().map(|m| markup_html(doc_id, m, viewer.embed)).unwrap_or_default();
     // ---- ticket 11: edit / delete for the author or an owner ----
     let tools = if viewer.may_edit(c) {
         "<span class=\"cd-ctools\"><button type=\"button\" class=\"cd-link\" data-act=\"edit\">edit</button><button type=\"button\" class=\"cd-link\" data-act=\"delete\">delete</button></span>"
@@ -649,11 +668,25 @@ fn comment_html(c: &CommentView, viewer: &Viewer) -> String {
     };
     // ---- end ticket 11 ----
     format!(
-        "<div class=\"cd-c\" data-c=\"{}\"><div class=\"cd-who\">{who}<span>{}</span>{edited}<span class=\"cd-mono\">v{}</span>{tools}</div><div class=\"cd-cbody\">{body}</div></div>",
+        "<div class=\"cd-c\" data-c=\"{}\"><div class=\"cd-who\">{who}<span>{}</span>{edited}<span class=\"cd-mono\">v{}</span>{tools}</div>{markup}<div class=\"cd-cbody\">{body}</div></div>",
         esc(&c.id),
         viewer.times.tag(&c.at, false),
         c.version
     )
+}
+
+/// The snippet of a Comment for a one-line row: `(deleted)` for a tombstone, `Markup` (and its
+/// words, if any) for one holding a Markup, else its body's [`snippet`].
+pub(super) fn comment_snippet(c: &CommentView) -> String {
+    if c.is_deleted() {
+        return "(deleted)".to_string();
+    }
+    let snip = snippet(&c.body);
+    match (&c.markup, snip.is_empty()) {
+        (None, _) => snip,
+        (Some(_), true) => "Markup".to_string(),
+        (Some(_), false) => format!("Markup · {snip}"),
+    }
 }
 
 /// A short plain-text snippet of a body for the narrow row.
@@ -696,7 +729,7 @@ fn thread_card(it: &Item, viewer: &Viewer, version: u32) -> String {
         ThreadSubject::Asset => classes.push_str(" cd-asset"),
         ThreadSubject::Span => {}
     }
-    let root_snip = if t.root.is_deleted() { "(deleted)".to_string() } else { snippet(&t.root.body) };
+    let root_snip = comment_snippet(&t.root);
     let replies = t.replies.len();
     let last_at = t.replies.last().map(|r| r.at.as_str()).unwrap_or(t.root.at.as_str());
     let meta = format!(
@@ -710,9 +743,9 @@ fn thread_card(it: &Item, viewer: &Viewer, version: u32) -> String {
         viewer.times.tag(last_at, true),
         if it.mine && !it.resolved { " · <span class=\"cd-mention\">@you</span>" } else { "" }
     );
-    let mut body = comment_html(&t.root, viewer);
+    let mut body = comment_html(&t.root, viewer, &t.doc_id);
     for r in &t.replies {
-        body.push_str(&comment_html(r, viewer));
+        body.push_str(&comment_html(r, viewer, &t.doc_id));
     }
     if let Some(r) = &t.resolved {
         body.push_str(&format!(

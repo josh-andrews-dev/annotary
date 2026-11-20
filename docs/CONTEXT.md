@@ -44,6 +44,10 @@ _Avoid_: Note, message, post
 A Comment that answers a Thread's root. Replies belong to the Thread, not to a Version.
 _Avoid_: Response, child comment, answer
 
+**Markup**:
+A drawing a Member makes over the rendered Document in the app, kept on a Comment as an image of the marked region and the strokes. Every surface shows the image on its Thread's card; agents read it through the CLI. A Comment with a Markup may have no words.
+_Avoid_: Attachment, annotation, sketch
+
 **Mention**:
 An `@handle` in a Comment naming a Member. Resolved to that Member when the Comment is posted; it makes the Thread show up in that Member's mentions and can wake their wait.
 _Avoid_: Tag, ping, notification

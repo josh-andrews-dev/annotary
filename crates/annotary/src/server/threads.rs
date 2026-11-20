@@ -3,9 +3,9 @@
 //! | route | right | what |
 //! |---|---|---|
 //! | `GET /api/v1/docs/{id}/threads?status=open\|resolved\|all&mentions_me=1&since=T&sort=recent&hidden=1&anchor=anchored,refined,orphaned&version=N` | read | `{threads:[…]}` — default open, document order; `anchor=` filters by placement status; `version=N` = the read-only time-slice (Threads as they stood on N; 404 for an unknown N) (ticket 07) |
-//! | `POST /api/v1/docs/{id}/threads {subject: span\|document\|asset, range?, ref?, body, version?}` | comment | new Thread on head (201); `version` ≠ head ⇒ 409 `not_head`; range not on head ⇒ 409 `range_not_on_head`; asset `ref` not in the head manifest ⇒ 409 `asset_not_on_head`, missing ⇒ 409 `asset_missing` (ticket 07) |
+//! | `POST /api/v1/docs/{id}/threads {subject: span\|document\|asset, range?, ref?, body, version?, markup?}` | comment | new Thread on head (201); `version` ≠ head ⇒ 409 `not_head`; range not on head ⇒ 409 `range_not_on_head`; asset `ref` not in the head manifest ⇒ 409 `asset_not_on_head`, missing ⇒ 409 `asset_missing` (ticket 07) |
 //! | `GET /api/v1/docs/{id}/threads/{tid}` | read | one Thread with its Replies (`tid` = `t7`) |
-//! | `POST /api/v1/docs/{id}/threads/{tid}/replies {body, resolve?}` | comment | Reply (201) `{thread, comment}`; `resolve` also resolves |
+//! | `POST /api/v1/docs/{id}/threads/{tid}/replies {body, resolve?, markup?}` | comment | Reply (201) `{thread, comment}`; `resolve` also resolves |
 //! | `POST /api/v1/docs/{id}/threads/{tid}/resolve` · `…/reopen` | comment | bare events; idempotent (`changed`) |
 //! | `PUT /api/v1/docs/{id}/threads/{cid} {body}` | comment (author or owner) | edit a Comment (`cid` = `t7` or `t7.1`) |
 //! | `DELETE /api/v1/docs/{id}/threads/{cid}` | comment (author or owner) | tombstone a Comment |
@@ -13,7 +13,9 @@
 //!
 //! Errors: `body_cap` (409) names the cap and the current count; unknown Thread/Comment ⇒ 404
 //! `no Thread t99 in NAME (ID)`; not the author ⇒ 403; a Comment already tombstoned cannot be
-//! edited (409 `deleted`). Mutations on a deleted Document ⇒ 409 `deleted`.
+//! edited (409 `deleted`). Mutations on a deleted Document ⇒ 409 `deleted`. `markup` is an id from
+//! `POST …/markups` (`markups.rs`): the Comment's body may then be empty; a bad id is 400
+//! `invalid_markup`, one whose blobs are gone 409 `markup_missing`.
 
 use axum::Json;
 use axum::extract::rejection::JsonRejection;
@@ -33,8 +35,9 @@ use super::docs::{doc_json, load_doc};
 use super::error::ApiError;
 
 /// A Comment as the API shows it (handles, not Member ids).
+/// A Comment with a Markup also carries `markup {image, width, height, strokes}`.
 pub fn comment_json(c: &CommentView) -> Value {
-    json!({
+    let mut v = json!({
         "id": c.id,
         "author": c.author_handle,
         "created": { "at": c.at, "version": c.version },
@@ -42,7 +45,11 @@ pub fn comment_json(c: &CommentView) -> Value {
         "mentions": c.mention_handles,
         "edited_at": c.edited_at,
         "deleted": c.deleted.as_ref().map(|d| json!({ "at": d.at, "by": d.by_handle })),
-    })
+    });
+    if let Some(m) = &c.markup {
+        v["markup"] = super::markups::markup_json(m);
+    }
+    v
 }
 
 /// A Thread as the API shows it: the Sidecar's `threads[]` shape plus `updated_at`,
@@ -210,7 +217,12 @@ pub struct NewThreadBody {
     /// The Asset `ref` (as the manifest lists it) for `subject: asset`.
     #[serde(default, rename = "ref")]
     pub reference: Option<String>,
+    /// May be empty when `markup` is given.
+    #[serde(default)]
     pub body: String,
+    /// A Markup id from `POST …/markups` for the root Comment.
+    #[serde(default)]
+    pub markup: Option<String>,
     /// The head Version the poster looked at (refused when the head is not that).
     #[serde(default)]
     pub version: Option<u32>,
@@ -252,8 +264,15 @@ pub async fn create(
         _ => None,
     };
     // ---- end ticket 07 ----
-    let input =
-        NewThread { subject, range: body.range, body: body.body, expect_version: body.version, reference, line };
+    let input = NewThread {
+        subject,
+        range: body.range,
+        body: body.body,
+        expect_version: body.version,
+        reference,
+        line,
+        markup: body.markup,
+    };
     let t = st.store.new_thread(&auth.0.member_id, &doc.id, input).map_err(|e| map_err(&doc, e))?;
     tracing::info!("thread {} on {} ({}) by @{}", t.id, doc.head.name, doc.id, auth.0.handle);
     let mut v = thread_json(&t);
@@ -282,9 +301,14 @@ pub async fn get(
 
 #[derive(Debug, Deserialize)]
 pub struct ReplyBody {
+    /// May be empty when `markup` is given.
+    #[serde(default)]
     pub body: String,
     #[serde(default)]
     pub resolve: bool,
+    /// A Markup id from `POST …/markups` for the Reply.
+    #[serde(default)]
+    pub markup: Option<String>,
 }
 
 pub async fn reply(
@@ -297,8 +321,10 @@ pub async fn reply(
     auth.require_right(&doc.vault_name, Right::Comment)?;
     let num = parse_tid(&doc, &tid)?;
     let Json(body) = body?;
-    let (t, c) =
-        st.store.reply(&auth.0.member_id, &doc.id, num, &body.body, body.resolve).map_err(|e| map_err(&doc, e))?;
+    let (t, c) = st
+        .store
+        .reply_with_markup(&auth.0.member_id, &doc.id, num, &body.body, body.resolve, body.markup.as_deref())
+        .map_err(|e| map_err(&doc, e))?;
     tracing::info!(
         "reply {} on {} ({}) by @{}{}",
         c.id,

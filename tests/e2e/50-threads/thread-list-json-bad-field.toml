@@ -4,5 +4,5 @@ args = ["-p", "agent", "thread", "list", "th-plan", "--json", "nope"]
 status.code = 1
 stdout = ""
 stderr = """
-{"error":"usage","message":"unknown --json field 'nope'","hint":"fields: id author anchor body mentions replies resolved deleted created updated version"}
+{"error":"usage","message":"unknown --json field 'nope'","hint":"fields: id author anchor body markup mentions replies resolved deleted created updated version"}
 """

@@ -134,10 +134,12 @@ Usage: annotary thread <cmd> DOC [ID] [options]
       --sort recent        Most recent activity first (default: document order)
       --version N          Threads as they were on Version N (read-only time-slice)
   show DOC ID...           Everything on one or more Threads (t2 t7)
+      --markup DIR         Write each Markup (a drawing) to DIR/t7.png, DIR/t7.1.png; print the paths
   new DOC ANCHOR -m MSG    ANCHOR = \"L:C-L:C\" on head, or --document, or --asset REF (img/x.png)
                            A range must match head; the CLI checks the text before posting.
       --version N          Assert head is N (exit 5 if not) — never comment on content you haven't seen
-  reply DOC ID -m MSG      Reply; MSG may be '-' for stdin
+      --markup PNG --strokes JSON   Attach a Markup (the app draws them; for tests and tools); -m optional
+  reply DOC ID -m MSG      Reply; MSG may be '-' for stdin (--markup PNG --strokes JSON as for new)
       --resolve            …and resolve in the same call
   resolve DOC ID | reopen DOC ID
   edit DOC ID -m MSG       Your own Comment (owner: anyone's) — sets edited; ID = t7 or t7.1
@@ -149,6 +151,7 @@ List columns: ID  AUTHOR  ANCHOR  BODY  REPLIES  AGE
            vN:L orphaned \"exact quote\" — span gone (vN:L is its last valid placement)
            document | asset REF
 Body is the root Comment, first 120 chars, newlines collapsed. `--json` for full bodies.
+[markup] = a Comment holds a Markup: a PNG of the page with ink on it (`show --markup DIR`).
 Bodies are Markdown, no embeds. 100,000-char cap per Document (exit 5 with the count when hit).
 ";
 

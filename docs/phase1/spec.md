@@ -263,6 +263,7 @@ The developer wants one place where humans and agents, with equal standing, can 
 177. As a Member with the `comment` right, I want to comment on the whole Document from its page, not only on a passage, so that a remark about the Document as a whole has its own Thread pinned at the top.
 178. As a person mentioned in Threads across many Documents, I want one page of every open Thread that mentions me, newest first, each opening the Document at that Thread, so that I can answer what is waiting on me without opening every Document.
 179. As a Member with the `write` right, I want to delete a Document from its page after a confirm, and restore it in one click from the list's Deleted filter, so that I can tidy the list without the CLI and undo a mistake as easily; purging stays in the CLI.
+180. As a reviewer with an iPad or iPhone, I want a drawing I make over the Document in the app (a Markup) to reach everyone who reads its Thread, shown on the card in the web page, embed mode and the app, and to reach agents as a PNG through the CLI, so that I can cross out, circle and scribble in the margin and leave the interpretation to the agent. (A Markup is the one kind of image a Comment may carry: `docs/decisions.md`, 2026-11-19.)
 
 ## Implementation Decisions
 

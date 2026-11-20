@@ -247,6 +247,14 @@ function main() {
       }
       avatarBlobs[path].then(function (u) { img.src = u; }, function () { img.classList.add('cd-embed-failed'); });
     });
+    // A Markup's image (`view.rs`, `markup_html`): one card shows it, so no cache.
+    $$('img[data-cd-mk]:not([src])', root).forEach(function (img) {
+      var path = img.getAttribute('data-cd-mk');
+      if (!/^\/api\/v1\/docs\/\w+\/markups\/[0-9a-f]{64}$/.test(path)) return;
+      transport.request('GET', path, { binary: true, headers: { Accept: 'image/png' } })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+        .then(function (b) { img.src = URL.createObjectURL(b); }, function () { img.classList.add('cd-embed-failed'); });
+    });
   }
   loadAvatars(document);
 
@@ -1540,7 +1548,7 @@ function main() {
     var cid = cEl.getAttribute('data-c');
     var tid = card.getAttribute('data-t');
     var text = $('textarea', ed).value.trim();
-    if (!text) { $('textarea', ed).focus(); return; }
+    if (!text && !$('.cd-mk', cEl)) { $('textarea', ed).focus(); return; }
     var orig = ed.cdOrig;
     ed.remove();
     clearError(card);
