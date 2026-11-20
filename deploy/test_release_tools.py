@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""deploy/stamp_version.py and deploy/tap_formula.py; `make deploy-test` runs this."""
+"""deploy/stamp_version.py, deploy/tap_formula.py and verify_live.py's browser path; `make deploy-test` runs this."""
 import importlib.util
 import os
 import tempfile
@@ -17,6 +17,7 @@ def load(name):
 
 stamp_version = load("stamp_version")
 tap_formula = load("tap_formula")
+verify_live = load("verify_live")
 
 MANIFEST = """[workspace]
 members = ["crates/*"]
@@ -177,6 +178,25 @@ class Formula(unittest.TestCase):
         ):
             with self.assertRaises(ValueError, msg=bad):
                 tap_formula.with_test(bad)
+
+
+class BrowsersPath(unittest.TestCase):
+    """Playwright's default browser folder per platform (verify_live passes it on, since the
+    scenarios run with HOME set to the copy's folder)."""
+
+    def test_macos_uses_library_caches(self):
+        self.assertEqual(verify_live.browsers_path({}, "darwin", "/h"), "/h/Library/Caches/ms-playwright")
+
+    def test_linux_uses_the_xdg_cache(self):
+        self.assertEqual(verify_live.browsers_path({}, "linux", "/h"), "/h/.cache/ms-playwright")
+        self.assertEqual(verify_live.browsers_path({"XDG_CACHE_HOME": "/x"}, "linux", "/h"), "/x/ms-playwright")
+
+    def test_windows_uses_local_app_data(self):
+        self.assertEqual(verify_live.browsers_path({"LOCALAPPDATA": "/l"}, "win32", "/h"), os.path.join("/l", "ms-playwright"))
+
+    def test_a_set_path_wins_on_every_platform(self):
+        for platform in ("darwin", "linux", "win32"):
+            self.assertEqual(verify_live.browsers_path({"PLAYWRIGHT_BROWSERS_PATH": "/p"}, platform, "/h"), "/p")
 
 
 if __name__ == "__main__":
