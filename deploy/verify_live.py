@@ -374,6 +374,19 @@ def live_rejects(token: str) -> bool:
         return False
 
 
+def browsers_path(env, platform: str, home: str) -> str:
+    """Playwright's own browser folder for the real HOME, unless PLAYWRIGHT_BROWSERS_PATH is set.
+    It is passed on explicitly because the scenarios run with HOME set to the copy's folder, where
+    Playwright would look in the wrong place."""
+    if env.get("PLAYWRIGHT_BROWSERS_PATH"):
+        return env["PLAYWRIGHT_BROWSERS_PATH"]
+    if platform == "darwin":
+        return os.path.join(home, "Library", "Caches", "ms-playwright")
+    if platform.startswith("win"):
+        return os.path.join(env.get("LOCALAPPDATA") or os.path.join(home, "AppData", "Local"), "ms-playwright")
+    return os.path.join(env.get("XDG_CACHE_HOME") or os.path.join(home, ".cache"), "ms-playwright")
+
+
 def clean_env(extra: dict[str, str]) -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if not k.startswith("ANNOTARY_")}
     env.update(extra)
@@ -485,7 +498,7 @@ def main() -> int:
             shutil.rmtree(a.out, ignore_errors=True)
             os.makedirs(a.out, exist_ok=True)
             # HOME is the copy's folder too, so nothing a scenario starts finds the real profiles.
-            browsers = os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or os.path.expanduser("~/.cache/ms-playwright")
+            browsers = browsers_path(os.environ, sys.platform, os.path.expanduser("~"))
             pw_env = clean_env({"VERIFY_URL": f"http://127.0.0.1:{port}", "VERIFY_CLI_HOME": home,
                                 "VERIFY_BIN": os.path.abspath(a.bin), "VERIFY_OUT": a.out,
                                 "VERIFY_TMP": work, "HOME": work, "PLAYWRIGHT_BROWSERS_PATH": browsers})
