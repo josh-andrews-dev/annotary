@@ -558,3 +558,61 @@ image: a drawing anchors to the source lines it covers. Chose:
 - the skill's clause in place of words the CLI's `--help` already carries (`--sort recent`, the
   default `wait --on` kinds, "Refused" before exit 5), to stay inside 60 lines and the token band.
 
+
+## 2026-11-20: Questions come from the Document's decisions table; the server never writes Markdown
+
+Decided by the maintainer on 2026-11-19 (the markup-and-questions plan's D1 and D2); built here.
+A **Question** (the glossary's) has a stable key, its **Options** and one **Answer** per Member; it
+comes from the Document or from a Thread, and its conversation is an ordinary Thread created by the
+first Comment. Chose:
+
+- **D1, one model from four designs**: a Question Thread (`thread new … --ask`), controls in the
+  Document, the ballot's progress count and **Accept recommended**, and keys that survive edits.
+  Rejected each design alone: a Question Thread alone duplicates the options and opens ten Threads
+  before anyone speaks; controls alone cannot ask mid-review; the ballot strip sends the reader back
+  and forth to the prose and resets every Version; a house-style convention (`D4.` + `A`, `B`)
+  cannot be seen to work or fail while writing.
+- **D2, the author's own decisions table declares the Questions**: any table with columns
+  `Decision`, `Options` and `Decided` (case-insensitive, any order; `Recommended` optional), one per
+  Document. Nothing written for Annotary goes into the Markdown. A tap stores the Answer in
+  Annotary; `pull` of the head hands the Markdown back with the Answers in the empty `Decided`
+  cells (only those change; `--as-pushed` and older Versions are exact); `push` refuses a file whose
+  row keeps its Options and an empty `Decided` cell while the head has Answers (exit 5
+  `answers_missing`, with the rows to put in, and the server refuses the same commit);
+  `--discard-answers` is the long, logged escape. A filled `Decided` cell makes the Question
+  decided: its controls close and the cell is the truth. **The server never writes Markdown.**
+  Rejected: declaring the ids only in the Sidecar or on `push` (the decision would not be in the
+  Markdown); the server writing a new Version at the Action (the first content the server would
+  author, a rights rule for reviewers without `write`, a stale local file every review); a Version
+  per tap (it interrupts the review); an HTML comment, inference, or front matter as the
+  declaration (Annotary syntax in the Markdown, or invisible).
+
+Smaller choices made while building it:
+
+- Any words in the `Decided` cell record the Question. Rejected requiring each Answer's option id
+  in the cell, because an author who settles `A (@rowan), B (@sam)` by writing `A` would be refused.
+- A key that reads as a Thread id (`t7`) is refused in the table, so the two kinds of key never meet.
+- An Option's own block is a list item, table row, heading or paragraph whose text starts with the
+  id after a word such as "Recommended:" or "Option", or followed by `.`, `)`, `:` or a dash.
+  Rejected matching any following space, because a paragraph starting "A new VM" is not Option A.
+- A Question's section ends at the next Question's place or a heading of the same or a higher
+  level (any heading when the place is not a heading). Its digest (FNV-1a over the row without its
+  `Decided` cell and the section's text) is stored with each Answer; an Answer whose digest differs
+  from the viewed Version's shows as `changed`. Rejected a cryptographic hash, because it is a
+  change detector and the renderer crate stays dependency-light for `wasm32`.
+- A Question asked on a Thread has Options `A`, `B`, … with the asked labels; `answer` takes the id
+  or the label. Rejected the labels as ids, because they can be long and contain spaces.
+- **Other…** records `other` at once and opens the Question's Thread (a reply, or its first
+  Comment, anchored at the Question's place by the server when the client sends no range). Rejected
+  a text field on the Answer, because the words belong in the Thread (the thread feel).
+- The header's "N of M answered" counts the table Questions the viewer answered or the Version
+  decided; **Accept recommended (K)** answers the undecided ones with a `Recommended` the viewer
+  has not answered.
+- The Question styles and script (`ui/questions.css`, `ui/questions.js`) are inlined only into a
+  Document page that shows a Question; `app.js` gained only the hooks (+548 bytes), because the
+  Document list page is within 2.3 KB of its 200,000-byte ceiling and inlines `app.js`.
+- The skill's sentence fits its 60 lines and token band (1,085 of 1,086) by dropping `--version N`
+  from the `thread list` and `thread new` lines (the `--version N` rule still names `thread new`),
+  `none` from `list --action`, `?` from the `--json` rule (the help lists fields), and two examples
+  from the review section's list of Documents, and by shortening the loopback-link sentence. The
+  top-level `--help` names `answer` within its band (826 of 826) by shortening five lines.

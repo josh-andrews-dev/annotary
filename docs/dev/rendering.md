@@ -16,3 +16,4 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- M3 (Hermes plan) ---- -->
 - **Embed mode post-processes the stored HTML** for the viewer only (`server/embed.rs::media`, after `ui::asset_links_blank`, before `splice`): Asset media keep their `/a/…` URL as `data-cd-src` and get an open button. The stored blob and the contract above are unchanged; the renderer knows nothing of it.
 <!-- ---- end M3 (Hermes plan) ---- -->
+- **Questions** ([questions.md](questions.md)): `annotary_renderer::questions` is the pure decisions-table parser the pusher and the server share (`find` parses the currency-escaped text, so its lines are the renderer's `data-l`); the render itself is unchanged and knows nothing of Questions.
