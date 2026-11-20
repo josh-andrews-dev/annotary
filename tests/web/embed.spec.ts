@@ -518,3 +518,16 @@ test('a Markup on a card arrives through the bridge; the frame loads nothing its
   expect(asked.map((m) => m.path)).toEqual([url]);
   expect(e.requests.filter((u) => u.startsWith(srv.url))).toEqual([]);
 });
+
+// spec: S50-13
+test('a Question is answered through the bridge; the frame asks nothing itself', async ({ page }) => {
+  const md = '# Plan\n\n| Decision | Options | Decided |\n|---|---|---|\n| D1 | A, B | |\n\n## D1. Where\n\n- A. Here.\n- B. There.\n';
+  const doc = seed('emb-q', md);
+  const e = await embed(page, `/d/${doc.id}`);
+  await e.fl.locator('.cd-qrow[data-q="D1"] .cd-qopt[data-o="B"]').click();
+  await expect(e.fl.locator('.cd-qrow[data-q="D1"] .cd-qwho')).toHaveText(/^B @/);
+  await expect.poll(async () => (await api(`/api/v1/docs/${doc.id}/questions`)).questions[0].answers.length).toBe(1);
+  const asked = (await e.msgs()).filter((m) => m.type === 'annotary-req' && (m.path || '').includes('/questions/'));
+  expect(asked.map((m) => m.method)).toContain('PUT');
+  expect(e.requests.filter((u) => u.startsWith(srv.url))).toEqual([]);
+});

@@ -4,10 +4,21 @@
    the who-chose text; the markup is the server's (`server/qview.rs`), a card is redrawn with
    `cd.refreshCard`. Only on a page whose Version has Questions; every request goes through
    `cd.api` (the transport, so embed mode works). */
+/* `app.js` starts after the first frame (`main` behind rAF + a task), so this waits for `window.cd`. */
 (function () {
   'use strict';
-  var cd = window.cd;
-  var D = cd && cd.data();
+  var tries = 0;
+  function boot() {
+    if (window.cd) init(window.cd);
+    else if (++tries < 200) setTimeout(boot, 25);
+  }
+  if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(boot, 0); });
+  else setTimeout(boot, 0);
+})();
+
+function init(cd) {
+  'use strict';
+  var D = cd.data();
   if (!D || !D.questions) return;
   var docEl = document.getElementById('cd-doc');
   var Q = {};
@@ -137,4 +148,4 @@
     var key = r.getAttribute('data-q');
     if (Q[key]) answer(key, r.getAttribute('data-o'));
   });
-})();
+}
