@@ -210,3 +210,13 @@ fn help_and_usage() {
     assert_eq!(out.status.code(), Some(1));
     assert!(!work.path().join(".agents").exists());
 }
+
+// spec: S49-10
+#[test]
+fn the_skill_says_how_to_read_a_markup() {
+    let skill = include_str!("../skill/SKILL.md");
+    for needle in ["`[markup]`: a drawing", "`thread show --markup DIR`, then", "look at the PNG"] {
+        assert!(skill.contains(needle), "SKILL.md lacks {needle:?}");
+    }
+    assert!(skill.lines().count() <= 60);
+}

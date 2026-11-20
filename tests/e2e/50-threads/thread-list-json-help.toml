@@ -4,6 +4,6 @@ bin.name = "annotary"
 args = ["-p", "down", "thread", "list", "th-plan", "--json", "?"]
 status = "success"
 stdout = """
-id author anchor body mentions replies resolved deleted created updated version
+id author anchor body markup mentions replies resolved deleted created updated version
 """
 stderr = ""

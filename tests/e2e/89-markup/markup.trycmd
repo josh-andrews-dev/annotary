@@ -1,0 +1,87 @@
+spec: S49-09
+
+A Markup through the CLI on its own Document `mk-plan`: `thread new --markup PNG --strokes JSON`
+(the message optional), a Reply with one, the `[markup]` mark in `show` and `thread list` (TTY and
+non-TTY), `--json` (`markup: true` on a row, the object on a Comment), `thread show` with the
+`[markup] W×H` line, and `--markup DIR` writing `t1.png` / `t1.1.png`. Exit paths: 1 (a file that
+cannot be read, a refused image, strokes that are not JSON), 5 (over the cap, before sending), 3 (no
+credential), 6 (unreachable). Merged stdout+stderr.
+
+```console
+$ annotary -p rowan push mk-plan.md -q
+mk-plan	[..]	v1
+
+$ annotary -p rowan thread new mk-plan "5:0-5:21" --markup cross-out.png --strokes cross-out.strokes.json
+t1	v1:5:0-5:21 "The second line goes."
+
+$ annotary -p agent thread reply mk-plan t1 -m "and move the loop" --markup cross-out.png --strokes cross-out.strokes.json
+t1.1
+
+$ annotary -p rowan thread new mk-plan --document -m "No drawing here"
+t2	document
+
+$ annotary -p rowan show mk-plan
+mk-plan	[..]	notes	v1 by @rowan [..]	action:-	open:2	actions:approve,send-back
+t2	@rowan	document	No drawing here	[..]
+t1	@rowan	v1:5 "The second line goes."	[markup]	+1	[..]
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan thread list mk-plan
+ID  AUTHOR  ANCHOR                        BODY             REPLIES  AGE
+t2  @rowan  document                      No drawing here           [..]
+t1  @rowan  v1:5 "The second line goes."  [markup]         +1       [..]
+
+$ annotary -p rowan thread list mk-plan --json id,body,markup
+[{"id":"t2","body":"No drawing here"},{"id":"t1","markup":true}]
+
+$ annotary -p rowan thread show mk-plan t1
+t1	open	@rowan	v1:5:0-5:21 "The second line goes."	created v1 [..]
+  [markup] 480×160 (--markup DIR writes the PNG)
+t1.1	@scribe	v1 [..]
+  [markup] 480×160 (--markup DIR writes the PNG)
+  and move the loop
+
+$ annotary -p rowan thread show mk-plan t1 --markup drawings
+t1	open	@rowan	v1:5:0-5:21 "The second line goes."	created v1 [..]
+  [markup] 480×160 drawings/t1.png
+t1.1	@scribe	v1 [..]
+  [markup] 480×160 drawings/t1.1.png
+  and move the loop
+
+$ ANNOTARY_TTY=1 NO_COLOR=1 annotary -p rowan thread show mk-plan t1 --markup drawings
+t1  open  @rowan  v1:5:0-5:21 "The second line goes."  created v1 [..]
+  [markup] 480×160 drawings/t1.png
+t1.1  @scribe  v1 [..]
+  [markup] 480×160 drawings/t1.1.png
+  and move the loop
+
+$ annotary -p rowan thread show mk-plan t1 --markup drawings --json id,body,markup
+[{"id":"t1","markup":{"image":"bf209dd56694c8a02c2894b54838eef4da2554c38e8c541754beeafe6e6513d5","width":480,"height":160,"strokes":"271075027e9ec65417f23f0516f22c3043727c07a19b4f3b36fd2ae04b2c4f36","path":"drawings/t1.png"}}]
+
+$ annotary -p rowan thread new mk-plan --document --markup missing.png --strokes cross-out.strokes.json
+? 1
+error: cannot read missing.png: No such file or directory (os error 2)
+
+$ annotary -p rowan thread new mk-plan --document --markup bad.png --strokes cross-out.strokes.json
+? 1
+error: the Markup image is not a PNG — a Markup is a PNG and its strokes {"strokes": [{color, width, tool?, points: [[x, y, t], ...]}]}
+
+$ annotary -p rowan thread new mk-plan --document --markup cross-out.png --strokes mk-plan.md
+? 1
+error: mk-plan.md is not JSON: [..]
+
+$ sh big.sh
+
+$ annotary -p rowan thread new mk-plan --document --markup big.png --strokes cross-out.strokes.json
+? 5
+error: big.png is 2.1 MB — a Markup image is at most 2 MB
+
+$ annotary thread show mk-plan t1 --markup drawings
+? 3
+error: no credential — say who you are: pass -p NAME (`annotary profile list` shows whose each one is), or set ANNOTARY_TOKEN
+profiles in ~/.annotary/config.toml: agent, down, limited, pw, rowan
+
+$ annotary -p down thread show mk-plan t1 --markup drawings
+? 6
+error: server at http://127.0.0.1:1 not reachable — run `annotary serve` or `annotary daemon install`
+
+```

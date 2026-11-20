@@ -153,7 +153,7 @@ $ annotary -p agent thread list plan --json id,anchor,body
 [{"id":"t4","anchor":{"asset":"img/architecture.png"},"body":"Diagram is out of date — the daemon box is missing."},{"id":"t7","anchor":{"version":3,"range":"20:27-20:57","status":"orphaned","exact":"mitigated by the fixture table"}},{"id":"t6","anchor":{"version":3,"range":"21:29-21:79","status":"orphaned","exact":"agents should use the CLI, not read the file whole"},"body":"This is exactly what the sidecar-format ticket has to answer — link it here."},{"id":"t8","anchor":{"version":3,"range":"31:41-31:57","status":"orphaned","exact":"collect feedback"},"body":"How — survey or interviews? Worth deciding before the invites go out."}]
 
 $ annotary -p agent thread list plan --json ?
-id author anchor body mentions replies resolved deleted created updated version
+id author anchor body markup mentions replies resolved deleted created updated version
 
 $ annotary -p agent thread new plan "20:41-20:73" --version 5 -m "Five external devs — do we have five lined up? @rowan"
 t9	v5:20:41-20:73 "invite three external developers"

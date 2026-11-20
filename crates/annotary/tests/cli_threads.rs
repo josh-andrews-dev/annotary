@@ -116,3 +116,30 @@ fn stdin_messages_paths_and_the_sidecar_round_trip() {
         "[{\"id\":\"t1\",\"anchor\":{\"version\":2,\"range\":\"3:0-3:7\",\"status\":\"anchored\",\"exact\":\"We ship\"},\"version\":1}]"
     );
 }
+
+// spec: S49-09
+#[test]
+fn thread_show_writes_each_markup_png_byte_for_byte() {
+    let png: &[u8] = include_bytes!("../../../fixtures/markup/cross-out.png");
+    let ts = TestServer::start();
+    let home = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let tok = ts.owner_token.clone();
+    std::fs::write(work.path().join("plan.md"), "# Plan\n\nWe ship the CLI first.\n").unwrap();
+    std::fs::write(work.path().join("ink.png"), png).unwrap();
+    std::fs::write(work.path().join("ink.json"), include_str!("../../../fixtures/markup/cross-out.strokes.json"))
+        .unwrap();
+    assert_eq!(run(&ts, home.path(), work.path(), &tok, &["push", "plan.md"]).status.code(), Some(0));
+    let mk = ["--markup", "ink.png", "--strokes", "ink.json"];
+    let out = run(&ts, home.path(), work.path(), &tok, &[&["thread", "new", "plan", "--document"][..], &mk].concat());
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out).1);
+    let out =
+        run(&ts, home.path(), work.path(), &tok, &[&["thread", "reply", "plan", "t1", "-m", "x"][..], &mk].concat());
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out).1);
+    // DIR is made when missing, and nested.
+    let out = run(&ts, home.path(), work.path(), &tok, &["thread", "show", "plan", "t1", "--markup", "out/ink"]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out).1);
+    assert!(text(&out).0.contains("  [markup] 480×160 out/ink/t1.png\n"), "{}", text(&out).0);
+    assert_eq!(std::fs::read(work.path().join("out/ink/t1.png")).unwrap(), png);
+    assert_eq!(std::fs::read(work.path().join("out/ink/t1.1.png")).unwrap(), png);
+}

@@ -10,12 +10,17 @@
 //!   (as the CLI prototype does); TTY shows a blank cell and footer hints about hidden resolved
 //!   Threads and about orphaned ones. `--version N` is the read-only time-slice (ticket 07):
 //!   Threads exactly as they stood on Version N, every line number stamped `vN:`.
-//! - `thread show DOC ID...`: the full Thread — `vN:L:C-L:C "exact"`, created Version, mentions,
-//!   every Reply, resolution, tombstones; a refined span adds `now: "<current text>"`.
+//! - `thread show DOC ID... [--markup DIR]`: the full Thread — `vN:L:C-L:C "exact"`, created
+//!   Version, mentions, every Reply, resolution, tombstones; a refined span adds `now: "<current
+//!   text>"`; a Comment with a Markup adds `[markup] W×H`, and `--markup DIR` writes its PNG to
+//!   `DIR/t7.png` (`t7.1.png` for a Reply's) and adds the path. A list row whose Thread holds a
+//!   Markup starts its body with `[markup]`.
 //! - `thread new DOC "L:C-L:C" | --document | --asset REF -m MSG|- [--version N]`: the CLI reads
 //!   the head Markdown, verifies the range exists there (and that head is `--version N`, exit 5
 //!   otherwise) before posting; the server re-checks and freezes the quote. `--asset REF`
 //!   anchors a whole-Asset Thread by the Asset's content hash (ticket 07).
+//! - `thread new` / `thread reply` take `--markup PNG --strokes JSON` (uploaded first through
+//!   `POST …/markups`; the message is then optional) — for tests and tools; the app draws them.
 //! - `thread reply DOC ID -m MSG|- [--resolve]`, `resolve | reopen | delete DOC ID`,
 //!   `edit DOC ID -m MSG|-`. `-` reads the message from stdin (trailing newlines dropped).
 
@@ -88,6 +93,20 @@ pub struct ShowArgs {
     /// Thread ids (t2 t7)
     #[arg(required = true, value_name = "ID")]
     pub ids: Vec<String>,
+    /// Write each Markup's PNG into DIR (t7.png, t7.1.png for a Reply's) and print the paths
+    #[arg(long, value_name = "DIR")]
+    pub markup: Option<std::path::PathBuf>,
+}
+
+/// `--markup PNG --strokes JSON` on `thread new` / `thread reply`.
+#[derive(Args, Debug)]
+pub struct MarkupArgs {
+    /// Attach a Markup: its PNG (needs --strokes); the message is then optional
+    #[arg(long, value_name = "PNG", requires = "strokes")]
+    pub markup: Option<std::path::PathBuf>,
+    /// The Markup's strokes JSON
+    #[arg(long, value_name = "JSON", requires = "markup")]
+    pub strokes: Option<std::path::PathBuf>,
 }
 
 #[derive(Args, Debug)]
@@ -104,11 +123,13 @@ pub struct NewArgs {
     #[arg(long, value_name = "REF", conflicts_with_all = ["range", "document"])]
     pub asset: Option<String>,
     /// The Comment (Markdown); '-' reads stdin
-    #[arg(short = 'm', long, value_name = "MSG", required = true)]
-    pub message: String,
+    #[arg(short = 'm', long, value_name = "MSG", required_unless_present = "markup")]
+    pub message: Option<String>,
     /// Assert head is N (exit 5 if not) — never comment on content you haven't seen
     #[arg(long, value_name = "N")]
     pub version: Option<u32>,
+    #[command(flatten)]
+    pub markup: MarkupArgs,
 }
 
 #[derive(Args, Debug)]
@@ -118,11 +139,13 @@ pub struct ReplyArgs {
     /// Thread id (t7)
     pub id: String,
     /// The Reply (Markdown); '-' reads stdin
-    #[arg(short = 'm', long, value_name = "MSG", required = true)]
-    pub message: String,
+    #[arg(short = 'm', long, value_name = "MSG", required_unless_present = "markup")]
+    pub message: Option<String>,
     /// …and resolve the Thread in the same call
     #[arg(long)]
     pub resolve: bool,
+    #[command(flatten)]
+    pub markup: MarkupArgs,
 }
 
 #[derive(Args, Debug)]
@@ -147,10 +170,12 @@ pub struct IdArgs {
 /// `thread list` (and the rows of `show`).
 pub const LIST_FIELDS: FieldSpec = FieldSpec {
     all: &[
-        "id", "author", "anchor", "body", "mentions", "replies", "resolved", "deleted", "created", "updated", "version",
+        "id", "author", "anchor", "body", "markup", "mentions", "replies", "resolved", "deleted", "created", "updated",
+        "version",
     ],
     default: &[
-        "id", "author", "anchor", "body", "mentions", "replies", "resolved", "deleted", "created", "updated", "version",
+        "id", "author", "anchor", "body", "markup", "mentions", "replies", "resolved", "deleted", "created", "updated",
+        "version",
     ],
 };
 
@@ -163,6 +188,7 @@ pub const SHOW_FIELDS: FieldSpec = FieldSpec {
         "author",
         "created",
         "body",
+        "markup",
         "mentions",
         "edited_at",
         "deleted",
@@ -177,6 +203,7 @@ pub const SHOW_FIELDS: FieldSpec = FieldSpec {
         "author",
         "created",
         "body",
+        "markup",
         "mentions",
         "edited_at",
         "deleted",
@@ -210,6 +237,38 @@ pub fn run(ctx: &Ctx, cmd: ThreadCmd) -> CliResult<()> {
 }
 
 // ---------------------------------------------------------------- shared helpers
+
+/// The message of a Comment that may be only a Markup: none (or empty) is fine with one.
+fn read_optional_message(raw: Option<&str>, has_markup: bool) -> CliResult<String> {
+    match raw {
+        Some(r) if !(has_markup && r.trim().is_empty()) => read_message(r),
+        _ => Ok(String::new()),
+    }
+}
+
+/// Read, check the size of and upload `--markup PNG --strokes JSON`; the Markup id, if given.
+fn upload_markup(api: &Api, doc_id: &str, m: &MarkupArgs) -> CliResult<Option<String>> {
+    let (Some(png), Some(strokes)) = (&m.markup, &m.strokes) else { return Ok(None) };
+    let read = |p: &std::path::Path| {
+        std::fs::read(p).map_err(|e| CliError::usage(format!("cannot read {}: {e}", p.display())))
+    };
+    let image = read(png)?;
+    let max = annotary_store::markup::IMAGE_MAX;
+    if image.len() as u64 > max {
+        return Err(CliError::refused(format!(
+            "{} is {} — a Markup image is at most {}",
+            png.display(),
+            annotary_store::caps::human_size(image.len() as u64),
+            annotary_store::caps::human_size(max)
+        )));
+    }
+    let strokes: Value = serde_json::from_slice(&read(strokes)?)
+        .map_err(|e| CliError::usage(format!("{} is not JSON: {e}", strokes.display())))?;
+    use base64::Engine;
+    let body = json!({ "image": base64::engine::general_purpose::STANDARD.encode(&image), "strokes": strokes });
+    let up = api.post(&format!("/api/v1/docs/{doc_id}/markups"), &body)?;
+    Ok(Some(s(&up, "id")))
+}
 
 /// The message text: `-` reads stdin (trailing newlines dropped); anything else is verbatim.
 /// Empty (whitespace-only) messages are a usage error.
@@ -348,12 +407,24 @@ pub fn anchor_json(t: &Value) -> Value {
     Value::Object(m)
 }
 
-/// The body cell: the root's first 120 characters on one line, `(deleted)` for a tombstone.
+/// True when the Thread's root or a Reply holds a Markup.
+pub fn has_markup(t: &Value) -> bool {
+    !t["markup"].is_null() || t["replies"].as_array().is_some_and(|rs| rs.iter().any(|r| !r["markup"].is_null()))
+}
+
+/// The body cell: the root's first 120 characters on one line, `(deleted)` for a tombstone;
+/// `[markup] ` first when the Thread holds a Markup.
 pub fn body_cell(t: &Value) -> String {
-    if !t["deleted"].is_null() {
-        return "(deleted)".to_string();
+    let body = if !t["deleted"].is_null() {
+        "(deleted)".to_string()
+    } else {
+        truncate(&one_line(t["body"].as_str().unwrap_or("")), 120)
+    };
+    match (has_markup(t), body.is_empty()) {
+        (false, _) => body,
+        (true, true) => "[markup]".to_string(),
+        (true, false) => format!("[markup] {body}"),
     }
-    truncate(&one_line(t["body"].as_str().unwrap_or("")), 120)
 }
 
 /// The `--json` list record of a Thread (`thread list`, `show`, `mentions` share it).
@@ -363,6 +434,7 @@ pub fn list_record(t: &Value) -> Map<String, Value> {
     r.insert("author".into(), json!(s(t, "author")));
     r.insert("anchor".into(), anchor_json(t));
     r.insert("body".into(), t["body"].clone());
+    r.insert("markup".into(), json!(has_markup(t)));
     r.insert("mentions".into(), t["mentioned"].clone());
     r.insert("replies".into(), t["reply_count"].clone());
     r.insert(
@@ -553,6 +625,14 @@ fn show(ctx: &Ctx, a: ShowArgs) -> CliResult<()> {
         let tid = check_id(tid, false)?;
         threads.push(api.get(&format!("/api/v1/docs/{id}/threads/{tid}"))?);
     }
+    if let Some(dir) = &a.markup {
+        for t in &mut threads {
+            save_markup(&api, &id, dir, t)?;
+            for r in t["replies"].as_array_mut().into_iter().flatten() {
+                save_markup(&api, &id, dir, r)?;
+            }
+        }
+    }
     if ctx.out.is_json() {
         return ctx.out.json_records(&SHOW_FIELDS, threads.iter().map(show_record).collect(), false);
     }
@@ -566,6 +646,21 @@ fn show(ctx: &Ctx, a: ShowArgs) -> CliResult<()> {
     Ok(())
 }
 
+/// Write a Comment's Markup PNG to `DIR/<comment id>.png` (DIR made if missing) and record the
+/// path on the Comment's `markup` as `path`.
+fn save_markup(api: &Api, doc_id: &str, dir: &std::path::Path, c: &mut Value) -> CliResult<()> {
+    let Some(hash) = c["markup"]["image"].as_str().map(str::to_string) else { return Ok(()) };
+    let bytes = api.get_bytes(&format!("/api/v1/docs/{doc_id}/markups/{hash}"))?;
+    if sha256_hex(&bytes) != hash {
+        return Err(CliError::internal(format!("Markup {hash} did not verify")));
+    }
+    std::fs::create_dir_all(dir).map_err(|e| CliError::usage(format!("cannot make {}: {e}", dir.display())))?;
+    let path = dir.join(format!("{}.png", s(c, "id")));
+    std::fs::write(&path, &bytes).map_err(|e| CliError::usage(format!("cannot write {}: {e}", path.display())))?;
+    c["markup"]["path"] = json!(path.display().to_string());
+    Ok(())
+}
+
 fn comment_record(c: &Value) -> Map<String, Value> {
     let mut r = Map::new();
     r.insert("id".into(), json!(s(c, "id")));
@@ -575,6 +670,7 @@ fn comment_record(c: &Value) -> Map<String, Value> {
         json!({ "at": iso_seconds(c["created"]["at"].as_str().unwrap_or("")), "version": c["created"]["version"] }),
     );
     r.insert("body".into(), c["body"].clone());
+    r.insert("markup".into(), c["markup"].clone());
     r.insert("mentions".into(), c["mentions"].clone());
     r.insert("edited_at".into(), c["edited_at"].as_str().map(|t| json!(iso_seconds(t))).unwrap_or(Value::Null));
     r.insert(
@@ -619,6 +715,7 @@ pub fn show_record(t: &Value) -> Map<String, Value> {
         "author",
         "created",
         "body",
+        "markup",
         "mentions",
         "edited_at",
         "deleted",
@@ -663,7 +760,18 @@ fn body_lines(out: &Out, c: &Value) {
         out.line("  (deleted)");
         return;
     }
+    let m = &c["markup"];
+    if !m.is_null() {
+        let size = format!("{}×{}", m["width"].as_u64().unwrap_or(0), m["height"].as_u64().unwrap_or(0));
+        out.line(&match m["path"].as_str() {
+            Some(p) => format!("  [markup] {size} {p}"),
+            None => format!("  [markup] {size} (--markup DIR writes the PNG)"),
+        });
+    }
     let body = c["body"].as_str().unwrap_or("");
+    if body.is_empty() && !m.is_null() {
+        return;
+    }
     for l in body.split('\n') {
         out.line(&format!("  {}", l.trim_end_matches('\r')));
     }
@@ -742,7 +850,7 @@ fn new(ctx: &Ctx, a: NewArgs) -> CliResult<()> {
         Some(r) => Some(Range::parse(r).map_err(|e| CliError::usage(e.to_string()))?),
         None => None,
     };
-    let message = read_message(&a.message)?;
+    let message = read_optional_message(a.message.as_deref(), a.markup.markup.is_some())?;
     let api = ctx.api()?;
     let d = resolve_live(ctx, &api, &a.doc)?;
     let id = s(&d, "id");
@@ -774,12 +882,14 @@ fn new(ctx: &Ctx, a: NewArgs) -> CliResult<()> {
             .hint("quote at least one character, or use --document"));
         }
     }
+    let markup = upload_markup(&api, &id, &a.markup)?;
     let body = json!({
         "subject": if range.is_some() { "span" } else if asset.is_some() { "asset" } else { "document" },
         "range": range.map(|r| r.to_string()),
         "ref": asset,
         "body": message,
         "version": head,
+        "markup": markup,
     });
     let t = api.post(&format!("/api/v1/docs/{id}/threads"), &body)?;
     if ctx.out.is_json() {
@@ -825,12 +935,15 @@ fn reply(ctx: &Ctx, a: ReplyArgs) -> CliResult<()> {
         return ctx.out.json_records(&EVENT_FIELDS, Vec::new(), true);
     }
     let tid = check_id(&a.id, false)?;
-    let message = read_message(&a.message)?;
+    let message = read_optional_message(a.message.as_deref(), a.markup.markup.is_some())?;
     let api = ctx.api()?;
     let d = resolve_live(ctx, &api, &a.doc)?;
     let id = s(&d, "id");
-    let r = api
-        .post(&format!("/api/v1/docs/{id}/threads/{tid}/replies"), &json!({ "body": message, "resolve": a.resolve }))?;
+    let markup = upload_markup(&api, &id, &a.markup)?;
+    let r = api.post(
+        &format!("/api/v1/docs/{id}/threads/{tid}/replies"),
+        &json!({ "body": message, "resolve": a.resolve, "markup": markup }),
+    )?;
     let cid = s(&r["comment"], "id");
     let version = r["comment"]["created"]["version"].as_u64();
     let state = if a.resolve { "resolved" } else { "" };

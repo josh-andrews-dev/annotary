@@ -35,10 +35,10 @@ $ annotary -p down purge x --json ?
 name id state vault version
 
 $ annotary -p down thread list x --json ?
-id author anchor body mentions replies resolved deleted created updated version
+id author anchor body markup mentions replies resolved deleted created updated version
 
 $ annotary -p down thread show x t1 --json ?
-id subject anchor author created body mentions edited_at deleted resolved replies updated
+id subject anchor author created body markup mentions edited_at deleted resolved replies updated
 
 $ annotary -p down thread new x --document -m m --json ?
 id subject anchor version created body mentions doc
