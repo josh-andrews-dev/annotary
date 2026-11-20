@@ -100,6 +100,12 @@ pub fn is_key(s: &str) -> bool {
     !s.is_empty() && s.len() <= KEY_MAX && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
+/// Whether `s` reads as a Thread id (`t7`): the key of a Question asked on a Thread, so a
+/// decisions table may not use it.
+pub fn is_thread_key(s: &str) -> bool {
+    s.len() > 1 && s.starts_with('t') && s[1..].bytes().all(|b| b.is_ascii_digit())
+}
+
 /// The cells of one table row: plain text and source range.
 #[derive(Clone, Debug)]
 struct Cell {
@@ -437,6 +443,10 @@ pub fn find(md: &str) -> Found {
                 &mut found.warnings,
                 format!("{key:?} is not a key (letters, digits and -, at most {KEY_MAX}); row skipped"),
             );
+            continue;
+        }
+        if is_thread_key(key) {
+            warn(&mut found.warnings, format!("{key} reads as a Thread id; row skipped"));
             continue;
         }
         if rows.iter().any(|(_, q)| q.key == key) {
@@ -786,7 +796,7 @@ pub fn from_json(v: &Value) -> Option<Vec<Question>> {
     }
     let mut out: Vec<Question> = Vec::with_capacity(arr.len());
     for q in arr {
-        let key = q["key"].as_str().filter(|k| is_key(k))?;
+        let key = q["key"].as_str().filter(|k| is_key(k) && !is_thread_key(k))?;
         if out.iter().any(|o| o.key == key) {
             return None;
         }
@@ -935,7 +945,7 @@ A new paragraph that is not Option A.\n";
     #[test]
     fn bad_rows_are_warned_and_skipped() {
         let md = "| Decided | Options | Decision | Recommended |\n|---|---|---|---|\n\
-| | A | Q1 | |\n| | A, B | Q1 | |\n| | A, B | Q1 | |\n| | A, other | Q2 | |\n| | A, A | Q3 | |\n| | A, B | not a key | |\n| | A, B | Q4 | C |\n| x | A,B | Q5 | |\n";
+| | A | Q1 | |\n| | A, B | Q1 | |\n| | A, B | Q1 | |\n| | A, other | Q2 | |\n| | A, A | Q3 | |\n| | A, B | not a key | |\n| | A, B | t7 | |\n| | A, B | Q4 | C |\n| x | A,B | Q5 | |\n";
         let f = find(md);
         let keys: Vec<&str> = f.questions.iter().map(|q| q.key.as_str()).collect();
         assert_eq!(keys, ["Q1", "Q4", "Q5"]);
@@ -946,6 +956,7 @@ A new paragraph that is not Option A.\n";
         assert!(w.contains("Q3 repeats an option"), "{w}");
         assert!(w.contains("\"not a key\" is not a key"), "{w}");
         assert!(w.contains("Recommended \"C\""), "{w}");
+        assert!(w.contains("t7 reads as a Thread id"), "{w}");
         assert!(w.contains("Q4 is not named in the text"), "{w}");
         assert_eq!(q(&f, "Q5").decided.as_deref(), Some("x"));
         assert_eq!(q(&f, "Q4").cell, 0);
