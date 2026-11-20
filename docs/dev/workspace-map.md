@@ -48,3 +48,5 @@ CMD-23 added `crates/store/src/settings.rs` (the catalog, stamps, colors), `crat
 Compare Versions added `crates/diff/src/html.rs` (`rendered_diff`, `line_counts`; tests in `crates/diff/tests/rendered_diff.rs`), `server/compare.rs` (`GET /d/{id}/diff`), the Compare link in `view.rs`, the "Compare Versions" blocks of `app.css` / `app.js`, `tests/web_compare.rs`, `tests/web/compare.spec.ts` and `verify/scenarios/version-diff.spec.ts`. See [web-document-view.md](web-document-view.md), "Compare Versions".
 
 Member avatars added `crates/store/src/avatar.rs` (the image and SVG check, set / clear, schema v6), `server/avatars.rs` (the routes), `cli/avatar.rs` (the verb), `MemberBrief::avatar_html` in `server/ui.rs`, `fixtures/avatars/`.
+
+Markup added `crates/store/src/markup.rs` (the PNG and strokes checks, upload and attach, schema v7), `server/markups.rs` (the routes), `view.rs::markup_html` (the card), `[markup]` and `--markup` in `cli/thread.rs`, `MarkupEntry` in the Sidecar model, `fixtures/markup/`; see [markup.md](markup.md).

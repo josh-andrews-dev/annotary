@@ -20,3 +20,4 @@ index is [README.md](README.md)). Extend them with the code they describe.
 <!-- ---- end M3 (Hermes plan) ---- -->
 - Compare Versions: `GET /d/{id}/diff?from=A&to=B` (`compare.rs`, the `web_pages` router, `read`) is a page like `/d/{id}`: errors are the HTML pages, its row in `tests/access_api.rs` is `GET /d/{id}/diff (page)`.
 - **Avatars** (`server/avatars.rs`): `PUT|DELETE /api/v1/me/avatar`, `DELETE /api/v1/members/{handle}/avatar`, `GET /avatars/{hash}` (web pages router). 400 `invalid_avatar` → 1, 413 `too_large` → 5. Every member JSON has `avatar` (object or null). An answer also carries `avatar_html`, the renderer's markup for Settings.
+- **Markup** (`server/markups.rs`, [markup.md](markup.md)): `POST /api/v1/docs/{id}/markups` (`comment`; JSON, the PNG in base64 and the strokes as JSON, with its own body limit `BODY_MAX`) and `GET /api/v1/docs/{id}/markups/{hash}` (`read`). 400 `invalid_markup` → 1, 413 `too_large` → 5, 409 `markup_missing` → 5.

@@ -662,6 +662,7 @@ metadata:
       <p class="small">Linked Markdown files are followed up to five levels deep. Code blocks are never mistaken for links.</p></div>
     <div class="card"><h3>Missing is shown, not fatal</h3><p class="small">A file that isn't there still lets the push go through. You get a warning, the page shows a placeholder, and <code>--strict</code> turns warnings into a refusal.</p></div>
     <div class="card"><h3>Comment on an image</h3><p class="small"><code>thread new plan --asset img/architecture.png</code>. Asset Threads follow the file's content: if the image is replaced or removed, the Thread is orphaned.</p></div>
+    <div class="card"><h3>Markup: drawings from the iPad</h3><p class="small">Ink drawn over a Document in the iPhone and iPad app arrives as a Thread on the lines it covers. Its card shows the drawing above the comment, in the web page and the Hermes page too; click it to see it full size. An agent sees <code>[markup]</code> in <code>show</code> and runs <code>thread show plan t7 --markup DIR</code> to get the PNG.</p></div>
     <div class="card"><h3>Ready for the browser</h3><p class="small">Width and height are recorded at push, so pages never jump while images load. HEIC and AVIF photos get a JPEG copy, and TIFF/BMP a PNG.</p></div>
     <div class="card"><h3>Uploads only what's new</h3><p class="small">The CLI asks the server which hashes it lacks and sends only those. Re-pushing a Document with 40 images uploads none of them.</p></div>
     <div class="card"><h3>Size limits</h3><p class="small">2 MB of Markdown, 100 MB per Asset, 500 MB per Version. The CLI checks them before uploading and the server enforces them again.</p></div>
@@ -840,6 +841,7 @@ const TERMS = [
   ['Action','A named decision taken on the head Version, such as Approve or Send back, with an intent (positive, neutral or negative). A new Version starts with no Action, so nothing goes stale.','status, approval state'],
   ['Member','A person or an agent: the one who comments, takes Actions, is @mentioned and holds credentials. Nothing distinguishes people from agents except how they authenticate.','user, bot, account'],
   ['Vault','The container Documents live in and on which rights are granted. You start with one called notes and can create more.','workspace, folder, repo'],
+  ['Markup','A drawing a Member makes over the Document in the app, kept on a Comment as a picture of the marked region and its strokes. Every surface shows it on the Thread card; agents read the PNG through the CLI.','attachment, annotation, sketch'],
   ['Asset','A local file the Markdown links to (image, video, audio, PDF, or another Markdown file) that travels with the Document and is identified by its content hash.','attachment, upload'],
   ['Sidecar','The <name>.annotary file pull writes next to <name>.md: the server\'s full projection of the Document as plain JSON. It exists so your data is portable; people and agents use the CLI instead of reading it.','metadata file, index'],
 ];
