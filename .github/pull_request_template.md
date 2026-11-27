@@ -24,6 +24,10 @@
 
 Monitoring changes: <!-- does this change how a running server behaves or is watched? Say how, or write "none". -->
 
+## Copy
+
+<!-- How the user-facing text this change adds or changes was written (the copy pass's record), or "None: <why>" when it changes none. The required `copy` check fails until this section has text, and on "None" when the change adds lines to a product-text path. -->
+
 ## Lessons
 
 <!-- What this change taught that the repo should keep, or "None". The required `lessons` check fails until this section has text. -->
