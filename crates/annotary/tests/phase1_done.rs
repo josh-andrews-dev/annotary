@@ -89,6 +89,8 @@ fn ci_runs_on_github_hosted_runners_and_perf_is_in_no_workflow() {
     assert!(job(&required, "ci").contains("runs-on: ubuntu-latest"), "{required}");
     let lessons = read(".github/workflows/lessons.yml");
     assert!(job(&lessons, "lessons").contains("runs-on: ubuntu-latest"), "{lessons}");
+    let copy = read(".github/workflows/copy.yml");
+    assert!(job(&copy, "copy").contains("runs-on: ubuntu-latest"), "{copy}");
 
     // Across every workflow: no self-hosted runner, a fork's pull request could reach it, and no
     // `make perf`, whose absolute budgets mean nothing on a shared runner.
@@ -108,6 +110,7 @@ fn ci_runs_on_github_hosted_runners_and_perf_is_in_no_workflow() {
         [
             "checks.yml",
             "ci.yml",
+            "copy.yml",
             "lessons.yml",
             "perf-table.yml",
             "private-check-fork.yml",
