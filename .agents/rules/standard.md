@@ -22,6 +22,9 @@ A pull request merges when:
 - the pull request body has a `## Lessons` section with what the change taught that the repo
   should keep, or `None`; the required `lessons` check fails until it does, and editing the body
   runs it again;
+- the pull request body has a `## Copy` section saying how the user-facing text it adds or
+  changes was written, or `None`; the required `copy` check fails until it does, and on `None`
+  when the change adds lines to a product-text path;
 - for a server change, you have run `make deploy` and `make server-health` passes.
 
 A change touching only docs or agent instructions, made after your last local checks passed, may

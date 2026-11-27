@@ -1,0 +1,161 @@
+# Rendered from the repo-standard template; never edited in this repo. The job name `copy` is a
+# required status check in the repo's ruleset: a pull request merges only once its body has a
+# `## Copy` section saying how its user-facing text was written, or `None`. `None` fails when the change adds
+# lines to a product-text path (L22's product text: string catalogs, store listings, email, spoken
+# prompts, site pages, release notes, public docs); text inside code is not seen by path, so the
+# section is required on every pull request. A P0 fix on the live path may say `Copy: deferred`
+# with a fix-now tracker item. Editing the body runs it again. The checkout is full, never sparse:
+# a self-hosted runner shares this workspace with `ci` (RS-58). It runs
+# on a GitHub-hosted runner: the repo is public.
+name: copy
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  copy:
+    name: copy
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      # A workspace the v0.18.0 surfaces workflow checked out sparse keeps core.sparseCheckout in
+      # .git/config, which actions/checkout's `sparse-checkout disable` does not clear (RS-58).
+      - name: clear a sparse checkout left in this workspace
+        run: |
+          if [ -d .git ]; then
+            git config --local --unset-all core.sparseCheckout || true
+            git config --local --unset-all core.sparseCheckoutCone || true
+            rm -f .git/info/sparse-checkout
+          fi
+      # The default ref is the pull request's merge commit: its first parent is the base, so
+      # HEAD^1..HEAD is exactly what merging adds.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # The body goes through env, never into the script text. The body is read as Markdown, the
+      # same way as the `lessons` check: HTML comments and fenced code are not text, and a heading
+      # inside either is not one. A file counts only for lines it adds, as in en_us.py: a deletion
+      # or an unchanged rename writes no text. POSIX awk: gawk, mawk and macOS awk.
+      - name: copy section
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Lower case, matched against the lower-cased path; [.] for a dot, since awk -v reads backslashes.
+          product='(^|/)(locales?|i18n|l10n|translations)/.*[.](json|ya?ml|toml|properties|ftl|strings|po|pot|arb|xliff|xlf|txt|md)$|(^|/)emails?/.*[.](html?|mjml|txt|md|mdx|hbs|njk|liquid|mustache|j2|jinja|erb|jsx|tsx)$|(^|/)(speech|spoken)/.*[.](txt|ssml|json|ya?ml|md)$|(^|/)fastlane/metadata/|[.](strings|stringsdict|xcstrings|arb|po|pot|xliff|xlf|storyboard|xib|mjml|ssml)$|(^|/)strings[.]xml$|(^|/)(release[-_ ]?notes|changelog|whats[-_]?new)([-_ .][^/]*)?[.](md|mdx|txt|html?|rst)$|(^|/)(release[-_ ]?notes|changelog|whats[-_]?new)$|^(site|website|docs-site)/.*[.](md|mdx|html?|txt)$|(^|/)public/.*[.](md|mdx|html?|txt)$|(^|/)templates/.*[.](html?|j2|jinja|njk|hbs|liquid|mustache|erb)$|^(readme|contributing|security)[.]md$|^docs/.*[.]mdx?$'
+          excluded='(^|/)(node_modules|vendor|vendored|third_party|pods|tests?|fixtures)/|^docs/(archive|plans)/|^docs/decisions[.]md$'
+          printf '%s\n' "$BODY" | tr -d '\r' > "$RUNNER_TEMP/body"
+          verdict=$(awk '
+            function indent(s,   n) { n = 0; while (substr(s, n + 1, 1) == " ") n++; return n }
+            function run(s, c,   n) { n = 0; while (substr(s, n + 1, 1) == c) n++; return n }
+            function prose(line,   out, i, j, n, rest, k, q, m, r, pos) {
+              out = ""
+              while (line != "") {
+                if (comment) {
+                  i = index(line, "-->")
+                  if (i == 0) return out
+                  line = substr(line, i + 3); comment = 0; continue
+                }
+                i = index(line, "<!--"); j = index(line, "`")
+                if (i == 0 && j == 0) return out line
+                if (j > 0 && (i == 0 || j < i)) {
+                  n = run(substr(line, j), "`"); rest = substr(line, j + n)
+                  # a code span closes only on a run of exactly as many backticks
+                  k = 0; r = rest; pos = 0
+                  while ((q = index(r, "`")) > 0) {
+                    m = run(substr(r, q), "`")
+                    if (m == n) { k = pos + q; break }
+                    pos += q + m - 1; r = substr(r, q + m)
+                  }
+                  if (k == 0) { out = out substr(line, 1, j + n - 1); line = rest; continue }
+                  out = out substr(line, 1, j + n + k + n - 2); line = substr(rest, k + n); continue
+                }
+                out = out substr(line, 1, i - 1); line = substr(line, i + 4)
+                if (substr(line, 1, 1) == ">") { line = substr(line, 2); continue }
+                if (substr(line, 1, 2) == "->") { line = substr(line, 3); continue }
+                comment = 1
+              }
+              return out
+            }
+            {
+              ind = indent($0); rest = substr($0, ind + 1); c = substr(rest, 1, 1)
+              if (fence) {
+                n = run(rest, fch)
+                if (ind <= 3 && n >= flen && substr(rest, n + 1) ~ /^[ \t]*$/) fence = 0
+                next
+              }
+              if (!comment && ind <= 3 && (c == "`" || c == "~")) {
+                n = run(rest, c)
+                if (n >= 3 && !(c == "`" && index(substr(rest, n + 1), "`"))) { fence = 1; fch = c; flen = n; next }
+              }
+              text = prose($0); ind = indent(text); head = substr(text, ind + 1)
+              if (ind <= 3 && (head ~ /^##?[ \t]/ || head ~ /^##?$/)) {
+                head = tolower(head); sub(/[ \t#]+$/, "", head)
+                section = (head ~ /^##[ \t]+copy$/)
+                next
+              }
+              # a subheading (### to ######) stays inside the section but is not an answer
+              if (ind <= 3 && (head ~ /^###(#?#?#?)[ \t]/ || head ~ /^###(#?#?#?)$/)) next
+              # the answer as written: no emphasis or code marks, no quote or list marker
+              line = tolower(text); gsub(/[*_`]/, "", line); sub(/^[ \t>]*([-+][ \t]+)?/, "", line)
+              # outside the section only a plain line counts: a list, quote or code span that cites
+              # `Copy: deferred` is not the answer
+              plain = tolower(head); gsub(/\*\*|__/, "", plain)
+              if (ind <= 3 && plain ~ /^copy[ \t]*:[ \t]*deferred([^a-z0-9]|$)/) deferred = 1
+              if (section && text ~ /[^ \t]/ && !found) { found = 1; first = line }
+            }
+            END {
+              if (deferred || first ~ /^(copy[ \t]*:[ \t]*)?deferred([^a-z0-9]|$)/) print "deferred"
+              else if (!found) print "missing"
+              else if (first ~ /^none([^a-z0-9]|$)/) print "none"
+              else print "filled"
+            }
+          ' "$RUNNER_TEMP/body")
+          case "$verdict" in
+            filled) echo "The pull request body has a ## Copy section."; exit 0 ;;
+            deferred) echo "Copy: deferred, for a P0 fix on the live path; its fix-now item carries the text."; exit 0 ;;
+          esac
+          if [ "$verdict" = none ]; then
+            if ! git rev-parse -q --verify 'HEAD^2' > /dev/null; then
+              echo "::error title=copy::HEAD is not the pull request's merge commit, so the change cannot be read."
+              exit 1
+            fi
+            # A removed `++ x` line looks like a file header, so each hunk's own lines are skipped.
+            git -c core.quotePath=false diff --text --unified=0 --no-color --no-ext-diff --no-textconv \
+              --find-renames --diff-filter=d --ignore-submodules=all --src-prefix=a/ --dst-prefix=b/ \
+              'HEAD^1' HEAD -- | LC_ALL=C awk '
+              function count(s) { return index(s, ",") ? substr(s, index(s, ",") + 1) + 0 : 1 }
+              body > 0 { if (substr($0, 1, 1) != "\\") body--; next }
+              /^\+\+\+ / {
+                p = substr($0, 5); sub(/\t$/, "", p)
+                # git C-quotes a path holding a double quote, a backslash or a control character
+                if (substr(p, 1, 1) == "\"") { p = substr(p, 2, length(p) - 2); gsub(/\\"/, "\"", p); gsub(/\\\\/, "\\", p) }
+                path = (substr(p, 1, 2) == "b/") ? substr(p, 3) : ""; next
+              }
+              /^@@ / && path != "" {
+                split($0, f, " "); removed = count(f[2]); added = count(f[3]); body = removed + added
+                if (added > 0 && !(path in seen)) { seen[path] = 1; print path }
+              }
+            ' > "$RUNNER_TEMP/changed"
+            LC_ALL=C awk -v product="$product" -v excluded="$excluded" \
+              '{ p = tolower($0) } p ~ product && p !~ excluded' "$RUNNER_TEMP/changed" > "$RUNNER_TEMP/product"
+            if [ ! -s "$RUNNER_TEMP/product" ]; then
+              echo "## Copy says None, and the change adds no lines to a product-text path."
+              exit 0
+            fi
+            paths=$(awk 'NR <= 5 { printf "%s%s", (NR > 1 ? ", " : ""), $0 } END { if (NR > 5) printf " and %d more", NR - 5 }' "$RUNNER_TEMP/product")
+            msg="\"## Copy\" says None, but this change adds user-facing text in $paths. Say how that text was written (the copy pass's record), or for an urgent fix to a live service \"Copy: deferred\" with the issue that follows it up. Edit the body; the check runs again."
+          else
+            msg='The pull request body needs a "## Copy" section with text under it: how the user-facing text this change adds or changes was written (the copy pass'"'"'s record), or "None: <why>" when it changes none. Edit the body; the check runs again.'
+          fi
+          echo "::error title=copy::$msg"
+          printf '%s\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
